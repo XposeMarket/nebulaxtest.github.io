@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • Trending</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+
+    <style>
+      :root{
+        --nx-cyan:#00e6ff;
+        --nx-dark:#0a0d1b;
+        --nx-dark-2:#12152a;
+        --nx-border:#1e2747;
+        --nx-text:#e0e7ff;
+        --page-max: 1400px; /* match other pages */
+      }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      /* Panels */
+      .nx-panel{
+        background:rgba(16,20,40,.92);
+        border:1px solid var(--nx-border);
+        box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08);
+        backdrop-filter: blur(8px);
+        border-radius: 16px;
+      }
+      .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+      .tabnums{font-variant-numeric: tabular-nums;}
+
+      /* Buttons */
+      .nx-btn{
+        border-radius:14px; padding:.42rem .72rem; font-weight:700;
+        transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease;
+        border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);
+      }
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+
+      /* Inputs */
+      .nx-input{
+        width:100%; border-radius:12px; border:1px solid var(--nx-border);
+        background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none;
+      }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+
+      /* Scrollbar */
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:var(--nx-dark-2);border:1px solid #1b2450;border-radius:6px;box-shadow:inset 0 0 8px rgba(0,230,255,.12)}
+      ::-webkit-scrollbar-thumb{border-radius:6px;background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);border:2px solid var(--nx-dark-2)}
+      ::-webkit-scrollbar-thumb:hover{background:#6ff3ff}
+      *{scrollbar-width:thin; scrollbar-color: var(--nx-cyan) var(--nx-dark-2)}
+
+      /* Popovers / Modals */
+      .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
+      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+
+      /* SEARCH dropdown (homepage/coin style) */
+      #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
+      .search-row{ display:flex; align-items:center; gap:.75rem; padding:.45rem .6rem; border-radius:10px; }
+      .search-row:hover{ background: var(--nx-dark-2); }
+      .search-icon{ height:2rem; width:2rem; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--nx-dark-2); }
+      .search-grid{ display:grid; grid-template-columns: 1fr auto auto auto; gap:.75rem; align-items:center; min-width:0; }
+      .search-name{ min-width:0; }
+      .search-name .ticker{ font-size:11px; color:#8b97c9; }
+      .search-metric{ font-size:11px; color:#9fb3ff; white-space:nowrap; }
+      .search-active{ outline:2px solid var(--nx-cyan); outline-offset:2px; }
+
+      /* Table */
+      .nx-table{ width:100%; border-collapse:separate; border-spacing:0; }
+      .nx-th, .nx-td{ padding:10px 10px; text-align:left; border-bottom:0; }
+      thead .nx-th{
+        position:sticky; top:0; z-index:20; user-select:none;
+        background:rgba(32,36,64,.95); color:#ffeb3b; text-shadow:0 0 3px #ffeb3b; border-bottom:1px solid var(--nx-border);
+      }
+      tbody tr{ position:relative; }
+      tbody tr::after{
+        content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:#333a66; pointer-events:none;
+      }
+      tbody tr:hover{ background:rgba(10,14,28,.6); box-shadow: inset 0 0 0 1px rgba(0,230,255,.08); }
+
+      .pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; }
+      .pill.green{ background:rgba(16,185,129,.18); color:#34d399; }
+      .pill.red{ background:rgba(239,68,68,.18); color:#f87171; }
+
+      /* Small row buttons (match NewPairs) */
+      .mini-btn{ padding:.38rem .6rem; border:1px solid var(--nx-border); border-radius:12px; background:var(--nx-dark-2); color:#fff; font-weight:700; }
+      .mini-btn.alert{ background:#FF1493; border-color:#7a1b5a; }
+      .star-btn{ padding:.38rem .6rem; border:1px solid var(--nx-border); border-radius:12px; background:var(--nx-dark-2); color:#fff; font-weight:700; }
+      .star-btn.active{ background:#ffd54a; color:#000; border-color:#a37c00; }
+    </style>
+<style>
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
+</style>
+  </head>
+ 
+
+ <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+          </nav>
+        </div>
+
+        <!-- SEARCH -->
+        <div id="search-wrap" class="relative w-[26rem] max-w-[60vw]">
+          <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
+          <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
+        </div>
+
+        <!-- Wallet -->
+        <div class="flex items-center gap-2">
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+        </div>
+      <!-- Profile picture -->
+      <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+              style="border-color:var(--nx-border)">
+        <img id="nx-pfp" src="/pfp/default.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+      </button>
+    </div>
+  </div>
+<div class="flex items-center gap-2">
+  <select id="nx-theme-picker" class="nx-input w-[9.5rem] text-xs">
+    <option value="default">default</option>
+    <option value="neon">Neon</option>
+    <option value="midnight">Midnight</option>
+    <option value="dusk">Dusk</option>
+    <option value="light">Light</option>
+  </select>
+</div>
+
+<script>
+  // Wire the picker to the engine
+  (function(){
+    const sel = document.getElementById('nx-theme-picker');
+    if(!sel) return;
+    const setSel = () => { try { sel.value = (window.NX?.theme?.get?.() || 'neon'); } catch{} };
+    setSel();
+    sel.addEventListener('change', () => window.NX?.theme?.set?.(sel.value));
+    // keep dropdown in sync if changed on another tab/page
+    window.addEventListener('nebula:theme-applied', setSel);
+  })();
+</script>
+
+</header>
+
+    <div class="page-wrap">
+      <!-- Main grid (left table + right widgets) -->
+      <main class="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+        <!-- LEFT PANEL -->
+        <section class="nx-panel p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-xl nx-title">Trending Coins</div>
+              <div class="text-xs text-zinc-400">Currently most active tokens by volume & hype (mock).</div>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="themed-scroll max-h-[520px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
+            <table class="nx-table" id="trend-table">
+              <thead>
+                <tr>
+                  <th class="nx-th" style="width:220px;">Pair</th>
+                  <th class="nx-th">24h Change</th>
+                  <th class="nx-th">MC</th>
+                  <th class="nx-th">Vol</th>
+                  <th class="nx-th">Holders</th>
+                  <th class="nx-th" style="width:190px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="trend-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- RIGHT PANEL (widgets) -->
+        <aside class="nx-panel p-3">
+          <!-- Watchlist -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Watchlist</div>
+            <div class="flex gap-2 mb-2">
+              <button id="btn-clear-watchlist" class="nx-btn">Remove from Watchlist</button>
+            </div>
+            <div id="watchlist"><div class="text-zinc-400 text-xs">No pairs saved yet.</div></div>
+          </div>
+
+          <!-- Alerts Preview -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Alerts Preview</div>
+            <div class="flex gap-2 mb-2">
+              <button id="btn-clear-alerts" class="nx-btn">Clear All Alerts</button>
+            </div>
+            <div id="alerts-mini"><div class="text-zinc-400 text-xs">No triggers yet.</div></div>
+          </div>
+
+          <!-- Feed Status -->
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Feed Status</div>
+            <div class="text-sm">Status: <span class="text-emerald-400">Connected (mock)</span></div>
+            <div class="text-sm">Latency: 38 ms</div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span class="text-emerald-400">Idle (mock)</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • Trending • Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Alerts Modal (per-coin rules) -->
+    <div id="alertsModal" class="popover hidden fixed right-4 top-16 w-80 p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-semibold">ENABLE ALERTS</div>
+        <button id="alert-cancel" class="nx-btn nx-btn-cyan px-2 py-1 text-xs">Close</button>
+      </div>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Whale buy</span><input type="checkbox" value="whale_buy">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Whale sell</span><input type="checkbox" value="whale_sell">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Volume +</span><input type="checkbox" value="volume_spike">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Buys &gt; Sells</span><input type="checkbox" value="buys_sells_ratio">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Holders +</span><input type="checkbox" value="holders_delta">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>LP change</span><input type="checkbox" value="lp_change">
+        </label>
+      </div>
+      <button id="alert-save" class="nx-btn nx-btn-cyan w-full mt-3">Save</button>
+    </div>
+
+    <!-- Wallet dropdown -->
+    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
+      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
+      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+        <div class="nx-panel p-2">Total<br/><strong>0.314 SOL</strong></div>
+        <div class="nx-panel p-2">Available<br/><strong>0.214 SOL</strong></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="wd-open" class="nx-btn">Withdraw</button>
+        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+      </div>
+    </div>
+
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
+        <div class="nx-panel p-2 text-xs break-words">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" onclick="navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');alert('Copied! (mock)')">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <div class="grid grid-cols-3 gap-2">
+            <input class="nx-input col-span-2" placeholder="Amount"/>
+            <select class="nx-input">
+              <option>SOL</option><option>USD</option>
+            </select>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full">Submit (mock)</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* Icons + Year */
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* Back */
+      document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
+
+      /* ===== SEARCH (same as other pages) ===== */
+      const SEARCH_DATA = [
+        {icon:'◎', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
+        {icon:'◈', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
+        {icon:'◈', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
+      ];
+      const sWrap=document.getElementById('search-wrap');
+      const sIn=document.getElementById('search-input');
+      const sDD=document.getElementById('search-dd');
+      let activeIndex=-1, currentHits=[];
+      const debounce=(fn,ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+
+      function renderSearch(q){
+        const query=(q||'').trim().toLowerCase();
+        currentHits = query? SEARCH_DATA.filter(o => (o.name+o.ticker).toLowerCase().includes(query)) : [];
+        sDD.innerHTML=''; activeIndex=-1;
+        if(!currentHits.length){ sDD.classList.add('hidden'); return; }
+        sDD.classList.remove('hidden');
+        sDD.insertAdjacentHTML('beforeend','<div class="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-400 border-b border-[var(--nx-border)]">Results</div>');
+        currentHits.forEach((o,i)=>{
+          const row=document.createElement('button');
+          row.type='button'; row.className='search-row w-full'; row.dataset.index=i;
+          row.innerHTML=`
+            <div class="search-icon">${o.icon}</div>
+            <div class="search-grid min-w-0 flex-1">
+              <div class="search-name min-w-0">
+                <div class="truncate">${o.name}</div>
+                <div class="ticker">${o.ticker}</div>
+              </div>
+              <div class="search-metric tabnums">MC <span class="font-semibold">${o.mc}</span></div>
+              <div class="search-metric tabnums">V <span class="font-semibold">${o.v}</span></div>
+              <div class="search-metric tabnums">L <span class="font-semibold">${o.l}</span></div>
+            </div>`;
+          row.addEventListener('click',()=>selectHit(i));
+          sDD.appendChild(row);
+        });
+      }
+      const doRender = debounce(()=>renderSearch(sIn.value),120);
+      sIn.addEventListener('input', doRender);
+      sIn.addEventListener('focus', doRender);
+      document.addEventListener('click', (e)=>{ if(!sWrap.contains(e.target)) sDD.classList.add('hidden'); });
+      sIn.addEventListener('keydown',(e)=>{
+        if(sDD.classList.contains('hidden')) return;
+        const rows=[...sDD.querySelectorAll('.search-row')]; if(!rows.length) return;
+        if(e.key==='ArrowDown'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex+1)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
+        else if(e.key==='ArrowUp'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex-1+rows.length)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
+        else if(e.key==='Enter'){ e.preventDefault(); if(activeIndex<0) activeIndex=0; selectHit(activeIndex); }
+        else if(e.key==='Escape'){ sDD.classList.add('hidden'); }
+      });
+function selectHit(i){
+  const hit = currentHits[i]; if(!hit) return;
+  sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
+  sIn.value='';
+  const pair = hit.name.replace(/\s+/g,'');   // "WIF/SOL"
+  NX.goToCoin({ pair, mint: hit.mint || '' });
+}
+
+      /* ===== Wallet dropdown + modals ===== */
+      const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
+      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
+      document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
+      document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
+      document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
+      ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+
+      /* ===== Trending static dataset (mock) ===== */
+      const TRENDING = [
+        'WIF/SOL','BONK/SOL','MEW/SOL','POPCAT/SOL','BOME/SOL','GME/SOL','PENGU/SOL','CAT/SOL','MOG/SOL'
+      ];
+      function rnd(a,b){return Math.random()*(b-a)+a;}
+      function fmtUSD(n){
+        if(n>=1_000_000_000) return '$'+(n/1_000_000_000).toFixed(2)+'B';
+        if(n>=1_000_000) return '$'+(n/1_000_000).toFixed(2)+'M';
+        if(n>=1_000) return '$'+(n/1_000).toFixed(2)+'K';
+        return '$'+n.toString();
+      }
+
+      // State: per-coin alerts & watchlist
+      const alertsForPair = {}; // { 'BONK/SOL': Set([...]) }
+      const watchlistSet = new Set();
+
+      function rowHTML(sym){
+        const chg=(rnd(-15,25)).toFixed(2);
+        const mc=Math.floor(rnd(5e6,5e8));
+        const vol=Math.floor(rnd(1e6,9e7));
+        const holders=Math.floor(rnd(100,15000));
+        const pill=chg>=0?`<span class="pill green">+${chg}%</span>`:`<span class="pill red">${chg}%</span>`;
+        const starred = watchlistSet.has(sym) ? 'active' : '';
+        return `
+          <tr data-pair="${sym}" data-mc="${mc}">
+            <td class="nx-td font-semibold">${sym}</td>
+            <td class="nx-td">${pill}</td>
+            <td class="nx-td">${fmtUSD(mc)}</td>
+            <td class="nx-td">${fmtUSD(vol)}</td>
+            <td class="nx-td tabnums">${holders.toLocaleString()}</td>
+            <td class="nx-td" style="display:flex; gap:6px;">
+              <button class="mini-btn alert" data-act="alert">Alert</button>
+              <button class="star-btn ${starred}" data-act="star">★</button>
+            </td>
+          </tr>`;
+      }
+
+      function renderTable(){
+        const body=document.getElementById('trend-body');
+        body.innerHTML = TRENDING.map(rowHTML).join('');
+      }
+document.getElementById('trend-body').addEventListener('click', (e)=>{
+  const tr = e.target.closest('tr[data-pair]');
+  if(!tr) return;
+  const pair = tr.getAttribute('data-pair');
+  const btn = e.target.closest('button');
+  if(btn){
+    // existing alert/star logic stays
+    const act = btn.getAttribute('data-act');
+    if(act === 'alert'){ openAlertModal(pair); return; }
+    if(act === 'star'){ /* existing toggle */ return; }
+    if(act === 'copy'){ /* existing copy */ return; }
+    return; // buttons handled
+  }
+  // Row click → coin page
+  NX.goToCoin({ pair });
+});
+
+      // Watchlist rendering
+      function redrawWatchlist(){
+        const box = document.getElementById('watchlist');
+        box.innerHTML = '';
+        if(watchlistSet.size===0){
+          const empty = document.createElement('div');
+          empty.className='text-zinc-400 text-xs';
+          empty.textContent = 'No pairs saved yet.';
+          box.appendChild(empty);
+          return;
+        }
+        Array.from(watchlistSet).slice(0,20).forEach(p=>{
+          const tr = document.querySelector(`tr[data-pair="${CSS.escape(p)}"]`);
+          const mc = tr ? tr.getAttribute('data-mc') : null;
+          const line = document.createElement('div');
+          line.className='text-sm py-1 border-b border-[var(--nx-border)] cursor-pointer hover:bg-[rgba(0,230,255,.08)]';
+          line.setAttribute('data-pair', p);
+          line.innerHTML = `<strong>${p}</strong> • ${mc ? fmtUSD(+mc) : '—'} MC`;
+          box.appendChild(line);
+        });
+      }
+
+      // Alerts preview add
+      function pushAlertPreview(pair, rules){
+        const mini = document.getElementById('alerts-mini');
+        const row = document.createElement('div');
+        row.className='text-sm py-1 border-b border-[var(--nx-border)] cursor-pointer hover:bg-[rgba(0,230,255,.08)]';
+        row.setAttribute('data-pair', pair);
+        row.textContent = `${pair}: ${rules.length?rules.join(', '):'No rules selected'} (saved mock)`;
+        mini.prepend(row);
+        while(mini.children.length>12) mini.removeChild(mini.lastChild);
+      }
+
+      // Table action handlers
+      document.getElementById('trend-body').addEventListener('click', (e)=>{
+        const tr = e.target.closest('tr[data-pair]');
+        if(!tr) return;
+        const pair = tr.getAttribute('data-pair');
+        const btn = e.target.closest('button');
+
+        if(btn){
+          const act = btn.getAttribute('data-act');
+          if(act === 'alert'){ openAlertModal(pair); return; }
+          if(act === 'star'){
+            if(watchlistSet.has(pair)){ watchlistSet.delete(pair); } else { watchlistSet.add(pair); }
+            btn.classList.toggle('active', watchlistSet.has(pair));
+            redrawWatchlist();
+            return;
+          }
+        }
+        // Row click (navigate mock)
+      });
+
+      document.getElementById('watchlist').addEventListener('click', (e)=>{
+        const el = e.target.closest('[data-pair]'); if(!el) return;
+        alert(`Navigate to ${el.getAttribute('data-pair')} (mock)`);
+      });
+
+      document.getElementById('btn-clear-watchlist').addEventListener('click', ()=>{
+        if(watchlistSet.size===0) return;
+        const watched = new Set(watchlistSet);
+        watchlistSet.clear();
+        watched.forEach(pair=>{
+          const rowBtn = document.querySelector(`tr[data-pair="${CSS.escape(pair)}"] [data-act="star"]`);
+          rowBtn?.classList.remove('active');
+        });
+        redrawWatchlist();
+      });
+
+      // Alerts modal (same as NewPairs)
+      let currentAlertPair = null;
+      const modal = document.getElementById('alertsModal');
+      function openAlertModal(pair){
+        currentAlertPair = pair;
+        modal.classList.remove('hidden');
+        modal.querySelectorAll('input[type="checkbox"]').forEach(c => {
+          const saved = alertsForPair[pair] || new Set();
+          c.checked = saved.has(c.value);
+        });
+      }
+      document.getElementById('alert-cancel').onclick = ()=>{ modal.classList.add('hidden'); };
+      document.getElementById('alert-save').onclick = ()=>{
+        const checks = [...modal.querySelectorAll('input[type="checkbox"]')].filter(c=>c.checked).map(c=>c.value);
+        alertsForPair[currentAlertPair] = new Set(checks);
+        modal.classList.add('hidden');
+        pushAlertPreview(currentAlertPair, checks);
+      };
+      document.getElementById('alerts-mini').addEventListener('click', (e)=>{
+        const el = e.target.closest('[data-pair]'); if(!el) return;
+        alert(`Navigate to ${el.getAttribute('data-pair')} (mock)`);
+      });
+      document.getElementById('btn-clear-alerts').addEventListener('click', ()=>{
+        for (const k in alertsForPair) delete alertsForPair[k];
+        const mini = document.getElementById('alerts-mini');
+        mini.innerHTML = '<div class="text-zinc-400 text-xs">No triggers yet.</div>';
+      });
+document.addEventListener('click',(e)=>{
+  if(!sWrap.contains(e.target)){
+    sDD.classList.add('hidden');
+    sDD.innerHTML='';
+    activeIndex=-1; currentHits=[];
+  }
+});
+sIn.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
+  }
+});
+
+      // Initial render
+      renderTable();
+      redrawWatchlist();
+    </script>
+<script>
+/** ===== NebulaX Click-to-Coin Utilities ===== */
+window.NX = window.NX || {};
+NX.saveSelectedCoin = function(coin){
+  try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
+};
+NX.goToCoin = function(coin){
+  NX.saveSelectedCoin(coin);
+  const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
+  const mint = encodeURIComponent(coin.mint || '');
+  const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}`;
+  location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+};
+</script>
+
+<script>
+function nxOpenCoin({ pair, mint = '' }) {
+  const url = `Coinpage-Official.html?pair=${encodeURIComponent(pair)}&mint=${encodeURIComponent(mint)}`;
+  location.href = url;
+}
+</script>
+<script>
+document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
+  row.addEventListener('click', (e)=>{
+    // Allow inner buttons (copy, alert, star) to work without navigating
+    if (e.target.closest('button, .copy-btn')) return;
+    const sym = row.dataset.symbol.trim().toUpperCase(); // e.g. WIF
+    const mint = row.dataset.mint || '';                  // add data-mint="..." if you have it
+    nxOpenCoin({ pair: `${sym}/SOL`, mint });
+  });
+});
+</script>
+<script>
+/** NebulaX Trending (Solana) — free Dexscreener search aggregation */
+(function nxTrendingSol(){
+  if (window.__nxTrendingSol) return; window.__nxTrendingSol = true;
+
+  const tbody = document.getElementById('trend-body'); if(!tbody) return;
+
+  const QUERIES = ['solana','raydium solana','orca solana','meteora solana','dlmm solana'];
+
+  const fmtUSD = (n)=>{ const v=+n||0;
+    if(v>=1e9) return '$'+(v/1e9).toFixed(2)+'B';
+    if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
+    if(v>=1e3) return '$'+(v/1e3).toFixed(2)+'K';
+    return v ? '$'+v.toFixed(2) : '—';
+  };
+  const pill = (v)=>{ const n=+v||0, up=n>=0; return `<span class="pill ${up?'green':'red'}">${up?'+':''}${n.toFixed(2)}%</span>`; };
+
+  async function fetchBatch(){
+    const tasks = QUERIES.map(q =>
+      fetch('https://api.dexscreener.com/latest/dex/search?q='+encodeURIComponent(q), { cache:'no-store' })
+        .then(r=>r.ok?r.json():{pairs:[]}).catch(()=>({pairs:[]}))
+    );
+    const settled = await Promise.allSettled(tasks);
+    const out = [], seen = new Set();
+    for (const s of settled){
+      const list = s.value?.pairs || [];
+      for (const p of list){
+        if (p.chainId !== 'solana') continue;
+        const id = p.pairAddress || `${p.baseToken?.address}|${p.quoteToken?.address}`;
+        if (!id || seen.has(id)) continue;
+        seen.add(id); out.push(p);
+      }
+    }
+    return out;
+  }
+
+  function mapRows(pairs){
+    return pairs.map(p=>{
+      const pair = `${(p.baseToken?.symbol||'BASE').toUpperCase()}/${(p.quoteToken?.symbol||'QUOTE').toUpperCase()}`;
+      return {
+        pair, addr: p.pairAddress||'', mint: p.baseToken?.address||'',
+        mc: Math.floor(+(p.marketCap ?? p.fdv ?? 0)),
+        vol: Math.floor(+(p.volume?.h24 ?? 0)),
+        chg: typeof p.priceChange?.h24==='number' ? p.priceChange.h24 : 0,
+        holders: 0, // placeholder
+        verified: !!(p.labels?.includes('verified') || (p.info?.websites?.length>0))
+      };
+    })
+    .sort((a,b)=> (b.vol - a.vol) || (Math.abs(b.chg) - Math.abs(a.chg)))
+    .slice(0,50);
+  }
+
+  function render(rows){
+    tbody.innerHTML = rows.map(r=>`
+      <tr data-addr="${r.addr}" data-mint="${r.mint}">
+        <td class="nx-td font-semibold">${r.pair} ${r.verified?'<span class="pill cyan">Verified</span>':''}</td>
+        <td class="nx-td">${pill(r.chg)}</td>
+        <td class="nx-td">${fmtUSD(r.mc)}</td>
+        <td class="nx-td">${fmtUSD(r.vol)}</td>
+        <td class="nx-td tabnums">${r.holders}</td>
+        <td class="nx-td" style="display:flex; gap:6px;">
+          <button class="mini-btn alert" data-act="alert">Alert</button>
+          <button class="star-btn" data-act="star">★</button>
+        </td>
+      </tr>`).join('') || `<tr><td class="nx-td" colspan="6"><div class="text-center text-zinc-400 py-3">No results.</div></td></tr>`;
+  }
+
+  async function run(){ const pairs = await fetchBatch(); render(mapRows(pairs)); }
+  run(); setInterval(run, 15000);
+
+  // Row click → coin page
+  tbody.addEventListener('click', (e)=>{
+    const tr = e.target.closest('tr[data-addr]'); if(!tr || e.target.closest('button')) return;
+    const addr = tr.getAttribute('data-addr')||''; const mint = tr.getAttribute('data-mint')||'';
+    const name = tr.querySelector('td')?.textContent.split('Verified')[0].trim() || '';
+    const coin = { pair: name, pairAddress: addr, mint };
+    if (window.NX?.goToCoin) NX.goToCoin(coin);
+    else location.href = `Coinpage-Official.html?pair=${encodeURIComponent(name)}&pairAddr=${encodeURIComponent(addr)}&mint=${encodeURIComponent(mint)}`;
+  });
+})();
+</script>
+<script>
+/* === NebulaX Core (themes, header hydrate, routing hooks) === */
+(function(){
+  const UserStore={
+    key:'nx_user',
+    state:{ wallet:null, theme:'default', pfp:{type:'builtin',url:'/pfp/default.png'} },
+    load(){ try{ Object.assign(this.state, JSON.parse(localStorage.getItem(this.key)||'{}')); }catch{} },
+    save(){ localStorage.setItem(this.key, JSON.stringify(this.state)); }
+  };
+  UserStore.load();
+
+  const Theme={
+    init(){
+      const t = UserStore.state.theme || 'default';
+      document.documentElement.setAttribute('data-theme', t);
+      const sel = document.getElementById('nx-theme');
+      if (sel) sel.value = t;
+      sel?.addEventListener('change', (e)=>{
+        const v=e.target.value;
+        document.documentElement.setAttribute('data-theme', v);
+        UserStore.state.theme=v; UserStore.save();
+      });
+    }
+  };
+
+  const Header={
+    initActiveTab(){
+      const here = location.pathname.replace(/\/+$/,'') || '/NebulaX.html';
+      document.querySelectorAll('.nx-tab').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        if (!route) return;
+        if (route===here) a.classList.add('active');
+        else a.classList.remove('active');
+        a.addEventListener('click',(e)=>{
+          // allow normal navigation
+        });
+      });
+    },
+    initSearch(){
+      const input = document.getElementById('nx-search');
+      const btn   = document.getElementById('nx-search-btn');
+      if(!input||!btn) return;
+      const go = ()=>{
+        const q = (input.value||'').trim();
+        if(!q) return;
+        // Route to coin page convention: /Coinpage-Official.html?query=...
+        location.href = `/Coinpage-Official.html?query=${encodeURIComponent(q)}`;
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+    },
+    initPfp(){
+      const img = document.getElementById('nx-pfp');
+      if(img) img.src = (UserStore.state.pfp?.url)||'/pfp/default.png';
+      const btn = document.getElementById('nx-profile');
+      btn?.addEventListener('click',()=>{
+        // simple MVP: cycle built-ins; later open profile modal
+        const choices=['/pfp/default.png','/pfp/nx01.png','/pfp/nx02.png'];
+        const idx = Math.max(0, choices.indexOf(UserStore.state.pfp?.url));
+        const next = choices[(idx+1)%choices.length];
+        UserStore.state.pfp={type:'builtin',url:next}; UserStore.save();
+        if(img) img.src=next;
+      });
+    },
+    initStore(){
+      const a = document.getElementById('nx-store');
+      if(!a) return;
+      // keep as a link; if you make a modal later, hydrate here
+    },
+    initWallet(){
+      const w = document.getElementById('nx-wallet');
+      w?.addEventListener('click', ()=>{
+        // hook your wallet adapter here
+        alert('Connect wallet (hook your adapter)');
+      });
+    },
+    mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    Theme.init();
+    Header.mount();
+  });
+})();
+</script>
+
+  </body>
+</html>

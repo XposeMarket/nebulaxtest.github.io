@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • Portfolio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+<style>
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
+</style>
+    <style>
+      :root{ --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a; --nx-border:#1e2747; --nx-text:#e0e7ff; --page-max: 1400px; }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}  
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      .nx-panel{ background:rgba(16,20,40,.92); border:1px solid var(--nx-border); box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08); backdrop-filter: blur(8px); border-radius: 16px; }
+      .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+      .tabnums{font-variant-numeric: tabular-nums;}
+
+      .nx-btn{ border-radius:14px; padding:.42rem .72rem; font-weight:700; transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);} 
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+
+      .nx-input{ width:100%; border-radius:12px; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none; }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+
+      .nx-table{ width:100%; border-collapse:separate; border-spacing:0; }
+      .nx-th, .nx-td{ padding:10px 10px; text-align:left; border-bottom:0; }
+      thead .nx-th{ position:sticky; top:0; z-index:20; user-select:none; background:rgba(32,36,64,.95); color:#ffeb3b; text-shadow:0 0 3px #ffeb3b; border-bottom:1px solid var(--nx-border); }
+      tbody tr{ position:relative; }
+      tbody tr::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:#333a66; pointer-events:none; }
+      tbody tr:hover{ background:rgba(10,14,28,.6); box-shadow: inset 0 0 0 1px rgba(0,230,255,.08); }
+
+      .pos-green{ color:#10b981; } /* emerald-500 */
+      .pos-red{ color:#ef4444; }   /* red-500 */
+      .pos-cyan{ color: var(--nx-cyan); }
+      .pos-yellow{ color:#ffeb3b; }
+    
+      /* Modal overlay (Deposit / Withdraw) */
+      .modal-fx{
+        position:fixed; inset:0; display:none; place-items:center; z-index:2100;
+        background:rgba(0,0,0,.55); padding:12px;
+
+      .search-dd{overflow:auto;border:1px solid var(--nx-border);background:rgba(13,16,34,.98);}
+      .search-head{position:sticky;top:0;padding:8px 12px;font-size:12px;letter-spacing:.08em;color:#9aa6dc;border-bottom:1px solid var(--nx-border);background:rgba(18,22,40,.96)}
+      .result-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--nx-border)}
+      .result-item:hover{background:rgba(18,22,46,.98)}
+      .ri-left{width:28px;height:28px;border-radius:10px;background:rgba(20,24,48,.9);display:flex;align-items:center;justify-content:center;border:1px solid var(--nx-border)}
+      .ri-main{flex:1;min-width:0}
+      .ri-pair{font-weight:800;letter-spacing:.02em}
+      .ri-name{font-size:12px;color:#cfd6ff;opacity:.8;margin-top:2px}
+      .ri-metrics{display:flex;gap:12px;font-size:12px;white-space:nowrap}
+      .ri-metrics .lab{color:#9aa6dc;margin-right:4px}
+      .row-card.highlight{box-shadow:inset 0 0 0 1px rgba(0,230,255,.35),0 0 12px rgba(0,230,255,.12);border-radius:12px}
+
+      }
+    
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+          </nav>
+        </div>
+
+  <!-- Center: SEARCH (keep if page already has it; otherwise comment out) -->
+  <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
+    <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
+    <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
+  </div>
+
+        <!-- Wallet -->
+        <div class="flex items-center gap-2">
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <main class="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+        <!-- LEFT: Overview + positions + history -->
+        <section class="space-y-3">
+          <div class="nx-panel p-3">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+              <div class="nx-panel p-3 tabnums"><div class="text-zinc-400 text-xs">Portfolio Value</div><div id="pv-total" class="text-xl pos-yellow">$0</div></div>
+              <div class="nx-panel p-3 tabnums"><div class="text-zinc-400 text-xs">Unrealized PnL</div><div id="pv-unrl" class="text-xl">$0 (0%)</div></div>
+              <div class="nx-panel p-3 tabnums"><div class="text-zinc-400 text-xs">Realized PnL</div><div id="pv-rlzd" class="text-xl">$0</div></div>
+              <div class="nx-panel p-3 tabnums"><div class="text-zinc-400 text-xs">Cash (SOL)</div><div id="pv-cash" class="text-xl pos-cyan">0.214</div></div>
+            </div>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xl nx-title">Positions</div>
+              <div class="flex gap-2">
+                <!-- controls removed per request -->
+              </div>
+            </div>
+            <div class="themed-scroll max-h-[420px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
+              <table class="nx-table" id="pos-table">
+                <thead>
+                  <tr>
+                    <th class="nx-th">Token</th>
+                    <th class="nx-th">Qty</th>
+                    <th class="nx-th">Avg Cost</th>
+                    <th class="nx-th">Price</th>
+                    <th class="nx-th">Value</th>
+                    <th class="nx-th">Unrealized</th>
+                    <th class="nx-th">%</n>
+                    <th class="nx-th">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pos-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xl nx-title">Trade Log (mock)</div>
+              <div class="flex gap-2">
+                <!-- Add Trade removed per request -->
+                <button id="log-clear" class="nx-btn">Clear Log</button>
+              </div>
+            </div>
+            <div class="themed-scroll max-h-[300px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
+              <table class="nx-table" id="log-table">
+                <thead>
+                  <tr>
+                    <th class="nx-th">Time</th>
+                    <th class="nx-th">Token</th>
+                    <th class="nx-th">Side</th>
+                    <th class="nx-th">Qty</th>
+                    <th class="nx-th">Price</th>
+                    <th class="nx-th">Fee</th>
+                    <th class="nx-th">Note</th>
+                    <th class="nx-th">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="log-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Price editor + summary -->
+        <aside class="nx-panel p-3">
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Manual Price Editor</div>
+            <div id="price-box" class="space-y-2 text-sm"></div>
+            <button id="price-rand" class="nx-btn w-full mt-2">Nudge Prices (±5%)</button>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Snapshot</div>
+            <div id="snap-box" class="text-sm text-zinc-300">Add trades to see snapshot.</div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span class="text-emerald-400">Idle (mock)</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • Portfolio • Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Wallet dropdown -->
+    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
+      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
+      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+        <div class="nx-panel p-2">Total<br/><strong>0.314 SOL</strong></div>
+        <div class="nx-panel p-2">Available<br/><strong>0.214 SOL</strong></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="wd-open" class="nx-btn">Withdraw</button>
+        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+      </div>
+    </div>
+
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
+        <div class="nx-panel p-2 text-xs break-words">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" onclick="navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');alert('Copied! (mock)')">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <div class="grid grid-cols-3 gap-2">
+            <input class="nx-input col-span-2" placeholder="Amount"/>
+            <select class="nx-input"><option>SOL</option><option>USD</option></select>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full">Submit (mock)</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* Icons + Year */
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* Back */
+      document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
+
+    <!-- Search dropdown (Photon-style) -->
+    <script>
+      (function(){
+        const data = [
+          {id:'WIF', name:'dogwifhat', mc:'4.2B', vol:'118M', liq:'32.1M'},
+          {id:'BONK', name:'Bonk', mc:'1.8B', vol:'88.0M', liq:'20.2M'},
+          {id:'MEW', name:'MEW', mc:'420M', vol:'21.3M', liq:'6.7M'},
+          {id:'POP', name:'POPCAT', mc:'310M', vol:'12.0M', liq:'4.9M'},
+          {id:'CAT', name:'Cat', mc:'95M', vol:'9.4M', liq:'2.1M'},
+          {id:'PENGU', name:'Pengu', mc:'180M', vol:'15.2M', liq:'3.2M'},
+          {id:'DUCK', name:'Duck', mc:'42M', vol:'3.6M', liq:'1.1M'},
+          {id:'PUP', name:'Pup', mc:'61M', vol:'5.4M', liq:'1.6M'},
+          {id:'GME', name:'GameStop', mc:'720M', vol:'43.0M', liq:'12.9M'},
+          {id:'PEPE', name:'PEPE', mc:'1.1B', vol:'98.2M', liq:'23.4M'},
+          {id:'MOG', name:'MOG', mc:'250M', vol:'18.5M', liq:'5.8M'},
+          {id:'BOME', name:'BOME', mc:'390M', vol:'22.1M', liq:'7.2M'}
+        ];
+        const input = document.getElementById('search-input');
+        const dd = document.getElementById('search-dd');
+
+        function itemTpl(x){
+          return `<div class="result-item" data-id="${x.id}">
+            <div class="ri-left"><i data-lucide="diamond" class="w-3 h-3 text-zinc-300"></i></div>
+            <div class="ri-main">
+              <div class="ri-pair">${x.id} / SOL</div>
+              <div class="ri-name">${x.name}</div>
+            </div>
+            <div class="ri-metrics">
+              <div><span class="lab">MC</span>$${x.mc}</div>
+              <div><span class="lab">V</span>$${x.vol}</div>
+              <div><span class="lab">L</span>$${x.liq}</div>
+            </div>
+          </div>`;
+        }
+        function render(list){
+          if(!list || list.length===0){
+            dd.innerHTML = '<div class="search-head">RESULTS</div><div class="text-xs text-zinc-400 p-3">No matches</div>';
+            dd.classList.remove('hidden'); return;
+          }
+          dd.innerHTML = '<div class="search-head">RESULTS</div>' + list.slice(0,8).map(itemTpl).join('');
+          dd.classList.remove('hidden');
+          if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons({attrs:{}}); }
+        }
+        function filter(q){
+          q=q.trim().toLowerCase();
+          if(!q){ dd.classList.add('hidden'); return []; }
+          return data.filter(x=> x.id.toLowerCase().includes(q) || x.name.toLowerCase().includes(q));
+        }
+        input?.addEventListener('input', ()=>{ render(filter(input.value)); });
+        input?.addEventListener('focus', ()=>{ if(input.value){ render(filter(input.value)); } });
+        document.addEventListener('click', (e)=>{ if(!e.target.closest('#search-wrap')) dd.classList.add('hidden'); });
+        dd?.addEventListener('click', (e)=>{
+          const it = e.target.closest('.result-item'); if(!it) return;
+          const id = it.getAttribute('data-id');
+          const el = document.getElementById('row-'+id);
+          if(el){
+            el.classList.add('highlight');
+            el.scrollIntoView({behavior:'smooth',block:'center'});
+            setTimeout(()=>el.classList.remove('highlight'), 1200);
+          }
+          dd.classList.add('hidden'); input.blur();
+        });
+        window.addEventListener('keydown', (e)=>{ if(e.key==='/' && document.activeElement!==input){ e.preventDefault(); input.focus(); }});
+      })();
+document.addEventListener('click',(e)=>{
+  if(!sWrap.contains(e.target)){
+    sDD.classList.add('hidden');
+    sDD.innerHTML='';
+    activeIndex=-1; currentHits=[];
+  }
+});
+sIn.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
+  }
+});
+
+    </script>
+
+<script>
+      /* ===== Wallet dropdown + modals ===== */
+      const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
+      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
+      document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
+      document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
+      document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
+      ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+
+      /* ===== Portfolio state ===== */
+      const POS_KEY='nebula_positions_v1';
+      const LOG_KEY='nebula_trades_v1';
+      const RLZ_KEY='nebula_realized_v1';
+
+      function load(key, fb){ try{ return JSON.parse(localStorage.getItem(key)) ?? fb; }catch{return fb;} }
+      function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+      let POS=load(POS_KEY, {});
+      let LOG=load(LOG_KEY, []);
+      let RLZ=load(RLZ_KEY, 0);
+
+      function ensureDemo(){
+        if(Object.keys(POS).length===0 && LOG.length===0){
+          POS={ 'WIF':{qty:1200, avg:1.25, price:1.32}, 'BONK':{qty:800000, avg:0.000028, price:0.000031}, 'MEW':{qty:4500, avg:0.52, price:0.48} };
+          LOG=[
+            {ts:Date.now()-86400000*2, token:'WIF', side:'BUY', qty:800, price:1.20, fee:0.001, note:'preset 1'},
+            {ts:Date.now()-86400000, token:'WIF', side:'BUY', qty:400, price:1.35, fee:0.001, note:'dip add'},
+            {ts:Date.now()-3600000*5, token:'BONK', side:'BUY', qty:800000, price:0.000028, fee:0.001, note:''},
+            {ts:Date.now()-3600000*2, token:'MEW', side:'BUY', qty:4500, price:0.52, fee:0.001, note:''},
+          ];
+          RLZ=0;
+          persist();
+        }
+      }
+      ensureDemo();
+
+      function persist(){ save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ); }
+
+      const posBody=document.getElementById('pos-body');
+      const logBody=document.getElementById('log-body');
+      const pvTotal=document.getElementById('pv-total');
+      const pvUnrl=document.getElementById('pv-unrl');
+      const pvRlz=document.getElementById('pv-rlzd');
+      const pvCash=document.getElementById('pv-cash');
+      const priceBox=document.getElementById('price-box');
+      const snapBox=document.getElementById('snap-box');
+
+      function fmtUSD(n){
+        if(!isFinite(n)) return '$0';
+        const sign=n<0?'-':''; n=Math.abs(n);
+        if(n>=1_000_000_000) return sign+'$'+(n/1_000_000_000).toFixed(2)+'B';
+        if(n>=1_000_000) return sign+'$'+(n/1_000_000).toFixed(2)+'M';
+        if(n>=1_000) return sign+'$'+(n/1_000).toFixed(2)+'K';
+        return sign+'$'+n.toFixed(2);
+      }
+
+      function recalc(){
+        let total=0, unrl=0;
+        for(const [t,p] of Object.entries(POS)){
+          const val=(p.qty||0)*(p.price||0);
+          total+=val; unrl += (p.price - p.avg)*(p.qty||0);
+        }
+        pvTotal.textContent=fmtUSD(total); pvTotal.classList.add('pos-yellow');
+        const pct = total>0 ? (unrl/Math.max(1,total - unrl))*100 : 0;
+        pvUnrl.textContent = `${fmtUSD(unrl)} (${(pct).toFixed(2)}%)`;
+        pvUnrl.classList.toggle('pos-green', unrl>=0); pvUnrl.classList.toggle('pos-red', unrl<0);
+        pvRlz.textContent = fmtUSD(RLZ);
+        pvRlz.classList.toggle('pos-green', RLZ>=0); pvRlz.classList.toggle('pos-red', RLZ<0);
+        pvCash.classList.add('pos-cyan');
+        drawPositions();
+        drawPrices();
+        drawSnapshot();
+      }
+
+      function drawPositions(){
+        posBody.innerHTML='';
+        Object.entries(POS).forEach(([t,p])=>{
+          const val=(p.qty||0)*(p.price||0);
+          const unrl=(p.price-p.avg)*(p.qty||0);
+          const pct = p.avg? ((p.price/p.avg-1)*100) : 0;
+          const tr=document.createElement('tr'); tr.innerHTML=`
+            <td class="nx-td"><strong>${t}</strong></td>
+            <td class="nx-td tabnums">${(p.qty||0).toLocaleString()}</td>
+            <td class="nx-td tabnums">$${(p.avg||0).toFixed(6)}</td>
+            <td class="nx-td tabnums">
+              <input data-tok="${t}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/>
+            </td>
+            <td class="nx-td tabnums">${fmtUSD(val)}</td>
+            <td class="nx-td tabnums ${unrl>=0?'pos-green':'pos-red'}">${fmtUSD(unrl)}</td>
+            <td class="nx-td tabnums ${pct>=0?'pos-green':'pos-red'}">${pct.toFixed(2)}%</td>
+            <td class="nx-td" style="display:flex; gap:6px;">
+              <button class="nx-btn" data-act="sell" data-tok="${t}">Sell</button>
+              <button class="nx-btn" data-act="del" data-tok="${t}">Remove</button>
+            </td>`;
+          posBody.appendChild(tr);
+        });
+      }
+
+      posBody.addEventListener('input',(e)=>{
+        const inp=e.target.closest('input[data-tok]'); if(!inp) return;
+        const t=inp.getAttribute('data-tok'); const k=inp.getAttribute('data-k');
+        const v=parseFloat(inp.value)||0; POS[t][k]=v; persist(); recalc();
+      });
+      posBody.addEventListener('click',(e)=>{
+        const btn=e.target.closest('button[data-act]'); if(!btn) return;
+        const t=btn.getAttribute('data-tok');
+        if(btn.getAttribute('data-act')==='del'){ delete POS[t]; persist(); recalc(); return; }
+        if(btn.getAttribute('data-act')==='sell'){
+          const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
+          const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
+          const fee=0.001; // mock
+          const p=POS[t]||{qty:0,avg:0,price};
+          const realized = (price - p.avg) * Math.min(qty, p.qty||0);
+          RLZ += realized - fee;
+          p.qty = Math.max(0, (p.qty||0) - qty);
+          if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
+          LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
+          persist(); recalc(); renderLog();
+        }
+      });
+
+      function drawPrices(){
+        priceBox.innerHTML='';
+        Object.entries(POS).forEach(([t,p])=>{
+          const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+          row.innerHTML=`<div>${t}</div><input data-tok="${t}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/><div class="text-right tabnums">${fmtUSD((p.qty||0)*(p.price||0))}</div>`;
+          priceBox.appendChild(row);
+        });
+      }
+      priceBox.addEventListener('input',(e)=>{
+        const inp=e.target.closest('input[data-tok]'); if(!inp) return;
+        const t=inp.getAttribute('data-tok'); const v=parseFloat(inp.value)||0; if(!POS[t]) return; POS[t].price=v; persist(); recalc();
+      });
+      document.getElementById('price-rand').addEventListener('click',()=>{
+        Object.values(POS).forEach(p=>{ const f=1+((Math.random()*10-5)/100); p.price = Math.max(0, (p.price||0)*f); });
+        persist(); recalc();
+      });
+
+      function renderLog(){
+        logBody.innerHTML='';
+        LOG.slice().reverse().forEach((r,i)=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`
+            <td class="nx-td">${new Date(r.ts).toLocaleString()}</td>
+            <td class="nx-td">${r.token}</td>
+            <td class="nx-td">${r.side}</td>
+            <td class="nx-td tabnums">${r.qty}</td>
+            <td class="nx-td tabnums">$${r.price}</td>
+            <td class="nx-td tabnums">${r.fee}</td>
+            <td class="nx-td">${r.note||''}</td>
+            <td class="nx-td"><button class="nx-btn" data-i="${LOG.length-1-i}">Delete</button></td>`;
+          logBody.appendChild(tr);
+        });
+      }
+      logBody.addEventListener('click',(e)=>{
+        const btn=e.target.closest('button[data-i]'); if(!btn) return;
+        const idx=parseInt(btn.getAttribute('data-i')); LOG.splice(idx,1); persist(); renderLog();
+      });
+
+      document.getElementById('log-clear').addEventListener('click',()=>{ if(!confirm('Clear trade log?')) return; LOG=[]; persist(); renderLog(); });
+
+      function drawSnapshot(){
+        const parts = Object.entries(POS).map(([t,p])=> ({t, v:(p.qty||0)*(p.price||0)}));
+        const total = parts.reduce((a,b)=>a+b.v,0);
+        if(total<=0){ snapBox.textContent='Add trades to see snapshot.'; return; }
+        parts.sort((a,b)=>b.v-a.v);
+        snapBox.innerHTML = parts.map(x=>`<div class='flex justify-between'><span>${x.t}</span><span class='tabnums'>${fmtUSD(x.v)}</span></div>`).join('') +
+          `<div class='mt-2 flex justify-between border-t border-[var(--nx-border)] pt-1'><strong>Total</strong><strong class='tabnums'>${fmtUSD(total)}</strong></div>`;
+      }
+
+// Click the token name in Positions to open the coin page
+document.getElementById('pos-body').addEventListener('click',(e)=>{
+  const cell = e.target.closest('td'); if(!cell) return;
+  // Only when clicking the first cell's token text (<strong>SYMBOL[/QUOTE]</strong>)
+  const strong = cell.querySelector('strong');
+  if(strong && cell.cellIndex === 0){
+    const txt = strong.textContent.trim();
+    const pair = txt.includes('/') ? txt : (txt + '/SOL');
+    NX.goToCoin({ pair });
+  }
+});
+
+      // Auto-refresh PnL frequently
+      setInterval(recalc, 1500);
+
+      // init
+      recalc();
+      renderLog();
+    </script>
+<script>
+/** ===== NebulaX Click-to-Coin Utilities ===== */
+window.NX = window.NX || {};
+NX.saveSelectedCoin = function(coin){
+  try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
+};
+NX.goToCoin = function(coin){
+  NX.saveSelectedCoin(coin);
+  const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
+  const mint = encodeURIComponent(coin.mint || '');
+  const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}`;
+  location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+};
+</script>
+<script>
+/* === NebulaX Core (themes, header hydrate, routing hooks) === */
+(function(){
+  const UserStore={
+    key:'nx_user',
+    state:{ wallet:null, theme:'default', pfp:{type:'builtin',url:'/pfp/default.png'} },
+    load(){ try{ Object.assign(this.state, JSON.parse(localStorage.getItem(this.key)||'{}')); }catch{} },
+    save(){ localStorage.setItem(this.key, JSON.stringify(this.state)); }
+  };
+  UserStore.load();
+
+  const Theme={
+    init(){
+      const t = UserStore.state.theme || 'default';
+      document.documentElement.setAttribute('data-theme', t);
+      const sel = document.getElementById('nx-theme');
+      if (sel) sel.value = t;
+      sel?.addEventListener('change', (e)=>{
+        const v=e.target.value;
+        document.documentElement.setAttribute('data-theme', v);
+        UserStore.state.theme=v; UserStore.save();
+      });
+    }
+  };
+
+  const Header={
+    initActiveTab(){
+      const here = location.pathname.replace(/\/+$/,'') || '/NebulaX.html';
+      document.querySelectorAll('.nx-tab').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        if (!route) return;
+        if (route===here) a.classList.add('active');
+        else a.classList.remove('active');
+        a.addEventListener('click',(e)=>{
+          // allow normal navigation
+        });
+      });
+    },
+    initSearch(){
+      const input = document.getElementById('nx-search');
+      const btn   = document.getElementById('nx-search-btn');
+      if(!input||!btn) return;
+      const go = ()=>{
+        const q = (input.value||'').trim();
+        if(!q) return;
+        // Route to coin page convention: /Coinpage-Official.html?query=...
+        location.href = `/Coinpage-Official.html?query=${encodeURIComponent(q)}`;
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+    },
+    initPfp(){
+      const img = document.getElementById('nx-pfp');
+      if(img) img.src = (UserStore.state.pfp?.url)||'/pfp/default.png';
+      const btn = document.getElementById('nx-profile');
+      btn?.addEventListener('click',()=>{
+        // simple MVP: cycle built-ins; later open profile modal
+        const choices=['/pfp/default.png','/pfp/nx01.png','/pfp/nx02.png'];
+        const idx = Math.max(0, choices.indexOf(UserStore.state.pfp?.url));
+        const next = choices[(idx+1)%choices.length];
+        UserStore.state.pfp={type:'builtin',url:next}; UserStore.save();
+        if(img) img.src=next;
+      });
+    },
+    initStore(){
+      const a = document.getElementById('nx-store');
+      if(!a) return;
+      // keep as a link; if you make a modal later, hydrate here
+    },
+    initWallet(){
+      const w = document.getElementById('nx-wallet');
+      w?.addEventListener('click', ()=>{
+        // hook your wallet adapter here
+        alert('Connect wallet (hook your adapter)');
+      });
+    },
+    mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    Theme.init();
+    Header.mount();
+  });
+})();
+</script>
+
+
+  </body>
+</html>

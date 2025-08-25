@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+      :root{
+        --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a; --nx-border:#1e2747; --nx-text:#e0e7ff;
+        --page-max: 1400px; --nx-amber:#ffb020; --nx-green:#10b981; --nx-pink:#ff48c4;
+      }
+      html,body{height:100%; background:var(--nx-dark); color:var(--nx-text); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace;}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      /* Core panels/buttons consistent with other pages */
+      .nx-panel{ background:rgba(16,20,40,.92); border:1px solid var(--nx-border); box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08); backdrop-filter: blur(8px); border-radius: 16px; }
+      .nx-btn{ border-radius:14px; padding:.42rem .72rem; font-weight:700; transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);}
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+      .nx-input{ width:100%; border-radius:12px; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none; }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:var(--nx-dark-2);border:1px solid #1b2450;border-radius:6px;box-shadow:inset 0 0 8px rgba(0,230,255,.12)}
+      ::-webkit-scrollbar-thumb{border-radius:6px;background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);border:2px solid var(--nx-dark-2)}
+      ::-webkit-scrollbar-thumb:hover{background:#6ff3ff}
+      *{scrollbar-width:thin; scrollbar-color: var(--nx-cyan) var(--nx-dark-2)}
+
+      .pill{ display:inline-flex; align-items:center; gap:.35rem; padding:.2rem .55rem; border-radius:999px; border:1px solid var(--nx-border); background:rgba(18,21,42,.9); font-size:11px; font-weight:800; }
+      .pill.cyan{ color:#6ff3ff; box-shadow:0 0 6px rgba(0,230,255,.25) inset; }
+      .pill.amb{ color:#ffd59a; box-shadow:0 0 6px rgba(255,176,32,.25) inset; }
+      .pill.grn{ color:#34d399; box-shadow:0 0 6px rgba(52,211,153,.25) inset; }
+      .pill.pink{ color:#ffb5ef; box-shadow:0 0 6px rgba(255,72,196,.25) inset; }
+
+      /* Store grid cards */
+      .store-card{ position:relative; overflow:hidden; border-radius:14px; border:1px solid var(--nx-border); background:linear-gradient(180deg, rgba(18,22,42,.95), rgba(12,16,32,.9)); }
+      .store-card .thumb{ height:110px; background:radial-gradient(120px 120px at 30% 30%, rgba(0,230,255,.15), rgba(255,255,255,.02)); border-bottom:1px solid var(--nx-border); }
+      .store-card .meta{ padding:10px; }
+      .price-tag{ position:absolute; top:8px; right:8px; font-size:12px; }
+      .locker{ position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; gap:8px; font-weight:800; backdrop-filter: blur(2px); }
+      .lock-progress{ height:8px; border-radius:999px; overflow:hidden; background:#1c2244; border:1px solid var(--nx-border); }
+      .lock-progress > div{ height:100%; background:linear-gradient(90deg,#ffd54a,#ffb020); box-shadow:0 0 8px rgba(255,176,32,.35); }
+
+      /* Preview pane skins */
+      .preview-wrap{ position:relative; border-radius:14px; overflow:hidden; border:1px solid var(--nx-border); }
+      .skin{ height:260px; display:grid; grid-template-columns: 1.2fr 1fr; gap:12px; padding:12px; }
+      .skin .panel{ border-radius:12px; padding:10px; border:1px solid var(--nx-border); background:rgba(20,24,48,.85); box-shadow: inset 0 0 12px rgba(0,230,255,.1); }
+      .skin .big{ grid-row:span 2; }
+
+      /* Borders (visual filter names) */
+      .border-glow{ box-shadow:0 0 12px rgba(0,230,255,.25), inset 0 0 10px rgba(0,230,255,.12); }
+      .border-flame{ position:relative; }
+      .border-flame::after{ content:""; position:absolute; inset:-3px; border-radius:inherit; border:2px solid rgba(111,243,255,.75); box-shadow:0 0 10px rgba(111,243,255,.50),0 0 18px rgba(0,230,255,.35); filter: drop-shadow(0 0 6px #6ff3ff) drop-shadow(0 0 14px #3be7ff); animation:nxFlamePulse 2.6s ease-in-out infinite; pointer-events:none; }
+      @keyframes nxFlamePulse{0%{opacity:.55}50%{opacity:1}100%{opacity:.55}}
+
+      /* Background swatches */
+      .bg-swatch{ height:38px; border-radius:10px; border:1px solid var(--nx-border); cursor:pointer; }
+      .bg-a{ background:radial-gradient(60% 90% at 20% 10%, rgba(0,230,255,.12), transparent), linear-gradient(180deg,#0b0f1f,#0a0d1b); }
+      .bg-b{ background:radial-gradient(60% 90% at 80% 20%, rgba(255,176,32,.12), transparent), linear-gradient(180deg,#0b0f1f,#0a0d1b); }
+      .bg-c{ background:linear-gradient(145deg,#0a0d1b 0%, #12152a 60%, #0a0d1b 100%); }
+      .bg-grid{ background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size: 20px 20px; }
+
+      /* Avatar gallery */
+      .avatar{ width:64px; height:64px; border-radius:14px; border:1px solid var(--nx-border); box-shadow:0 0 6px rgba(0,230,255,.12) inset; object-fit:cover; }
+      .avatar.locked{ filter: grayscale(100%) brightness(.7); }
+
+      .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
+      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+
+      .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <span class="nx-btn px-2 py-1 text-xs nx-btn-cyan">Store</span>
+          </nav>
+        </div>
+
+        <!-- Search (optional placeholder for consistency) -->
+        <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
+          <input id="search-input" class="nx-input" placeholder="Search items... /" autocomplete="off"/>
+          <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
+        </div>
+
+        <!-- Right: Wallet + Cart -->
+        <div class="flex items-center gap-2">
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: <span id="bal-sol">0.214</span> SOL • <span id="bal-nebx">1,200</span> NEBX</button>
+          <button id="cart-btn" class="nx-btn nx-btn-cyan"><i data-lucide="shopping-cart" class="w-3 h-3 mr-2"></i><span id="cart-count">0</span></button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <main class="mt-3 grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-3">
+        <!-- LEFT: Catalog + Preview -->
+        <section class="space-y-3">
+          <!-- Preview / Themer -->
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xl nx-title">Theme Preview</div>
+              <div class="flex items-center gap-2">
+                <select id="currency" class="nx-input w-28"><option value="SOL">SOL</option><option value="NEBX">NEBX</option></select>
+                <button id="apply-active" class="nx-btn nx-btn-cyan">Apply Theme</button>
+                <button id="export-json" class="nx-btn">Copy JSON</button>
+              </div>
+            </div>
+            <div class="preview-wrap">
+              <div id="preview" class="skin">
+                <div class="panel big" id="pv-main">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="font-semibold">Dashboard</div>
+                    <span class="pill cyan">LIVE</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="panel border-glow">Chart</div>
+                    <div class="panel">Feed</div>
+                    <div class="panel">Portfolio</div>
+                    <div class="panel border-glow">Alerts</div>
+                  </div>
+                </div>
+                <div class="panel" id="pv-side">
+                  <div class="font-semibold mb-2">Explore</div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button class="nx-btn">Adrenaline</button>
+                    <button class="nx-btn">Trending</button>
+                    <button class="nx-btn">New Pairs</button>
+                    <button class="nx-btn">Portfolio</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="nx-panel p-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button data-tab="presets" class="nx-btn nx-btn-cyan">Presets</button>
+              <button data-tab="backgrounds" class="nx-btn">Backgrounds</button>
+              <button data-tab="borders" class="nx-btn">Borders</button>
+              <button data-tab="avatars" class="nx-btn">Profile Pictures</button>
+              <button data-tab="effects" class="nx-btn">Effects</button>
+              <button data-tab="bundles" class="nx-btn">Bundles</button>
+              <span class="ml-auto pill amb text-xs">Unlocks tied to spend</span>
+            </div>
+          </div>
+
+          <!-- Catalog lists -->
+          <div id="tab-presets" class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">Full Theme Presets</div>
+              <div class="text-xs text-zinc-400">Apply entire look: background + borders + accents</div>
+            </div>
+            <div id="presets-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2"></div>
+          </div>
+
+          <div id="tab-backgrounds" class="nx-panel p-3 hidden">
+            <div class="text-sm font-semibold mb-2">Backgrounds</div>
+            <div id="bgs-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2"></div>
+          </div>
+
+          <div id="tab-borders" class="nx-panel p-3 hidden">
+            <div class="text-sm font-semibold mb-2">Panel Borders</div>
+            <div id="borders-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2"></div>
+          </div>
+
+          <div id="tab-avatars" class="nx-panel p-3 hidden">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">NebulaX Avatars (NFT-style collection, mock)</div>
+              <div class="text-xs text-zinc-400">Show off in leaderboards & profile</div>
+            </div>
+            <div id="avatars-grid" class="grid grid-cols-3 md:grid-cols-5 xl:grid-cols-7 gap-3"></div>
+          </div>
+
+          <div id="tab-effects" class="nx-panel p-3 hidden">
+            <div class="text-sm font-semibold mb-2">Special Effects</div>
+            <div id="effects-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2"></div>
+          </div>
+
+          <div id="tab-bundles" class="nx-panel p-3 hidden">
+            <div class="text-sm font-semibold mb-2">Bundles (discounted)</div>
+            <div id="bundles-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2"></div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Unlocks, Profile, Cart -->
+        <aside class="space-y-3">
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">Your Profile</div>
+              <button id="edit-username" class="nx-btn sm:text-xs">Edit</button>
+            </div>
+            <div class="flex items-center gap-3">
+              <img id="profile-avatar" src="NebulaX-logo.png" class="avatar" alt="avatar"/>
+              <div class="flex-1">
+                <div id="profile-name" class="font-semibold">Guest</div>
+                <div class="text-xs text-zinc-400">Level <span id="profile-level">1</span> • Spent: <span id="spent-sol">0.00</span> SOL</div>
+              </div>
+              <button id="change-avatar" class="nx-btn">Change</button>
+            </div>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Unlock Progress</div>
+            <div class="space-y-3 text-sm">
+              <div>
+                <div class="flex justify-between mb-1"><span>Level 2</span><span>5 SOL</span></div>
+                <div class="lock-progress"><div id="prog-l2" style="width:0%"></div></div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1"><span>Level 3</span><span>15 SOL</span></div>
+                <div class="lock-progress"><div id="prog-l3" style="width:0%"></div></div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1"><span>Level 4</span><span>35 SOL</span></div>
+                <div class="lock-progress"><div id="prog-l4" style="width:0%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">Cart</div>
+              <button id="cart-clear" class="nx-btn">Clear</button>
+            </div>
+            <div id="cart-list" class="space-y-2 text-sm">
+              <div class="text-xs text-zinc-400">No items yet.</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div class="nx-panel p-2">Total <span class="block text-xl" id="cart-total">0</span><span id="cart-unit">SOL</span></div>
+              <button id="checkout" class="nx-btn nx-btn-cyan">Checkout</button>
+            </div>
+          </div>
+
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Theme JSON (applied)</div>
+            <textarea id="json-out" class="nx-input h-40 text-xs"></textarea>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span class="text-emerald-400">Store mock ready</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • Store • Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="name-modal" class="modal-fx">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Edit Username</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#name-modal">Close</button></div>
+        <input id="name-input" class="nx-input" placeholder="Your name"/>
+        <button id="name-save" class="nx-btn nx-btn-cyan w-full mt-2">Save</button>
+      </div>
+    </div>
+
+    <div id="avatar-modal" class="modal-fx">
+      <div class="nx-panel w-[420px] max-w-[92vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Choose Avatar</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#avatar-modal">Close</button></div>
+        <div id="avatar-choose" class="grid grid-cols-5 gap-2"></div>
+      </div>
+    </div>
+
+    <script>
+      /* Icons + Year */
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* Simple LS helpers */
+      const LS={get:(k,def)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch{return def}}, set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+
+      /* Mock wallet balances */
+      const state = LS.get('nx_store_state_v3', {
+        bal:{SOL:0.214, NEBX:1200}, spentSOL:0, profile:{name:'Guest', avatar:'NebulaX-logo.png', level:1},
+        activeTheme:null, cart:[], currency:'SOL'
+      });
+
+      const $=sel=>document.querySelector(sel);
+      const $$=sel=>Array.from(document.querySelectorAll(sel));
+
+      function fmt(n,u){ return state.currency==='NEBX'? Math.round(n*100) : n.toFixed(3); }
+      function unit(){ return state.currency; }
+
+      /* Unlock thresholds (SOL-spend based) */
+      const unlocks=[{lvl:2, need:5},{lvl:3, need:15},{lvl:4, need:35}];
+      function recalcLevel(){
+        let lvl=1; for(const u of unlocks){ if(state.spentSOL>=u.need) lvl=u.lvl; }
+        state.profile.level=lvl; $('#profile-level').textContent=lvl; LS.set('nx_store_state_v3',state);
+      }
+
+      /* Catalog (mock data) */
+      const PRESETS=[
+        {id:'cyber', name:'Cyber Cyan', price:{SOL:0.25, NEBX:150}, bg:'bg-a', border:'glow', accent:'cyan', req:1},
+        {id:'ember', name:'Ember Pulse', price:{SOL:0.35, NEBX:210}, bg:'bg-b', border:'flame', accent:'amber', req:2},
+        {id:'void', name:'Deep Void', price:{SOL:0.3, NEBX:180}, bg:'bg-c bg-grid', border:'none', accent:'pink', req:1},
+        {id:'neon', name:'Neon Matrix', price:{SOL:0.45, NEBX:270}, bg:'bg-c', border:'glow', accent:'cyan', req:3},
+      ];
+      const BACKGROUNDS=[
+        {id:'bg-a', name:'Aurora Cyan', price:{SOL:0.1, NEBX:60}, cls:'bg-a', req:1},
+        {id:'bg-b', name:'Solar Amber', price:{SOL:0.12, NEBX:72}, cls:'bg-b', req:1},
+        {id:'bg-c', name:'Nebula Grid', price:{SOL:0.14, NEBX:84}, cls:'bg-c bg-grid', req:2},
+      ];
+      const BORDERS=[
+        {id:'glow', name:'Neon Glow', price:{SOL:0.18, NEBX:108}, cls:'border-glow', req:1},
+        {id:'flame', name:'Blue Flame', price:{SOL:0.22, NEBX:132}, cls:'border-flame', req:2},
+        {id:'plain', name:'Minimal', price:{SOL:0.08, NEBX:48}, cls:'', req:1},
+      ];
+      const EFFECTS=[
+        {id:'cursor', name:'Cyan Cursor Trail', price:{SOL:0.12, NEBX:72}, req:2},
+        {id:'parallax', name:'Parallax BG', price:{SOL:0.16, NEBX:96}, req:3},
+      ];
+      const AVATARS=[
+        {id:'a1', src:'NebulaX-logo.png', price:{SOL:0, NEBX:0}, req:1},
+        {id:'a2', src:'https://picsum.photos/seed/nebula1/256', price:{SOL:0.05, NEBX:30}, req:1},
+        {id:'a3', src:'https://picsum.photos/seed/nebula2/256', price:{SOL:0.08, NEBX:48}, req:2},
+        {id:'a4', src:'https://picsum.photos/seed/nebula3/256', price:{SOL:0.12, NEBX:72}, req:3},
+        {id:'a5', src:'https://picsum.photos/seed/nebula4/256', price:{SOL:0.15, NEBX:90}, req:4},
+      ];
+      const BUNDLES=[
+        {id:'starter', name:'Starter Kit', items:['bg-a','glow','a2'], price:{SOL:0.36, NEBX:210}, req:1},
+        {id:'elite', name:'Elite FX', items:['bg-b','flame','parallax','a4'], price:{SOL:0.72, NEBX:420}, req:3},
+      ];
+
+      /* Render helpers */
+      function cardHTML(entry, type){
+        const locked = state.profile.level < entry.req;
+        const price = entry.price[unit()] + ' ' + unit();
+        return `
+          <div class="store-card" data-type="${type}" data-id="${entry.id}">
+            <div class="thumb ${entry.cls||''}"></div>
+            <div class="meta">
+              <div class="flex items-center justify-between">
+                <div class="font-semibold text-sm truncate">${entry.name||entry.id}</div>
+                <span class="pill ${locked?'amb':'cyan'} price-tag">${price}</span>
+              </div>
+              <div class="text-[10px] text-zinc-400 mt-1">Req: L${entry.req}</div>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <button class="nx-btn nx-btn-cyan add-btn">Add to Cart</button>
+                <button class="nx-btn try-btn">Try</button>
+              </div>
+            </div>
+            ${locked? `<div class="locker text-xs"><i data-lucide="lock" class="w-4 h-4"></i> L${entry.req} required</div>`:''}
+          </div>`;
+      }
+
+      function renderGrids(){
+        $('#presets-grid').innerHTML = PRESETS.map(p=>cardHTML(p,'preset')).join('');
+        $('#bgs-grid').innerHTML = BACKGROUNDS.map(p=>cardHTML(p,'bg')).join('');
+        $('#borders-grid').innerHTML = BORDERS.map(p=>cardHTML(p,'border')).join('');
+        $('#effects-grid').innerHTML = EFFECTS.map(p=>cardHTML(p,'effect')).join('');
+        // Avatars
+        $('#avatars-grid').innerHTML = AVATARS.map(a=>{
+          const locked = state.profile.level < a.req;
+          const price = a.price[unit()] + ' ' + unit();
+          return `<div class="flex flex-col items-center gap-2" data-type="avatar" data-id="${a.id}">
+            <img src="${a.src}" class="avatar ${locked?'locked':''}"/>
+            <div class="text-xs">L${a.req} • ${price}</div>
+            <div class="grid grid-cols-2 gap-2 w-full">
+              <button class="nx-btn nx-btn-cyan add-avatar">Add</button>
+              <button class="nx-btn set-avatar">Use</button>
+            </div>
+          </div>`;
+        }).join('');
+        // Bundles
+        $('#bundles-grid').innerHTML = BUNDLES.map(b=>cardHTML(b,'bundle')).join('');
+
+        if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      }
+
+      /* Tabs */
+      $$('#currency').forEach(()=>{});
+      $('#currency').value = state.currency;
+      $$('#currency').forEach(()=>{});
+
+      $$('#currency').forEach(()=>{});
+      $('#currency').addEventListener('change', ()=>{ state.currency=$('#currency').value; LS.set('nx_store_state_v3',state); renderGrids(); renderCart(); });
+
+      $$('.nx-panel [data-tab]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const id=btn.getAttribute('data-tab');
+          ['presets','backgrounds','borders','avatars','effects','bundles'].forEach(t=>{
+            const p = $('#tab-'+t); if(p) p.classList.toggle('hidden', t!==id);
+          });
+          $$('.nx-panel [data-tab]').forEach(b=>b.classList.remove('nx-btn-cyan'));
+          btn.classList.add('nx-btn-cyan');
+        });
+      });
+
+      /* Attach grid button handlers (delegated) */
+      function gridClick(e){
+        const card = e.target.closest('.store-card');
+        const isAvatar = e.target.closest('[data-type="avatar"]');
+        if(card){
+          const type = card.getAttribute('data-type');
+          const id = card.getAttribute('data-id');
+          if(e.target.closest('.add-btn')) addToCart({type,id});
+          if(e.target.closest('.try-btn')) tryItem({type,id});
+        }else if(isAvatar){
+          const id=isAvatar.getAttribute('data-id');
+          if(e.target.closest('.add-avatar')) addToCart({type:'avatar',id});
+          if(e.target.closest('.set-avatar')) setAvatar(id);
+        }
+      }
+      $('#tab-presets').addEventListener('click',gridClick);
+      $('#tab-backgrounds').addEventListener('click',gridClick);
+      $('#tab-borders').addEventListener('click',gridClick);
+      $('#tab-effects').addEventListener('click',gridClick);
+      $('#tab-avatars').addEventListener('click',gridClick);
+      $('#tab-bundles').addEventListener('click',gridClick);
+
+      /* Cart */
+      function addToCart(item){ state.cart.push(item); LS.set('nx_store_state_v3',state); renderCart(); }
+      function priceOf(item){
+        const map={preset:PRESETS, bg:BACKGROUNDS, border:BORDERS, effect:EFFECTS, avatar:AVATARS, bundle:BUNDLES};
+        const coll=map[item.type]||[]; const f=coll.find(x=>x.id===item.id); return f? f.price[unit()] : 0;
+      }
+      function renderCart(){
+        $('#cart-count').textContent = state.cart.length;
+        const list = state.cart.map((it,i)=>`<div class="nx-panel p-2 flex items-center justify-between"><div class="text-xs">${it.type}:${it.id}</div><div class="flex items-center gap-2"><div class="text-xs">${priceOf(it)} ${unit()}</div><button data-i="${i}" class="nx-btn rm">✕</button></div></div>`).join('');
+        $('#cart-list').innerHTML = list || '<div class="text-xs text-zinc-400">No items yet.</div>';
+        const total = state.cart.reduce((a,b)=>a+priceOf(b),0);
+        $('#cart-total').textContent = (unit()==='NEBX'? Math.round(total*100): total.toFixed(3));
+        $('#cart-unit').textContent = unit();
+        $$('#cart-list .rm').forEach(btn=>btn.addEventListener('click',()=>{ const i=+btn.getAttribute('data-i'); state.cart.splice(i,1); LS.set('nx_store_state_v3',state); renderCart(); }));
+      }
+      $('#cart-clear').addEventListener('click',()=>{ state.cart=[]; LS.set('nx_store_state_v3',state); renderCart(); });
+
+      $('#checkout').addEventListener('click',()=>{
+        const total = state.cart.reduce((a,b)=>a+priceOf(b),0);
+        if(total<=0) return alert('Cart is empty.');
+        if(unit()==='SOL'){
+          if(state.bal.SOL<total) return alert('Insufficient SOL.');
+          state.bal.SOL -= total; state.spentSOL += total;
+        }else{
+          if(state.bal.NEBX < Math.round(total*100)) return alert('Insufficient NEBX.');
+          state.bal.NEBX -= Math.round(total*100);
+          state.spentSOL += total; // credit toward unlocks using SOL equivalent pricing (1 SOL = 100 NEBX mock)
+        }
+        // grant items: for presets apply as active theme
+        state.cart.forEach(it=>{
+          if(it.type==='preset'){ applyPreset(it.id); }
+          if(it.type==='bg'){ active.bg = BACKGROUNDS.find(x=>x.id===it.id)?.cls || active.bg; }
+          if(it.type==='border'){ active.border = BORDERS.find(x=>x.id===it.id)?.cls || active.border; }
+          if(it.type==='bundle'){
+            const b=BUNDLES.find(x=>x.id===it.id); if(b){
+              b.items.forEach(sub=>{
+                const bg=BACKGROUNDS.find(x=>x.id===sub); if(bg) active.bg=bg.cls;
+                const br=BORDERS.find(x=>x.id===sub); if(br) active.border=br.cls;
+              });
+            }
+          }
+          if(it.type==='avatar'){ const a=AVATARS.find(x=>x.id===it.id); if(a) state.profile.avatar=a.src; }
+        });
+        state.cart=[]; recalcLevel(); saveActive(); renderBalances(); renderCart(); renderPreview(); renderProfile(); alert('Purchase complete (mock).');
+      });
+
+      function renderBalances(){ $('#bal-sol').textContent=state.bal.SOL.toFixed(3); $('#bal-nebx').textContent=state.bal.NEBX; $('#spent-sol').textContent=state.spentSOL.toFixed(2); }
+
+      /* Unlock bars */
+      function renderUnlocks(){
+        unlocks.forEach(u=>{
+          const pct = Math.min(100, Math.round((state.spentSOL/u.need)*100));
+          const el = u.lvl===2? '#prog-l2' : u.lvl===3? '#prog-l3' : '#prog-l4';
+          $(el).style.width = pct+'%';
+        });
+      }
+
+      /* Profile */
+      function renderProfile(){ $('#profile-name').textContent=state.profile.name; $('#profile-avatar').src=state.profile.avatar; $('#profile-level').textContent=state.profile.level; }
+      $('#edit-username').addEventListener('click',()=>{ $('#name-input').value=state.profile.name; $('#name-modal').style.display='grid'; });
+      $('#name-save').addEventListener('click',()=>{ const v=$('#name-input').value.trim()||'Guest'; state.profile.name=v; LS.set('nx_store_state_v3',state); renderProfile(); $('#name-modal').style.display='none'; });
+      $('[data-close="#name-modal"]').addEventListener('click',()=>$('#name-modal').style.display='none');
+      $('#change-avatar').addEventListener('click',()=>{ renderAvatarPicker(); $('#avatar-modal').style.display='grid'; });
+      $('[data-close="#avatar-modal"]').addEventListener('click',()=>$('#avatar-modal').style.display='none');
+
+      function renderAvatarPicker(){ $('#avatar-choose').innerHTML = AVATARS.map(a=>`<img src="${a.src}" class="avatar ${state.profile.level<a.req?'locked':''}" data-id="${a.id}"/>`).join(''); $$('#avatar-choose .avatar').forEach(img=>img.addEventListener('click',()=>setAvatar(img.getAttribute('data-id')))); }
+      function setAvatar(id){ const a=AVATARS.find(x=>x.id===id); if(!a) return; if(state.profile.level<a.req) return alert('Locked. Level up by spending.'); state.profile.avatar=a.src; LS.set('nx_store_state_v3',state); renderProfile(); $('#avatar-modal').style.display='none'; }
+
+      /* Active theme + preview */
+      let active = state.activeTheme || { bg:'bg-a', border:'border-glow', accent:'cyan' };
+      function applyPreset(id){ const p=PRESETS.find(x=>x.id===id); if(!p) return; active={ bg:p.bg? (BACKGROUNDS.find(b=>b.id===p.bg)?.cls || p.bg) : active.bg, border: (p.border==='glow'? 'border-glow' : p.border==='flame'? 'border-flame' : ''), accent:p.accent||'cyan' }; saveActive(); renderPreview(); }
+      function saveActive(){ state.activeTheme=active; LS.set('nx_store_state_v3',state); $('#json-out').value = JSON.stringify(active,null,2); }
+      function renderPreview(){
+        const pv=$('#preview'); pv.className = 'skin '+(active.bg||'');
+        ['pv-main','pv-side'].forEach(id=>{ const el=$('#'+id); el.classList.remove('border-glow','border-flame'); if(active.border) el.classList.add(active.border); });
+      }
+      function tryItem(item){ if(item.type==='preset') return applyPreset(item.id); if(item.type==='bg'){ const x=BACKGROUNDS.find(b=>b.id===item.id); if(x){ active.bg=x.cls; renderPreview(); } } if(item.type==='border'){ const x=BORDERS.find(b=>b.id===item.id); if(x){ active.border=x.cls; renderPreview(); } } }
+      $('#apply-active').addEventListener('click',()=>{ alert('Applied theme to app (mock). Persisted locally.'); saveActive(); });
+      $('#export-json').addEventListener('click',()=>{ navigator.clipboard.writeText($('#json-out').value).then(()=>alert('Copied JSON to clipboard')); });
+
+      /* Tabs default */
+      function showTab(id){ ['presets','backgrounds','borders','avatars','effects','bundles'].forEach(t=>{ const p=$('#tab-'+t); if(p) p.classList.toggle('hidden', t!==id); }); $$('.nx-panel [data-tab]').forEach(b=>{ if(b.getAttribute('data-tab')===id) b.classList.add('nx-btn-cyan'); else b.classList.remove('nx-btn-cyan'); }); }
+
+      /* Init */
+      function init(){ renderBalances(); recalcLevel(); renderUnlocks(); renderProfile(); renderGrids(); renderCart(); saveActive(); renderPreview(); showTab('presets'); }
+      init();
+
+      // Overlay close on backdrop click
+      $$('#name-modal, #avatar-modal').forEach(el=>el.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }));
+
+      // Minimal search mock
+      const sWrap=$('#search-wrap'), sIn=$('#search-input'), sDD=$('#search-dd');
+      const ITEMS=[...PRESETS.map(x=>({k:x.name, go:()=>showTab('presets')})), ...BACKGROUNDS.map(x=>({k:x.name, go:()=>showTab('backgrounds')})), ...BORDERS.map(x=>({k:x.name, go:()=>showTab('borders')})), ...AVATARS.map(x=>({k:'Avatar', go:()=>showTab('avatars')}))];
+      function renderSearch(q){ const m=q?ITEMS.filter(i=>i.k.toLowerCase().includes(q.toLowerCase())):[]; sDD.innerHTML=''; if(!m.length){ sDD.classList.add('hidden'); return; } sDD.classList.remove('hidden'); sDD.insertAdjacentHTML('beforeend','<div class="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-400 border-b border-[var(--nx-border)]">Results</div>'); m.forEach(o=>{ const row=document.createElement('button'); row.type='button'; row.className='w-full text-left px-3 py-2 hover:bg-[var(--nx-dark-2)]'; row.textContent=o.k; row.addEventListener('click',()=>{ o.go(); sDD.classList.add('hidden'); }); sDD.appendChild(row); }); }
+      sIn?.addEventListener('input',()=>renderSearch(sIn.value)); document.addEventListener('click',(e)=>{ if(sWrap && !sWrap.contains(e.target)) sDD.classList.add('hidden'); });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • Adrenaline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+
+<style>
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
+</style>
+    <style>
+      :root{
+        --nx-cyan:#00e6ff;
+        --nx-dark:#0a0d1b;
+        --nx-dark-2:#12152a;
+        --nx-border:#1e2747;
+        --nx-text:#e0e7ff;
+        --page-max: 1400px;
+        --nx-amber:#ffb020;
+        --nx-green:#10b981;
+      }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      .nx-panel{
+        background:rgba(16,20,40,.92);
+        border:1px solid var(--nx-border);
+        box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08);
+        backdrop-filter: blur(8px);
+        border-radius: 16px;
+      }
+      .nx-btn{
+        border-radius:14px; padding:.42rem .72rem; font-weight:700;
+        transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease;
+        border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);
+      }
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+      .sm-btn{ padding:.28rem .5rem; font-size:12px; }
+
+      .nx-input{
+        width:100%; border-radius:12px; border:1px solid var(--nx-border);
+        background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none; min-width:0;
+      }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:var(--nx-dark-2);border:1px solid #1b2450;border-radius:6px;box-shadow:inset 0 0 8px rgba(0,230,255,.12)}
+      ::-webkit-scrollbar-thumb{border-radius:6px;background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);border:2px solid var(--nx-dark-2)}
+      ::-webkit-scrollbar-thumb:hover{background:#6ff3ff}
+      *{scrollbar-width:thin; scrollbar-color: var(--nx-cyan) var(--nx-dark-2)}
+
+      .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
+      .search-dd{ z-index:2500; }
+      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+
+      /* Photon-style compact rows */
+      .nx-list{ width:100%; }
+      .row-card{ padding:12px 10px; border-bottom:1px solid #333a66; cursor:pointer; }
+      .row-card:last-child{ border-bottom:0; }
+/* keep this from earlier */
+.row-top{
+  display:flex;
+  align-items:flex-start;   /* top align left & right blocks */
+  gap:10px;
+}
+
+/* make the right side a 3-row stack */
+.metrics{
+  margin-left:auto;
+  display:flex;
+  flex-direction:column;    /* stack rows */
+  gap:6px;
+  align-items:flex-end;     /* right-align rows */
+}
+
+/* each metrics row is a single line */
+.metrics .met-row{
+  display:flex;
+  gap:6px;
+  flex-wrap:nowrap;         /* prevent chips from dropping */
+}
+
+/* reuse existing styles; just ensure status row sits nicely */
+.metrics .status-line{
+  margin-top:0;             /* override the default 4px top margin */
+  gap:8px;                  /* a bit more breathing room */
+  justify-content:flex-end; /* sit at the right with the chips */
+}
+      .row-left{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; }
+
+      /* NEW: token media (image on the left) */
+      .token-media{ display:flex; align-items:center; gap:10px; min-width:0; }
+      .token-img{
+        width:44px; height:44px; border-radius:12px; object-fit:cover;
+        border:1px solid var(--nx-border);
+        box-shadow:0 0 10px rgba(0,230,255,.15), inset 0 0 6px rgba(0,0,0,.35);
+        background:radial-gradient(120px 120px at 30% 30%, rgba(0,230,255,.25), rgba(255,255,255,.02));
+      }
+
+      .name-block{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+      .ticker-line{ display:flex; align-items:center; gap:8px; min-width:0; }
+      .ticker{ font-weight:800; font-size:16px; letter-spacing:.04em; white-space:nowrap; }
+      .fullname{ font-size:13px; color:#cfd6ff; opacity:.9; }
+      .status-line{ display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+      .chip{ display:inline-flex; align-items:center; gap:.35rem; padding:.2rem .55rem; border-radius:999px; border:1px solid var(--nx-border); background:rgba(18,21,42,.9); font-size:12px; font-weight:700; }
+      .chip.green{ color:#34d399; box-shadow:0 0 6px rgba(52,211,153,.25) inset; }
+      .chip.red{ color:#f87171; box-shadow:0 0 6px rgba(248,113,113,.25) inset; }
+      .chip.cyan{ color:#6ff3ff; box-shadow:0 0 6px rgba(0,230,255,.25) inset; }
+      .chip.amb{ color:#ffd59a; box-shadow:0 0 6px rgba(255,176,32,.25) inset; }
+      .chip.no-wrap{ white-space:nowrap; }
+
+      .copy-btn{ display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; border:1px solid var(--nx-border); background:rgba(20,24,48,.9); color:#9aa6dc; font-size:11px; }
+      .copy-btn:hover{ color:#e0e7ff; box-shadow:0 0 6px rgba(0,230,255,.2) inset; }
+      .copy-btn.copied{ border-color:var(--nx-cyan); color:#6ff3ff; }
+
+      .metrics{ margin-left:auto; display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; }
+      .metric{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--nx-border); background:rgba(12,16,32,.9); font-size:12px; font-weight:800; }
+      .metric .k{ font-size:11px; letter-spacing:.06em; color:#9aa6dc; text-transform:uppercase; }
+      .metric .v{ font-variant-numeric:tabular-nums; }
+      .metric.amb .v{ color:#fbbf24; text-shadow:0 0 3px rgba(251,191,36,.35); }
+      .metric.grn .v{ color:#34d399; text-shadow:0 0 3px rgba(52,211,153,.35); }
+      .metric.cyan .v{ color:#6ff3ff; text-shadow:0 0 3px rgba(0,230,255,.35); }
+
+      .sec-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+      .sec-title{ font-size:1.05rem; font-weight:700; letter-spacing:.02em; display:flex; align-items:center; gap:.6rem; }
+      .dot{ width:9px; height:9px; border-radius:999px; box-shadow:0 0 10px currentColor; }
+      .accent-cyan{ color:var(--nx-cyan); }
+      .accent-amber{ color:var(--nx-amber); }
+      .accent-green{ color:var(--nx-green); }
+
+      .themed-scroll{ overflow-y:auto; overflow-x:hidden; border-radius:12px; border:1px solid var(--nx-border); padding:2px; max-height:none; }
+
+      .scroll-cyan::-webkit-scrollbar-thumb{background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);}
+      .scroll-amber::-webkit-scrollbar-thumb{background:var(--nx-amber);box-shadow:0 0 8px rgba(255,176,32,.35);}
+      .scroll-green::-webkit-scrollbar-thumb{background:var(--nx-green);box-shadow:0 0 8px rgba(16,185,129,.35);}
+      .scroll-cyan{scrollbar-color: var(--nx-cyan) var(--nx-dark-2);}
+      .scroll-amber{scrollbar-color: var(--nx-amber) var(--nx-dark-2);}
+      .scroll-green{scrollbar-color: var(--nx-green) var(--nx-dark-2);}
+
+      .search-dd{overflow:auto;border:1px solid var(--nx-border);background:rgba(13,16,34,.98);}
+      .search-head{position:sticky;top:0;padding:8px 12px;font-size:12px;letter-spacing:.08em;color:#9aa6dc;border-bottom:1px solid var(--nx-border);background:rgba(18,22,40,.96)}
+      .result-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--nx-border)}
+      .result-item:hover{background:rgba(18,22,46,.98)}
+      .ri-left{width:28px;height:28px;border-radius:10px;background:rgba(20,24,48,.9);display:flex;align-items:center;justify-content:center;border:1px solid var(--nx-border)}
+      .ri-main{flex:1;min-width:0}
+      .ri-pair{font-weight:800;letter-spacing:.02em}
+      .ri-name{font-size:12px;color:#cfd6ff;opacity:.8;margin-top:2px}
+      .ri-metrics{display:flex;gap:12px;font-size:12px;white-space:nowrap}
+      .ri-metrics .lab{color:#9aa6dc;margin-right:4px}
+      .row-card.highlight{box-shadow:inset 0 0 0 1px rgba(0,230,255,.35),0 0 12px rgba(0,230,255,.12);border-radius:12px}
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+          </nav>
+        </div>
+
+  <!-- Center: SEARCH (keep if page already has it; otherwise comment out) -->
+  <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
+    <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
+    <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
+  </div>
+
+  <!-- Right: wallet -->
+  <div class="flex items-center gap-2">
+    <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+  </div>
+</div>
+    </header>
+
+    <div class="page-wrap">
+      <!-- Main grid (3 columns) -->
+      <main class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- LEFT: New Pairs -->
+        <section class="nx-panel p-3">
+          <div class="sec-head mb-2">
+            <div class="sec-title accent-cyan"><span class="dot" style="color:var(--nx-cyan)"></span> New Pairs</div>
+            <button class="nx-btn sm-btn">Newest → Oldest</button>
+          </div>
+          <div class="themed-scroll scroll-cyan">
+<div class="nx-list" id="col-new"        data-section="new">
+              <!-- WIF -->
+              <div class="row-card" id="row-WIF" data-symbol="WIF" role="button" aria-label="Open WIF">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="WIF"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">WIF</div><span class="chip green">+6.2%</span></div>
+                        <div class="fullname">dogwifhat</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- BONK -->
+              <div class="row-card" id="row-BONK" data-symbol="BONK" role="button" aria-label="Open BONK">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="BONK"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">BONK</div><span class="chip red">-1.4%</span></div>
+                        <div class="fullname">Bonk</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- MEW -->
+              <div class="row-card" id="row-MEW" data-symbol="MEW" role="button" aria-label="Open MEW">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="MEW"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">MEW</div><span class="chip green">+2.1%</span></div>
+                        <div class="fullname">MEW</div>
+                       
+                      </div>
+                    </div>
+                  </div>
+<div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- POP -->
+              <div class="row-card" id="row-POP" data-symbol="POP" role="button" aria-label="Open POP">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="POP"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">POP</div><span class="chip red">-0.3%</span></div>
+                        <div class="fullname">POPCAT</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                 <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MIDDLE: Migrating / Final Stretch -->
+        <section class="nx-panel p-3">
+          <div class="sec-head mb-2">
+            <div class="sec-title accent-amber"><span class="dot" style="color:var(--nx-amber)"></span> Migrating / Final Stretch</div>
+            <button class="nx-btn sm-btn">Newest → Oldest</button>
+          </div>
+          <div class="themed-scroll scroll-amber">
+<div class="nx-list" id="col-migrating"  data-section="migrating">
+              <!-- CAT -->
+              <div class="row-card" id="row-CAT" data-symbol="CAT" role="button" aria-label="Open CAT">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="CAT"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">CAT</div></div>
+                        <div class="fullname">Cat</div>
+                      </div>  
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                  </div>
+                </div>
+              </div>
+              <!-- PENGU -->
+              <div class="row-card" id="row-PENGU" data-symbol="PENGU" role="button" aria-label="Open PENGU">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="PENGU"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">PENGU</div></div>
+                        <div class="fullname">Pengu</div>
+                      </div>  
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- DUCK -->
+              <div class="row-card" id="row-DUCK" data-symbol="DUCK" role="button" aria-label="Open DUCK">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="DUCK"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">DUCK</div></div>
+                        <div class="fullname">Duck</div>
+                      </div>    
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- PUP -->
+              <div class="row-card" id="row-PUP" data-symbol="PUP" role="button" aria-label="Open PUP">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="PUP"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">PUP</div></div>
+                        <div class="fullname">Pup</div>
+                      </div?  
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- RIGHT: Migrated -->
+        <section class="nx-panel p-3">
+          <div class="sec-head mb-2">
+            <div class="sec-title accent-green"><span class="dot" style="color:var(--nx-green)"></span> Migrated</div>
+            <button class="nx-btn sm-btn">Newest → Oldest</button>
+          </div>
+          <div class="themed-scroll scroll-green">
+<div class="nx-list" id="col-migrated"   data-section="migrated">
+              <!-- GME -->
+              <div class="row-card" id="row-GME" data-symbol="GME" role="button" aria-label="Open GME">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="GME"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">GME</div></div>
+                        <div class="fullname">GameStop</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrated</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- PEPE -->
+              <div class="row-card" id="row-PEPE" data-symbol="PEPE" role="button" aria-label="Open PEPE">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="PEPE"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">PEPE</div></div>
+                        <div class="fullname">PEPE</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- MOG -->
+              <div class="row-card" id="row-MOG" data-symbol="MOG" role="button" aria-label="Open MOG">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="MOG"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">MOG</div></div>
+                        <div class="fullname">MOG</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+               <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+              <!-- BOME -->
+              <div class="row-card" id="row-BOME" data-symbol="BOME" role="button" aria-label="Open BOME">
+                <div class="row-top">
+                  <div class="row-left">
+                    <div class="token-media">
+                      <img class="token-img" src="NebulaX-logo.png" alt="BOME"/>
+                      <div class="name-block">
+                        <div class="ticker-line"><div class="ticker">BOME</div></div>
+                        <div class="fullname">BOME</div>
+                        
+                      </div>
+                    </div>
+                  </div>
+                  <div class="metrics">
+  <!-- Row 1 -->
+  <div class="met-row">
+    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
+    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
+    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
+  </div>
+
+  <!-- Row 2 -->
+  <div class="met-row">
+    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
+    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
+  </div>
+
+  <!-- Row 3 (status + copy) -->
+  <div class="met-row status-line">
+    <span class="chip amb no-wrap">Migrating</span>
+    <button class="copy-btn" data-addr="9cA...mig">
+      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+    </button>
+  </div>
+</div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span id="status-text" class="text-emerald-400">Idle (mock)</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • Adrenaline • Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Wallet dropdown -->
+    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
+      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
+      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+        <div class="nx-panel p-2">Total<br/><strong><span id="wallet-total">0.314</span> SOL</strong></div>
+        <div class="nx-panel p-2">Available<br/><strong><span id="wallet-available">0.214</span> SOL</strong></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="wd-open" class="nx-btn">Withdraw</button>
+        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+      </div>
+    </div>
+
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx">
+      <div class="nx-panel w-[380px] max-w-[95vw] p-3" role="dialog" aria-label="Deposit">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-semibold">Deposit</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button>
+        </div>
+        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
+        <div class="nx-panel p-2 text-xs break-words select-all">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <div class="flex gap-2 mt-3 justify-end">
+          <button class="nx-btn" id="dp-copy">Copy Address</button>
+        </div>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx">
+      <div class="nx-panel w-[380px] max-w-[95vw] p-3" role="dialog" aria-label="Withdraw">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-semibold">Withdraw</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button>
+        </div>
+        <div class="space-y-2">
+          <input id="wd-address" class="nx-input" placeholder="Destination SOL address"/>
+          <div class="flex gap-2 items-center">
+            <input id="wd-amount" class="nx-input flex-1 min-w-0" placeholder="Amount (SOL)" inputmode="decimal"/>
+            <div class="flex gap-1 shrink-0">
+              <button class="nx-btn sm-btn val-btn" data-target="#wd-amount" data-fill="25%">25%</button>
+              <button class="nx-btn sm-btn val-btn" data-target="#wd-amount" data-fill="50%">50%</button>
+              <button class="nx-btn sm-btn val-btn" data-target="#wd-amount" data-fill="MAX">MAX</button>
+            </div>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full" id="wd-submit">Submit (mock)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Icons + year + back -->
+    <script>
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+      document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
+    </script>
+
+    <!-- Copy buttons -->
+    <script>
+      document.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.copy-btn');
+        if(!btn) return;
+        e.stopPropagation();
+        const addr = btn.dataset.addr || '';
+        if (navigator.clipboard) navigator.clipboard.writeText(addr);
+        btn.classList.add('copied');
+        setTimeout(()=>btn.classList.remove('copied'), 700);
+      });
+    </script>
+
+    <!-- Wallet logic -->
+    <script>
+      (function(){
+        const fmt = n => (Math.round(n*1000)/1000).toFixed(3);
+        const state = { total: 0.314, avail: 0.214 };
+        const els = {
+          bal: document.getElementById('bal-text'),
+          total: document.getElementById('wallet-total'),
+          avail: document.getElementById('wallet-available'),
+          btn: document.getElementById('wallet-btn'),
+          dd: document.getElementById('wallet-dd'),
+          dp: document.getElementById('deposit'),
+          wd: document.getElementById('withdraw')
+        };
+        function refresh(){
+          if(els.bal) els.bal.textContent = fmt(state.avail);
+          if(els.total) els.total.textContent = fmt(state.total);
+          if(els.avail) els.avail.textContent = fmt(state.avail);
+        }
+        refresh();
+
+        els.btn?.addEventListener('click', (e)=>{ e.stopPropagation(); els.dd?.classList.toggle('hidden'); });
+        document.addEventListener('click', (e)=>{ if(!e.target.closest('#wallet-dd') && !e.target.closest('#wallet-btn')) els.dd?.classList.add('hidden'); });
+
+        document.getElementById('dp-open')?.addEventListener('click', ()=>{ if(els.dp) els.dp.style.display='grid'; els.dd?.classList.add('hidden'); });
+        document.getElementById('wd-open')?.addEventListener('click', ()=>{ if(els.wd) els.wd.style.display='grid'; els.dd?.classList.add('hidden'); });
+
+        document.querySelectorAll('[data-close]')?.forEach(b=> b.addEventListener('click', (ev)=>{
+          const t = document.querySelector(ev.currentTarget.getAttribute('data-close'));
+          if(t) t.style.display='none';
+        }));
+        [els.dp, els.wd].forEach(m=> m?.addEventListener('click', (ev)=>{ if(ev.target===m) m.style.display='none'; }));
+
+        document.addEventListener('click', (ev)=>{
+          const vb = ev.target.closest('.val-btn'); if(!vb) return;
+          const input = document.querySelector(vb.getAttribute('data-target')); if(!input) return;
+          const setVal = (v)=> input.value = (Math.round(v*1000)/1000).toFixed(3);
+          const fill = vb.getAttribute('data-fill');
+          if(fill==='MAX'){ setVal(state.avail); return; }
+          if(fill.endsWith('%')){ setVal(state.avail * (parseFloat(fill)/100)); return; }
+        });
+
+        document.getElementById('dp-copy')?.addEventListener('click', ()=>{
+          navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');
+          alert('Address copied (mock)');
+        });
+
+        document.getElementById('wd-submit')?.addEventListener('click', ()=>{
+          const amt = parseFloat(document.getElementById('wd-amount')?.value||'0');
+          if(amt>0 && amt<=state.avail){
+            state.avail-=amt; refresh();
+            alert('Withdrawal submitted (mock): '+fmt(amt)+' SOL');
+            if(els.wd) els.wd.style.display='none';
+          } else { alert('Invalid amount'); }
+        });
+      })();
+    </script>
+
+    <!-- Search dropdown (Photon-style) -->
+    <script>
+      (function(){
+        const data = [
+          {id:'WIF', name:'dogwifhat', mc:'4.2B', vol:'118M', liq:'32.1M'},
+          {id:'BONK', name:'Bonk', mc:'1.8B', vol:'88.0M', liq:'20.2M'},
+          {id:'MEW', name:'MEW', mc:'420M', vol:'21.3M', liq:'6.7M'},
+          {id:'POP', name:'POPCAT', mc:'310M', vol:'12.0M', liq:'4.9M'},
+          {id:'CAT', name:'Cat', mc:'95M', vol:'9.4M', liq:'2.1M'},
+          {id:'PENGU', name:'Pengu', mc:'180M', vol:'15.2M', liq:'3.2M'},
+          {id:'DUCK', name:'Duck', mc:'42M', vol:'3.6M', liq:'1.1M'},
+          {id:'PUP', name:'Pup', mc:'61M', vol:'5.4M', liq:'1.6M'},
+          {id:'GME', name:'GameStop', mc:'720M', vol:'43.0M', liq:'12.9M'},
+          {id:'PEPE', name:'PEPE', mc:'1.1B', vol:'98.2M', liq:'23.4M'},
+          {id:'MOG', name:'MOG', mc:'250M', vol:'18.5M', liq:'5.8M'},
+          {id:'BOME', name:'BOME', mc:'390M', vol:'22.1M', liq:'7.2M'}
+        ];
+        const input = document.getElementById('search-input');
+        const dd = document.getElementById('search-dd');
+
+        function itemTpl(x){
+          return `<div class="result-item" data-id="${x.id}">
+            <div class="ri-left"><i data-lucide="diamond" class="w-3 h-3 text-zinc-300"></i></div>
+            <div class="ri-main">
+              <div class="ri-pair">${x.id} / SOL</div>
+              <div class="ri-name">${x.name}</div>
+            </div>
+            <div class="ri-metrics">
+              <div><span class="lab">MC</span>$${x.mc}</div>
+              <div><span class="lab">V</span>$${x.vol}</div>
+              <div><span class="lab">L</span>$${x.liq}</div>
+            </div>
+          </div>`;
+        }
+        function render(list){
+          if(!list || list.length===0){
+            dd.innerHTML = '<div class="search-head">RESULTS</div><div class="text-xs text-zinc-400 p-3">No matches</div>';
+            dd.classList.remove('hidden'); return;
+          }
+          dd.innerHTML = '<div class="search-head">RESULTS</div>' + list.slice(0,8).map(itemTpl).join('');
+          dd.classList.remove('hidden');
+          if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons({attrs:{}}); }
+        }
+        function filter(q){
+          q=q.trim().toLowerCase();
+          if(!q){ dd.classList.add('hidden'); return []; }
+          return data.filter(x=> x.id.toLowerCase().includes(q) || x.name.toLowerCase().includes(q));
+        }
+        input?.addEventListener('input', ()=>{ render(filter(input.value)); });
+        input?.addEventListener('focus', ()=>{ if(input.value){ render(filter(input.value)); } });
+        document.addEventListener('click', (e)=>{ if(!e.target.closest('#search-wrap')) dd.classList.add('hidden'); });
+        dd?.addEventListener('click', (e)=>{
+          const it = e.target.closest('.result-item'); if(!it) return;
+          const id = it.getAttribute('data-id');
+          const el = document.getElementById('row-'+id);
+          if(el){
+            el.classList.add('highlight');
+            el.scrollIntoView({behavior:'smooth',block:'center'});
+            setTimeout(()=>el.classList.remove('highlight'), 1200);
+          }
+          dd.classList.add('hidden'); input.blur();
+        });
+        window.addEventListener('keydown', (e)=>{ if(e.key==='/' && document.activeElement!==input){ e.preventDefault(); input.focus(); }});
+      })();
+document.addEventListener('click',(e)=>{
+  if(!sWrap.contains(e.target)){
+    sDD.classList.add('hidden');
+    sDD.innerHTML='';
+    activeIndex=-1; currentHits=[];
+  }
+});
+sIn.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
+  }
+});
+
+    </script>
+
+    <!-- Clickable rows + CAP (30) + set height to 5 rows -->
+    <script>
+      // Row navigation stub (beta)
+      (function(){
+        const status = document.getElementById('status-text');
+        function openMarket(sym){
+          if(status) status.textContent = `Open ${sym} (mock)`;
+          window.dispatchEvent(new CustomEvent('open-market', {detail:{symbol:sym}}));
+          try{ location.hash = `#/market/${encodeURIComponent(sym)}`; }catch(e){}
+        }
+        document.addEventListener('click', (e)=>{
+          const card = e.target.closest('.row-card');
+          if(!card) return;
+          if(e.target.closest('.copy-btn')) return; // ignore copy clicks
+          const sym = card.getAttribute('data-symbol') || (card.id||'').replace('row-','');
+          if(sym) openMarket(sym);
+        });
+      })();
+
+      // Cap each column at 30 rows and mock-fill to demonstrate scroll
+      (function(){
+        const MAX_ROWS = 30;
+        const lists = Array.from(document.querySelectorAll('.nx-list'));
+
+        function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+        function money(min,max){ return `$${rand(min,max)}M`; }
+        function holders(){ return rand(1200,120000).toLocaleString(); }
+        function age(){ return `${rand(1,12)}m`; }
+
+        function tweak(clone, idx){
+          clone.removeAttribute('id');
+
+          const t = clone.querySelector('.ticker');
+          if(t) t.textContent = (t.textContent || 'SYM') + '-' + (idx+1);
+
+          const n = clone.querySelector('.fullname');
+          if(n) n.textContent = (n.textContent || 'Token') + ' ' + (idx+1);
+
+          const vs = clone.querySelectorAll('.metric .v');
+          if(vs[0]) vs[0].textContent = age();           // Age
+          if(vs[1]) vs[1].textContent = money(10,950);   // MC
+          if(vs[2]) vs[2].textContent = money(1,90);     // Liq
+          if(vs[3]) vs[3].textContent = money(5,120);    // Vol
+          if(vs[4]) vs[4].textContent = holders();       // H
+
+          // randomize chip up/down if present
+          const pct = clone.querySelector('.ticker-line .chip');
+          if(pct && (pct.classList.contains('green') || pct.classList.contains('red'))){
+            const up = Math.random() > 0.5;
+            pct.classList.toggle('green', up);
+            pct.classList.toggle('red', !up);
+            pct.textContent = (up?'+':'-') + (Math.random()*6).toFixed(1) + '%';
+          }
+          return clone;
+        }
+
+        lists.forEach(list=>{
+          const rows = Array.from(list.querySelectorAll('.row-card'));
+          if(rows.length===0) return;
+          const template = rows[rows.length-1];
+          for(let i=rows.length; i<MAX_ROWS; i++){
+            list.appendChild(tweak(template.cloneNode(true), i));
+          }
+        });
+
+        if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      })();
+
+      // Show exactly 5 rows (peek-free) with internal scroll if more
+      (function(){
+        const VISIBLE_ROWS = 4.5;
+        const BUFFER_PX   = 6;
+        function applyHeights(){
+          document.querySelectorAll('.themed-scroll').forEach(cont=>{
+            const r = cont.querySelector('.row-card');
+            if(!r) return;
+            const rowH = r.getBoundingClientRect().height;
+            cont.style.maxHeight = Math.round(rowH * VISIBLE_ROWS + BUFFER_PX) + 'px';
+            cont.style.overflowY = 'auto';
+          });
+        }
+        applyHeights();
+        window.addEventListener('resize', applyHeights);
+      })();
+    </script>
+<script>
+/** ===== NebulaX Click-to-Coin Utilities ===== */
+window.NX = window.NX || {};
+NX.saveSelectedCoin = function(coin){
+  try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
+};
+NX.goToCoin = function(coin){
+  NX.saveSelectedCoin(coin);
+  const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
+  const mint = encodeURIComponent(coin.mint || '');
+  const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}`;
+  location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+};
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const p = new URLSearchParams(location.search);
+  const EMBED = p.get('embed') === '1';
+
+  if (EMBED) {
+    // Hide page chrome when embedded
+    const style = document.createElement('style');
+    style.textContent = `
+      header, nav, .topbar, .sidebar, .footer, .watchlist-panel, .alerts-panel { display:none !important; }
+      body { background:transparent !important; }
+      .page-wrap, .content, .pairs-wrap { margin:0 !important; padding:0 !important; background:transparent !important; box-shadow:none !important; }
+      /* Hide brand/balance strip above the list */
+      .pairs-header, .brand-row, .list-topbar, .wallet-pill, .balance-pill { display:none !important; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Utility: pick a sensible scroll container
+  function getScroller(){
+    return document.querySelector('.pairs-wrap') ||
+           document.querySelector('.content') ||
+           document.scrollingElement || document.documentElement || document.body;
+  }
+
+  // Select the view (New / Migrating / Migrated) and optionally scroll the list to it
+  function applyView(view, doScroll=true){
+    // 1) If your page has built-in tabs, "press" the right one
+    const byData = document.querySelector(`[data-view="${view}"]`);
+    const byId   = document.getElementById(`${view}-tab`);
+    (byData || byId)?.click?.();
+
+    // 2) Try to scroll to the corresponding section/table if it exists
+    const target =
+      document.querySelector(`[data-section="${view}"]`) ||
+      document.getElementById(`${view}-section`) ||
+      document.getElementById(view) ||
+      document.querySelector(`.${view}-section`);
+
+    if (doScroll && target){
+      const scroller = getScroller();
+      const top = target.getBoundingClientRect().top + window.scrollY
+                - (scroller.getBoundingClientRect?.().top || 0) - 8;
+      scroller.scrollTo({ top, behavior: 'smooth' });
+    }
+  }
+
+  // Initial view via query param (still supported)
+  const initial = p.get('view');
+  if (initial) applyView(initial, true);
+
+  // Listen for view changes from the coin page
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.type !== 'nx-ad-view') return;
+    applyView(d.view, d.scroll !== false);
+  });
+});
+</script>
+<script>
+document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
+  row.addEventListener('click', (e)=>{
+    // Allow inner buttons (copy, alert, star) to work without navigating
+    if (e.target.closest('button, .copy-btn')) return;
+    const sym = row.dataset.symbol.trim().toUpperCase(); // e.g. WIF
+    const mint = row.dataset.mint || '';                  // add data-mint="..." if you have it
+    nxOpenCoin({ pair: `${sym}/SOL`, mint });
+  });
+});
+</script>
+<script>
+function nxOpenCoin({ pair, mint = '' }) {
+  const url = `Coinpage-Official.html?pair=${encodeURIComponent(pair)}&mint=${encodeURIComponent(mint)}`;
+  location.href = url;
+}
+</script>
+<script>
+/* === NebulaX Core (themes, header hydrate, routing hooks) === */
+(function(){
+  const UserStore={
+    key:'nx_user',
+    state:{ wallet:null, theme:'default', pfp:{type:'builtin',url:'/pfp/default.png'} },
+    load(){ try{ Object.assign(this.state, JSON.parse(localStorage.getItem(this.key)||'{}')); }catch{} },
+    save(){ localStorage.setItem(this.key, JSON.stringify(this.state)); }
+  };
+  UserStore.load();
+
+  const Theme={
+    init(){
+      const t = UserStore.state.theme || 'default';
+      document.documentElement.setAttribute('data-theme', t);
+      const sel = document.getElementById('nx-theme');
+      if (sel) sel.value = t;
+      sel?.addEventListener('change', (e)=>{
+        const v=e.target.value;
+        document.documentElement.setAttribute('data-theme', v);
+        UserStore.state.theme=v; UserStore.save();
+      });
+    }
+  };
+
+  const Header={
+    initActiveTab(){
+      const here = location.pathname.replace(/\/+$/,'') || '/NebulaX.html';
+      document.querySelectorAll('.nx-tab').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        if (!route) return;
+        if (route===here) a.classList.add('active');
+        else a.classList.remove('active');
+        a.addEventListener('click',(e)=>{
+          // allow normal navigation
+        });
+      });
+    },
+    initSearch(){
+      const input = document.getElementById('nx-search');
+      const btn   = document.getElementById('nx-search-btn');
+      if(!input||!btn) return;
+      const go = ()=>{
+        const q = (input.value||'').trim();
+        if(!q) return;
+        // Route to coin page convention: /Coinpage-Official.html?query=...
+        location.href = `/Coinpage-Official.html?query=${encodeURIComponent(q)}`;
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+    },
+    initPfp(){
+      const img = document.getElementById('nx-pfp');
+      if(img) img.src = (UserStore.state.pfp?.url)||'/pfp/default.png';
+      const btn = document.getElementById('nx-profile');
+      btn?.addEventListener('click',()=>{
+        // simple MVP: cycle built-ins; later open profile modal
+        const choices=['/pfp/default.png','/pfp/nx01.png','/pfp/nx02.png'];
+        const idx = Math.max(0, choices.indexOf(UserStore.state.pfp?.url));
+        const next = choices[(idx+1)%choices.length];
+        UserStore.state.pfp={type:'builtin',url:next}; UserStore.save();
+        if(img) img.src=next;
+      });
+    },
+    initStore(){
+      const a = document.getElementById('nx-store');
+      if(!a) return;
+      // keep as a link; if you make a modal later, hydrate here
+    },
+    initWallet(){
+      const w = document.getElementById('nx-wallet');
+      w?.addEventListener('click', ()=>{
+        // hook your wallet adapter here
+        alert('Connect wallet (hook your adapter)');
+      });
+    },
+    mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    Theme.init();
+    Header.mount();
+  });
+})();
+</script>
+
+  </body>
+</html>
+

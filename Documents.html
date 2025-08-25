@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>NebulaX • Docs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root{
+        --cyberpunk-neon-blue:#00f0ff;
+        --cyberpunk-neon-pink:#ff00e6;
+        --cyberpunk-dark:#0a0d1b;
+        --cyberpunk-dark-secondary:#12152a;
+        --cyberpunk-border:#1e2747;
+        --cyberpunk-text:#e0e7ff;
+      }
+      html,body,#root{height:100%;background:var(--cyberpunk-dark);font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace;}
+      /* error overlay like home page */
+      #err{position:fixed;inset:0;background:rgba(10,10,20,.95);color:#ff6b6b;padding:16px;display:none;z-index:9999}
+      #err pre{white-space:pre-wrap}
+      /* panels / neon look */
+      .cyberpunk-panel{
+        background:linear-gradient(145deg,rgba(13,16,34,.85),rgba(20,25,50,.9));
+        border:1px solid var(--cyberpunk-border);
+        box-shadow:inset 0 0 10px rgba(0,240,255,.18),0 0 15px rgba(0,240,255,.08);
+        backdrop-filter:blur(8px);
+      }
+      .neon-text{color:var(--cyberpunk-text);text-shadow:0 0 2px var(--cyberpunk-neon-blue),0 0 4px var(--cyberpunk-neon-pink)}
+      .tab-btn{transition:all .18s ease}
+      .tab-btn:hover{transform:translateX(2px);box-shadow:0 0 6px rgba(0,240,255,.35)}
+      .tab-active{background:var(--cyberpunk-dark-secondary);box-shadow:0 0 10px rgba(0,240,255,.18),inset 0 0 6px rgba(0,240,255,.18)}
+      /* scrollbar */
+      ::-webkit-scrollbar{width:8px;height:8px}
+      ::-webkit-scrollbar-track{background:var(--cyberpunk-dark-secondary);border-radius:4px}
+      ::-webkit-scrollbar-thumb{background:linear-gradient(45deg,var(--cyberpunk-neon-blue),var(--cyberpunk-dark));border-radius:4px}
+      ::-webkit-scrollbar-thumb:hover{background:var(--cyberpunk-neon-blue)}
+      /* docs content */
+      .doc-content h1{font-size:1.25rem;margin-bottom:.5rem}
+      .doc-content h2{font-size:1.05rem;margin:.75rem 0 .25rem}
+      .doc-content p{color:#c7d2fe;margin:.5rem 0}
+      .doc-content ul{margin:.5rem 0 .75rem 1.25rem;list-style:disc}
+      .doc-content li{margin:.25rem 0;color:#c7d2fe}
+      .doc-pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;background:rgba(0,240,255,.12);border:1px solid var(--cyberpunk-border);font-size:.7rem}
+      .nx-link:hover{text-decoration:underline;text-underline-offset:3px}
+    </style>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- React 18 + Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="err"><strong>Runtime error</strong><pre id="err-msg"></pre></div>
+    <noscript style="color:#ff6b6b;padding:12px;display:block">This page requires JavaScript.</noscript>
+
+    <script>
+      // show runtime errors (helps when opening via file://)
+      window.addEventListener("error", (e)=>{
+        const box=document.getElementById("err"), pre=document.getElementById("err-msg");
+        if(box&&pre){ pre.textContent=(e.error&&e.error.stack)?e.error.stack:(e.message||String(e)); box.style.display="block"; }
+      });
+    </script>
+
+    <script type="text/babel">
+      const {useState,useMemo,useEffect} = React;
+      const DOC_SECTIONS = [
+        { id:"getting-started",  title:"Getting Started" },
+        { id:"wallets",          title:"Wallet Connection" },
+        { id:"trading",          title:"Trading (Market / Limit)" },
+        { id:"charts",           title:"Charts & Live Data" },
+        { id:"alerts",           title:"Alerts & Signal Hub" },
+        { id:"watchlists",       title:"Watchlists" },
+        { id:"portfolio",        title:"Portfolio & PnL" },
+        { id:"token-metrics",    title:"Token Metrics (MC / Liq / Vol / Holders)" },
+        { id:"security",         title:"Safety & Security" },
+        { id:"roadmap",          title:"Roadmap & Tokenomics" },
+        { id:"faq",              title:"FAQ" },
+      ];
+      const PILL=({children})=><span className="doc-pill neon-text">{children}</span>;
+      const Button=({className="",active=false,children,...props})=>(
+        <button {...props} className={["tab-btn w-full text-left rounded-xl px-3 py-2 text-sm border border-[var(--cyberpunk-border)] neon-text", active?"tab-active":"bg-[rgba(18,21,42,.65)] hover:bg-[rgba(18,21,42,.85)]", className].join(" ")}>{children}</button>
+      );
+
+      const CONTENT = {
+        "getting-started": () => (<div className="doc-content">
+          <h1 className="neon-text">Getting Started</h1>
+          <p>Welcome to <span className="font-semibold">NebulaX</span>. This guide helps you connect a wallet, find markets, and place your first trade.</p>
+          <h2 className="neon-text">Quick Steps</h2>
+          <ul>
+            <li>Click <PILL>Connect</PILL> in the header and authorize your wallet.</li>
+            <li>Use search to find a market (e.g., <PILL>WIF/SOL</PILL>).</li>
+            <li>Choose <PILL>Market</PILL> or <PILL>Limit</PILL> in the trading panel.</li>
+          </ul>
+          <p className="text-zinc-400 text-xs">Docs are evolving alongside features.</p>
+        </div>),
+        "wallets": () => (<div className="doc-content">
+          <h1 className="neon-text">Wallet Connection</h1>
+          <ul>
+            <li>Click <PILL>Connect</PILL> in the top-right.</li>
+            <li>Select provider and approve the connection.</li>
+            <li>Available balance appears in the header menu.</li>
+          </ul>
+        </div>),
+        "trading": () => (<div className="doc-content">
+          <h1 className="neon-text">Trading (Market / Limit)</h1>
+          <h2 className="neon-text">Market Orders</h2><p>Executes immediately at current market price.</p>
+          <h2 className="neon-text">Limit Orders</h2><p>Set your price; fills when market reaches it.</p>
+          <ul><li>Choose <PILL>Buy</PILL>/<PILL>Sell</PILL></li><li>Enter amount and (for limit) price</li><li>Review slippage/fees and confirm</li></ul>
+        </div>),
+        "charts": () => (<div className="doc-content">
+          <h1 className="neon-text">Charts & Live Data</h1>
+          <ul><li>Live candles + trade tape</li><li>Planned: indicators, heatmaps, micro timeframes</li></ul>
+        </div>),
+        "alerts": () => (<div className="doc-content">
+          <h1 className="neon-text">Alerts & Signal Hub</h1>
+          <ul>
+            <li>Types: Whale Buy/Sell, Volume Spike, Buys&gt;Sells, Holders +, LP Change</li>
+            <li>Signal Hub aggregates whale moves + curated X posts</li>
+            <li>Planned: AI labeling (“Breakout”, “Migrating”, “Promotion”)</li>
+          </ul>
+        </div>),
+        "watchlists": () => (<div className="doc-content"><h1 className="neon-text">Watchlists</h1><p>Star any market to save. Open Watchlist panel to jump back.</p></div>),
+        "portfolio": () => (<div className="doc-content"><h1 className="neon-text">Portfolio & PnL</h1><ul><li>Positions update on fills</li><li>Unrealized PnL is mark-to-market</li></ul></div>),
+        "token-metrics": () => (<div className="doc-content">
+          <h1 className="neon-text">Token Metrics</h1>
+          <ul>
+            <li><strong>Market Cap</strong>: price × circulating supply</li>
+            <li><strong>Liquidity</strong>: pool depth for the pair</li>
+            <li><strong>Volume</strong>: trading volume over a window</li>
+            <li><strong>Holders</strong>: estimated unique addresses</li>
+          </ul>
+        </div>),
+        "security": () => (<div className="doc-content">
+          <h1 className="neon-text">Safety & Security</h1>
+          <ul><li>Verify contract addresses</li><li>Check LP status/migrations</li><li>Use hardware wallets for larger balances</li></ul>
+        </div>),
+        "roadmap": () => (<div className="doc-content"><h1 className="neon-text">Roadmap & Tokenomics</h1><p>Utility for $NEBX, staking tiers, infra (RPC/API) upgrades.</p></div>),
+        "faq": () => (<div className="doc-content"><h1 className="neon-text">FAQ</h1><ul><li><strong>Is it live?</strong> Some panels are mock while wiring real data.</li><li><strong>Networks?</strong> Solana first; more TBD.</li></ul></div>),
+      };
+
+      function DocsApp(){
+        const initial = (location.hash.replace("#","") || DOC_SECTIONS[0].id);
+        const [tab,setTab]=useState(initial);
+        useEffect(()=>{
+          const onHash=()=>setTab(location.hash.replace("#","")||DOC_SECTIONS[0].id);
+          window.addEventListener("hashchange",onHash); return ()=>window.removeEventListener("hashchange",onHash);
+        },[]);
+        useEffect(()=>{ if(location.hash.replace("#","")!==tab){ history.replaceState(null,"",`#${tab}`);} },[tab]);
+        const Content = useMemo(()=> CONTENT[tab] || (()=> <div className="doc-content"><p>Section coming soon.</p></div>),[tab]);
+
+        return (
+          <div className="min-h-screen neon-text">
+            {/* Header (same layout as home, logo instead of zap) */}
+            <header className="sticky top-0 z-[1000] isolate bg-[rgba(10,13,27,.9)] backdrop-blur-sm border-b border-[var(--cyberpunk-border)] flex h-14 items-center justify-between px-3">
+              <a href="NebulaX.html" className="flex items-center gap-3 group" aria-label="Go to NebulaX Home">
+                <img src="NebulaX-logo.png" alt="NebulaX" className="w-6 h-6 rounded bg-transparent group-hover:scale-[1.03] transition" onError={(e)=>{e.currentTarget.style.display='none'}} />
+                <span className="font-bold tracking-wide group-hover:translate-x-[1px] transition">NEBULAX</span>
+                <span className="ml-1 text-[11px] px-2 py-0.5 rounded-full border border-[var(--cyberpunk-border)] bg-[rgba(18,21,42,.65)]">ALPHA</span>
+              </a>
+              <nav className="flex items-center gap-2">
+                <a href="NebulaX.html#help" className="nx-link text-sm">Help</a>
+                <a href="NebulaX.html#status" className="nx-link text-sm">Status</a>
+                <button className="rounded-2xl px-3 py-2 text-sm font-semibold border border-[var(--cyberpunk-border)] hover:bg-[var(--cyberpunk-dark-secondary)]">Connect</button>
+              </nav>
+            </header>
+
+            <main className="mx-auto grid max-w-[1600px] grid-cols-1 gap-3 p-3 md:grid-cols-[18rem_1fr]">
+              {/* Sidebar */}
+              <aside className="cyberpunk-panel rounded-2xl p-3">
+                <div className="mb-2 text-xs uppercase tracking-wide text-zinc-400">Documentation</div>
+                <div className="grid grid-cols-1 gap-2">
+                  {DOC_SECTIONS.map(s=>(
+                    <Button key={s.id} active={tab===s.id} onClick={()=>setTab(s.id)}>{s.title}</Button>
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <a href="NebulaX.html" className="rounded-xl px-3 py-2 text-center text-sm border border-[var(--cyberpunk-border)] neon-text hover:bg-[var(--cyberpunk-dark-secondary)]">← Home</a>
+                  <a href="#faq" onClick={()=>setTab("faq")} className="rounded-xl px-3 py-2 text-center text-sm border border-[var(--cyberpunk-border)] neon-text hover:bg-[var(--cyberpunk-dark-secondary)]">FAQ</a>
+                </div>
+              </aside>
+
+              {/* Content */}
+              <section className="space-y-3">
+                <div className="cyberpunk-panel rounded-2xl p-3 flex items-center justify-between">
+                  <div className="text-sm font-semibold">{DOC_SECTIONS.find(d=>d.id===tab)?.title || "Docs"}</div>
+                  <div className="text-xs">
+                    <span className="text-zinc-400">Section</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full border border-[var(--cyberpunk-border)] bg-[rgba(18,21,42,.65)]">{tab}</span>
+                  </div>
+                </div>
+
+                <div className="cyberpunk-panel rounded-2xl p-4 doc-content">
+                  <Content/>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  <div className="cyberpunk-panel rounded-2xl p-3">
+                    <div className="mb-1 text-sm font-semibold">Related</div>
+                    <ul className="list-disc ml-5">
+                      <li><a className="nx-link" href="#security" onClick={()=>setTab("security")}>Safety & Security</a></li>
+                      <li><a className="nx-link" href="#token-metrics" onClick={()=>setTab("token-metrics")}>Token Metrics</a></li>
+                      <li><a className="nx-link" href="#alerts" onClick={()=>setTab("alerts")}>Alerts & Signal Hub</a></li>
+                    </ul>
+                  </div>
+                  <div className="cyberpunk-panel rounded-2xl p-3">
+                    <div className="mb-1 text-sm font-semibold">Need more help?</div>
+                    <p className="text-sm text-zinc-300">We’ll expand these docs with screenshots and short clips. For now, ping us on X or check the FAQ.</p>
+                  </div>
+                </div>
+
+                <footer className="cyberpunk-panel rounded-2xl px-3 py-2 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-zinc-400">Docs:</span>
+                    <span className="text-emerald-400">v0.1 (draft)</span>
+                    <span className="text-zinc-400">Theme:</span>
+                    <span className="neon-text">Retro-futuristic</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="neon-text">© {new Date().getFullYear()} NebulaX</span>
+                    <a className="nx-link neon-text" href="NebulaX.html">Home</a>
+                  </div>
+                </footer>
+              </section>
+            </main>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<DocsApp/>);
+    </script>
+  </body>
+</html>
