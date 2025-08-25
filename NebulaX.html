@@ -237,6 +237,26 @@ function formatSOL(n) {
   }).format(n);
 }
 
+const RPCS = [
+  "https://api.mainnet-beta.solana.com",
+  // public demo endpoints (okay for testing; swap to your own in prod)
+  "https://solana-mainnet.g.alchemy.com/v2/demo"
+];
+
+async function getLamportsFromAny(pubkey) {
+  for (const url of RPCS) {
+    try {
+      const conn = new solanaWeb3.Connection(url, "confirmed");
+      const lam = await conn.getBalance(pubkey);
+      return lam;
+    } catch (e) {
+      console.warn("[SOL RPC] failed:", url, e?.message || e);
+    }
+  }
+  throw new Error("All RPCs failed (likely CORS from file://).");
+}
+
+
 /* Read Phantom/publicKey – prefer: (1) stored from login, (2) provider if connected */
 function usePhantomAddress() {
   const [pubkey, setPubkey] = React.useState(null);
@@ -290,25 +310,43 @@ function usePhantomAddress() {
 /* Live SOL balance (subscribes to account changes) */
 function useSolBalance(pubkey) {
   const [lamports, setLamports] = React.useState(null);
+  const [err, setErr] = React.useState(null);
 
   React.useEffect(() => {
     if (!pubkey) return;
-    let subId;
+    let mounted = true, subId;
+
     (async () => {
       try {
-        setLamports(await connection.getBalance(pubkey));
-        subId = await connection.onAccountChange(
+        setErr(null);
+        // one-shot fetch with fallback RPCs
+        const lam = await getLamportsFromAny(pubkey);
+        if (!mounted) return;
+        setLamports(lam);
+
+        // live subscription on the first RPC (best-effort)
+        const conn = new solanaWeb3.Connection(RPCS[0], "confirmed");
+        subId = await conn.onAccountChange(
           pubkey,
-          acc => setLamports(acc.lamports),
+          acc => mounted && setLamports(acc.lamports),
           "confirmed"
         );
-      } catch {}
+      } catch (e) {
+        if (!mounted) return;
+        console.warn("[SOL RPC] balance error:", e);
+        setErr(e.message || "RPC failed");
+        setLamports(null);
+      }
     })();
-    return () => { if (subId) connection.removeAccountChangeListener(subId); };
-  }, [pubkey?.toBase58()]);
 
+    return () => { mounted = false; if (subId) RPCS[0] && new solanaWeb3.Connection(RPCS[0]).removeAccountChangeListener(subId); };
+  }, [pubkey?.toBase58?.()]);
+
+  // expose the error if you want to show a small hint in the UI
+  useSolBalance.lastError = err;
   return lamports;
 }
+
 
 /* One-shot SPL token balances (top 10 by amount) */
 function useSplTokens(pubkey) {
