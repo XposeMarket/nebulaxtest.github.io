@@ -7,6 +7,8 @@
     <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+
 <style>
   :root {
     --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
@@ -186,12 +188,23 @@
     <div id="root"></div>
     <div id="err"><strong>Runtime error</strong><pre id="err-msg"></pre></div>
     <noscript style="color:#ff6b6b;padding:12px;display:block">This page requires JavaScript.</noscript>
-    <script>
-      window.addEventListener("error",(e)=>{
-        const box=document.getElementById("err"),pre=document.getElementById("err-msg");
-        if(box&&pre){pre.textContent=(e.error&&e.error.stack)?e.error.stack:(e.message||String(e));box.style.display="block";}
-      });
-    </script>
+<script>
+  window.addEventListener("error", (e) => {
+    // Ignore generic cross-origin errors (iframes/CDNs)
+    const fromAnotherOrigin = e.message === "Script error." &&
+      (!e.filename || (location.origin !== "null" && !e.filename.startsWith(location.origin)));
+
+    if (fromAnotherOrigin) return;
+
+    const box = document.getElementById("err");
+    const pre = document.getElementById("err-msg");
+    if (box && pre) {
+      pre.textContent = (e.error && e.error.stack) ? e.error.stack : (e.message || String(e));
+      box.style.display = "block";
+    }
+  });
+</script>
+
 
     <!-- ====================== APP ====================== -->
     <script type="text/babel" data-presets="react">
@@ -208,6 +221,120 @@ const DEX_EMBEDS = {
   "BTC/USDC": "https://dexscreener.com/osmosis/1943-factory_osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3_alloyed_allBTC-ibc_498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
+/* ===== Solana / Phantom integration (home only) ===== */
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com"; // swap to your Helius/QuickNode later
+const connection = new solanaWeb3.Connection(SOLANA_RPC, "confirmed");
+const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+/* Read Phantom/publicKey – prefer: (1) stored from login, (2) provider if connected */
+function usePhantomAddress() {
+  const [pubkey, setPubkey] = React.useState(null);
+
+  React.useEffect(() => {
+    // accept either key (login vs home)
+    const stored =
+      localStorage.getItem("nx:wallet") ||
+      localStorage.getItem("nebula:wallet") ||
+      sessionStorage.getItem("nx:wallet") ||
+      sessionStorage.getItem("nebula:wallet");
+
+    if (stored && !pubkey) {
+      try { setPubkey(new solanaWeb3.PublicKey(stored)); } catch {}
+    }
+
+    // listen to Phantom if present
+    const p = window.solana;
+    if (!p) return;
+
+    const onConnect = () => { try { setPubkey(p.publicKey || null); } catch {} };
+    const onDisconnect = () => setPubkey(null);
+
+    try {
+      p.on?.("connect", onConnect);
+      p.on?.("disconnect", onDisconnect);
+      if (p.isConnected && p.publicKey) setPubkey(p.publicKey);
+    } catch {}
+
+    return () => {
+      try {
+        p.removeListener?.("connect", onConnect);
+        p.removeListener?.("disconnect", onDisconnect);
+      } catch {}
+    };
+  }, []); // run once
+
+  // keep in storage so reloads still show a portfolio
+  React.useEffect(() => {
+    if (pubkey) {
+      const b58 = pubkey.toBase58();
+      localStorage.setItem("nx:wallet", b58);
+      sessionStorage.setItem("nx:wallet", b58);
+    }
+  }, [pubkey]);
+
+  return pubkey;
+}
+
+
+/* Live SOL balance (subscribes to account changes) */
+function useSolBalance(pubkey) {
+  const [lamports, setLamports] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!pubkey) return;
+    let subId;
+    (async () => {
+      try {
+        setLamports(await connection.getBalance(pubkey));
+        subId = await connection.onAccountChange(
+          pubkey,
+          acc => setLamports(acc.lamports),
+          "confirmed"
+        );
+      } catch {}
+    })();
+    return () => { if (subId) connection.removeAccountChangeListener(subId); };
+  }, [pubkey?.toBase58()]);
+
+  return lamports;
+}
+
+/* One-shot SPL token balances (top 10 by amount) */
+function useSplTokens(pubkey) {
+  const [tokens, setTokens] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!pubkey) return;
+    (async () => {
+      try {
+        const resp = await connection.getParsedTokenAccountsByOwner(
+          pubkey,
+          { programId: TOKEN_PROGRAM_ID }
+        );
+        const list = resp.value
+          .map(r => {
+            const info = r.account.data.parsed.info;
+            const amt  = info.tokenAmount;
+            const ui   = parseFloat(amt.uiAmountString || "0");
+            return {
+              mint: info.mint,
+              amount: ui,
+              decimals: amt.decimals
+            };
+          })
+          .filter(t => t.amount > 0)
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 10);
+        setTokens(list);
+      } catch (e) {
+        console.warn("token fetch failed", e);
+        setTokens([]);
+      }
+    })();
+  }, [pubkey?.toBase58()]);
+
+  return tokens;
+}
 
       /* Stop per-icon re-DOMing (was causing flicker). We call createIcons once at the end. */
       function Icon({name,className}){ return <i data-lucide={name} className={cx(className,"neon-text")} />; }
@@ -766,47 +893,87 @@ function ChartPanel2({ symbol }) {
           });
         }, 13000, [trending.join(",")], editMode);
 
-        /* Portfolio */
-        const [balances,setBalances]=useState({SOL:10.0,USDC:0});
-        const [positions,setPositions]=useState({});
-        useEffect(()=>{
-          if(!lastFill) return;
-          const [b,q]=lastFill.symbol.split("/");
-          setBalances(prev=>{
-            const next={...prev};
-            if(lastFill.quote==="SOL") next.SOL=(next.SOL||0)+(lastFill.proceedsQuote||0);
-            else if(lastFill.quote==="USDC") next.USDC=(next.USDC||0)+(lastFill.proceedsQuote||0);
-            return next;
-          });
-          setPositions(prev=>{
-            const cur={...prev};
-            const p=cur[b]||{qty:0,avgEntry:0,quote:lastFill.quote};
-            const newQty=p.qty+lastFill.qty;
-            if(newQty===0){ delete cur[b]; }
-            else if(lastFill.qty>0){
-              const costBefore=p.qty*p.avgEntry, costNew=lastFill.qty*lastFill.price;
-              cur[b]={qty:newQty,avgEntry:(costBefore+costNew)/newQty,quote:lastFill.quote};
-            }else{ cur[b]={...p,qty:newQty}; }
-            return cur;
-          });
-        },[lastFill]);
+// Wallet state used by header + portfolio
+const pk = usePhantomAddress();
+const lamports = useSolBalance(pk);
+const solBal = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
 
-        const totalValueUSDC=useMemo(()=>{
-          const solVal=(balances.SOL||0)*solUsd; const usdc=balances.USDC||0;
-          const posVal=Object.entries(positions).reduce((acc,[tok,p])=>{
-            const current=(candlesBySymbol[`${tok}/${p.quote}`]||[])[299]?.close || (last(candlesBySymbol[`${tok}/${p.quote}`])||{close:0}).close || 0;
-            const inQuote=p.qty*current; const inUSDC=p.quote==="SOL"?inQuote*solUsd:inQuote; return acc+inUSDC;
-          },0);
-          return solVal+usdc+posVal;
-        },[balances,positions,solUsd,candlesBySymbol]);
-        const unrealizedPnLUSDC=useMemo(()=>{
-          let pnl=0;
-          Object.entries(positions).forEach(([tok,p])=>{
-            const current=(candlesBySymbol[`${tok}/${p.quote}`]||[])[299]?.close || (last(candlesBySymbol[`${tok}/${p.quote}`])||{close:0}).close || 0;
-            const diff=(current-p.avgEntry)*p.qty; pnl += p.quote==="SOL"?diff*solUsd:diff;
-          });
-          return pnl;
-        },[positions,solUsd,candlesBySymbol]);
+
+        /* Portfolio */
+function LivePortfolioCard({ solUsd }) {
+  const pk = usePhantomAddress();
+  const lamports = useSolBalance(pk);
+  const solBal = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
+  const tokens = useSplTokens(pk);
+
+  const addr = pk ? pk.toBase58() : null;
+
+  return (
+    <Card
+      title={
+        <span className="flex items-center gap-2">
+          <i data-lucide="wallet" className="w-4 h-4" />
+          Portfolio
+        </span>
+      }
+    >
+      {!pk ? (
+        <div className="text-sm text-zinc-400">
+          Connect Phantom first to see your balances.
+        </div>
+      ) : (
+        <div className="space-y-2 text-sm">
+          <div className="text-xs text-zinc-400 break-all">
+            {addr.slice(0, 4)}…{addr.slice(-4)}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="cyberpunk-panel rounded-xl p-2">
+              <div className="text-xs text-zinc-400">SOL</div>
+              <div className="text-lg font-semibold">
+                {solBal == null ? "—" : solBal.toFixed(4)} SOL
+              </div>
+              <div className="text-xs text-zinc-400">
+                {solBal == null ? "" : `$${(solBal * solUsd).toFixed(2)} USD`}
+              </div>
+            </div>
+            <div className="cyberpunk-panel rounded-xl p-2">
+              <div className="text-xs text-zinc-400">Tokens</div>
+              <div className="text-lg font-semibold">{tokens.length}</div>
+              <div className="text-xs text-zinc-400">Top 10 by qty</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--cyberpunk-border)] overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-[var(--cyberpunk-dark-secondary)]">
+                <tr>
+                  <th className="p-2 text-left">Mint</th>
+                  <th className="p-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tokens.length === 0 && (
+                  <tr>
+                    <td className="p-2 text-zinc-400" colSpan="2">
+                      No SPL balances found (or still loading).
+                    </td>
+                  </tr>
+                )}
+                {tokens.map(t => (
+                  <tr key={t.mint} className="border-t border-[var(--cyberpunk-border)]">
+                    <td className="p-2 break-all">{t.mint.slice(0, 4)}…{t.mint.slice(-4)}</td>
+                    <td className="p-2 text-right">{t.amount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
         /* Search */
         const [query,setQuery]=useState(""); const [recentSymbols,setRecentSymbols]=useState([]);
@@ -989,66 +1156,9 @@ function MarketInfo(){
           );
         }
 
-function PortfolioPanel(){
-  return (
-    <Card
-      title={
-        <a
-          href="portfolio_official_v_2_fixed.html"
-          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
-          onClick={(e)=>{ /* allow normal link behavior */ e.stopPropagation?.(); }}
-          aria-label="Open Portfolio page"
-        >
-          Portfolio
-        </a>
-      }
-      toolbar={<Pill>Local</Pill>}
-    >
-      {/* ... keep your existing Portfolio content exactly as-is ... */}
-
-              <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Total Value<br/><span className="font-semibold neon-text">${usdFmt.format(totalValueUSDC)}</span></div>
-                <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Unrealized PnL<br/><span className={cx("font-semibold",unrealizedPnLUSDC>=0?"text-emerald-400":"text-rose-400")}>{unrealizedPnLUSDC>=0?"+":""}${usdFmt.format(unrealizedPnLUSDC)}</span></div>
-                <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Available<br/><span className="font-semibold neon-text">{nf.format(balances.SOL||0)} SOL • ${usdFmt.format(balances.USDC||0)} USDC</span></div>
-              </div>
-              <div className="text-sm neon-text">
-                <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
-                {Object.keys(positions).length===0 ? (
-                  <div className="text-zinc-500 text-sm">No live positions (mock).</div>
-                ) : (
-                  <div className="space-y-2">
-                    {Object.entries(positions).map(([tok,p])=>{
-                      const cur=(candlesBySymbol[`${tok}/${p.quote}`]||[])[299]?.close || (last(candlesBySymbol[`${tok}/${p.quote}`])||{close:0}).close || 0;
-                      const pnlQuote=(cur-p.avgEntry)*p.qty; const pnlUSDC=p.quote==="SOL"?pnlQuote*solUsd:pnlQuote;
-                      const pnlPct=(cur&&p.avgEntry)?((cur-p.avgEntry)/p.avgEntry*100):0;
-                      const marketValQuote=p.qty*cur; const marketValUSDC=p.quote==="SOL"?marketValQuote*solUsd:marketValQuote;
-                      return (
-                        <div key={tok} className="rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] p-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="h-7 w-7 rounded-md bg-[var(--cyberpunk-dark-secondary)] flex items-center justify-center text-xs">◎</div>
-                              <div>
-                                <div className="text-sm font-semibold neon-text">{tok}/{p.quote}</div>
-                                <div className="text-[11px] text-zinc-500">Avg ${nf.format(p.avgEntry)} {p.quote} • Last ${nf.format(cur)} {p.quote}</div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm neon-text">{nf.format(p.qty)} {tok}</div>
-                              <div className="text-[11px] text-zinc-500">Val ${usdFmt.format(marketValUSDC)}</div>
-                            </div>
-                          </div>
-                          <div className="mt-1 text-[12px]">PnL <span className={cx(pnlUSDC>=0?"text-emerald-400":"text-rose-400","font-semibold")}>{pnlUSDC>=0?"+":""}${usdFmt.format(pnlUSDC)} ({pnlPct.toFixed(2)}%)</span></div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        }
-
-        function AlertsPanel(){
+// Kill the legacy mock panel so it stops breaking the build:
+function PortfolioPanel(){ return null }
+           function AlertsPanel(){
           const enabled=Object.keys(alertsEnabled).filter(s=>alertsEnabled[s]);
           return (
             <Card title="Alerts" toolbar={<Pill>My Alerts</Pill>}>
@@ -1322,9 +1432,12 @@ function ExplorePanel({dockBack, isTop}){
 
       <a href="nebula_x_store_official.html" id="nx-store" class="nx-btn">Store</a>
 
-  <button id="wallet-btn" class="nx-btn">
-    <i data-lucide="wallet" class="w-1 h-3 mr-2"></i>Wallet
-  </button>
+<Button variant="outline" className="flex items-center gap-2">
+  <i data-lucide="wallet" className="w-4 h-4" />
+  {pk
+    ? (solBal == null ? "Bal: — SOL" : `Bal: ${solBal.toFixed(3)} SOL`)
+    : "Connect Wallet"}
+</Button>
 
               </div>
 
@@ -1525,7 +1638,7 @@ function ExplorePanel({dockBack, isTop}){
                           {pid==="ticker" && <MarketInfo/>}
                           {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                           {pid==="data-feed" && <DataFeedPanel/>}
-                          {pid==="portfolio" && <PortfolioPanel/>}
+{pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
                           {pid==="docs" && <DocsPanel/>}
@@ -1565,7 +1678,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
-                              {pid==="portfolio" && <PortfolioPanel/>}
+                              {pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
                               {pid==="docs" && <DocsPanel/>}
@@ -1598,7 +1711,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                               {pid==="data-feed" && <DataFeedPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
-                              {pid==="portfolio" && <PortfolioPanel/>}
+                              {pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
                               {pid==="docs" && <DocsPanel/>}
@@ -1858,6 +1971,7 @@ NX.goToCoin = function(coin){
       w?.addEventListener('click', ()=>{
         // hook your wallet adapter here
         alert('Connect wallet (hook your adapter)');
+
       });
     },
     mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
@@ -1954,16 +2068,17 @@ NX.goToCoin = function(coin){
   });
 })();
 </script>
-<!-- Solana web3 (for balance lookup; optional but nice) -->
-<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 
-<!-- Wallet layer -->
-<script src="nx-wallet.js"></script>
 <script>
   // OPTIONAL: require a wallet for this page
   // window.NX?.wallet?.guard({ redirectTo: 'login.html' });
 </script>
+<!-- Solana web3 (for balance lookup) -->
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="nx-wallet.js"></script>
+
 
 
   </body>
 </html>
+
