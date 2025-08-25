@@ -273,6 +273,11 @@ function usePhantomAddress() {
       try { setPubkey(new solanaWeb3.PublicKey(stored)); } catch {}
     }
 
+// Inside usePhantomAddress effect, BEFORE listening to Phantom:
+const storedPk = readStoredPk();
+if (!pubkey && storedPk) {
+  try { setPubkey(new solanaWeb3.PublicKey(storedPk)); } catch {}
+}
     // listen to Phantom if present
     const p = window.solana;
     if (!p) return;
@@ -980,6 +985,24 @@ function LivePortfolioCard({ solUsd }) {
   const lamports = useSolBalance(pk);
   const solBal = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
   const addr = pk ? pk.toBase58() : null;
+function readStoredPk() {
+  const keys = ["nx:wallet", "nebula:wallet"];
+  for (const k of keys) {
+    const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+    if (!raw) continue;
+    // try JSON first
+    try {
+      const j = JSON.parse(raw);
+      if (j && typeof j.pk === "string") return j.pk.trim();
+    } catch {}
+    // else assume base58 string
+    const s = raw.trim().replace(/^"(.*)"$/, "$1"); // strip accidental quotes
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s)) return s;
+  }
+  return null;
+}
+
+
 
   // local formatters (don’t rely on globals)
   const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -2150,5 +2173,6 @@ NX.goToCoin = function(coin){
 
   </body>
 </html>
+
 
 
