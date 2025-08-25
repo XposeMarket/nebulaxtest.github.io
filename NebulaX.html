@@ -256,29 +256,41 @@ async function getLamportsFromAny(pubkey) {
   throw new Error("All RPCs failed (likely CORS from file://).");
 }
 
+// Helpers at top of the Babel script (keep these once globally)
+const STORAGE_KEYS = ["nx:wallet", "nebula:wallet"];
 
-/* Read Phantom/publicKey – prefer: (1) stored from login, (2) provider if connected */
+function readStoredPk() {
+  for (const k of STORAGE_KEYS) {
+    const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+    if (!raw) continue;
+    // try JSON first
+    try {
+      const j = JSON.parse(raw);
+      if (j && typeof j.pk === "string") return j.pk.trim();
+    } catch {}
+    // else base58 string (strip accidental quotes)
+    const s = String(raw).trim().replace(/^"(.*)"$/, "$1");
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(s)) return s;
+  }
+  return null;
+}
+function writeStoredPk(b58) {
+  try {
+    localStorage.setItem("nx:wallet", b58);
+    sessionStorage.setItem("nx:wallet", b58);
+  } catch {}
+}
+
 function usePhantomAddress() {
   const [pubkey, setPubkey] = React.useState(null);
 
+  // hydrate from storage + wire Phantom once
   React.useEffect(() => {
-    // accept either key (login vs home)
-    const stored =
-      localStorage.getItem("nx:wallet") ||
-      localStorage.getItem("nebula:wallet") ||
-      sessionStorage.getItem("nx:wallet") ||
-      sessionStorage.getItem("nebula:wallet");
-
-    if (stored && !pubkey) {
-      try { setPubkey(new solanaWeb3.PublicKey(stored)); } catch {}
+    const storedPk = readStoredPk();
+    if (storedPk) {
+      try { setPubkey(new solanaWeb3.PublicKey(storedPk)); } catch {}
     }
 
-// Inside usePhantomAddress effect, BEFORE listening to Phantom:
-const storedPk = readStoredPk();
-if (!pubkey && storedPk) {
-  try { setPubkey(new solanaWeb3.PublicKey(storedPk)); } catch {}
-}
-    // listen to Phantom if present
     const p = window.solana;
     if (!p) return;
 
@@ -297,15 +309,11 @@ if (!pubkey && storedPk) {
         p.removeListener?.("disconnect", onDisconnect);
       } catch {}
     };
-  }, []); // run once
+  }, []);
 
-  // keep in storage so reloads still show a portfolio
+  // persist when it changes
   React.useEffect(() => {
-    if (pubkey) {
-      const b58 = pubkey.toBase58();
-      localStorage.setItem("nx:wallet", b58);
-      sessionStorage.setItem("nx:wallet", b58);
-    }
+    if (pubkey) writeStoredPk(pubkey.toBase58());
   }, [pubkey]);
 
   return pubkey;
@@ -985,22 +993,6 @@ function LivePortfolioCard({ solUsd }) {
   const lamports = useSolBalance(pk);
   const solBal = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
   const addr = pk ? pk.toBase58() : null;
-function readStoredPk() {
-  const keys = ["nx:wallet", "nebula:wallet"];
-  for (const k of keys) {
-    const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
-    if (!raw) continue;
-    // try JSON first
-    try {
-      const j = JSON.parse(raw);
-      if (j && typeof j.pk === "string") return j.pk.trim();
-    } catch {}
-    // else assume base58 string
-    const s = raw.trim().replace(/^"(.*)"$/, "$1"); // strip accidental quotes
-    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s)) return s;
-  }
-  return null;
-}
 
 
 
@@ -1522,7 +1514,7 @@ function ExplorePanel({dockBack, isTop}){
                 {editMode && <Button variant="outline" className="px-2 py-1 text-xs" onClick={()=>{ setLayout(DEFAULT_LAYOUT); setEditMode(true); setAsideW("19rem"); }}><Icon name="rotate-ccw" className="w-4 h-4 mr-1" /> Reset</Button>}
 
 
-      <a href="nebula_x_store_official.html" id="nx-store" class="nx-btn">Store</a>
+<a href="nebula_x_store_official.html" id="nx-store" className="nx-btn">Store</a>
 
 <Button variant="outline" className="flex items-center gap-2">
   <i data-lucide="wallet" className="w-4 h-4" />
@@ -2173,6 +2165,7 @@ NX.goToCoin = function(coin){
 
   </body>
 </html>
+
 
 
 
