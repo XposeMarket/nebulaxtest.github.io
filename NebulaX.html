@@ -7,7 +7,7 @@
     <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="nx-theme.js"></script>
-<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 
 <style>
   :root {
@@ -256,41 +256,24 @@ async function getLamportsFromAny(pubkey) {
   throw new Error("All RPCs failed (likely CORS from file://).");
 }
 
-// Helpers at top of the Babel script (keep these once globally)
-const STORAGE_KEYS = ["nx:wallet", "nebula:wallet"];
 
-function readStoredPk() {
-  for (const k of STORAGE_KEYS) {
-    const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
-    if (!raw) continue;
-    // try JSON first
-    try {
-      const j = JSON.parse(raw);
-      if (j && typeof j.pk === "string") return j.pk.trim();
-    } catch {}
-    // else base58 string (strip accidental quotes)
-    const s = String(raw).trim().replace(/^"(.*)"$/, "$1");
-    if (/^[1-9A-HJ-NP-Za-km-z]{32,48}$/.test(s)) return s;
-  }
-  return null;
-}
-function writeStoredPk(b58) {
-  try {
-    localStorage.setItem("nx:wallet", b58);
-    sessionStorage.setItem("nx:wallet", b58);
-  } catch {}
-}
-
+/* Read Phantom/publicKey – prefer: (1) stored from login, (2) provider if connected */
 function usePhantomAddress() {
   const [pubkey, setPubkey] = React.useState(null);
 
-  // hydrate from storage + wire Phantom once
   React.useEffect(() => {
-    const storedPk = readStoredPk();
-    if (storedPk) {
-      try { setPubkey(new solanaWeb3.PublicKey(storedPk)); } catch {}
+    // accept either key (login vs home)
+    const stored =
+      localStorage.getItem("nx:wallet") ||
+      localStorage.getItem("nebula:wallet") ||
+      sessionStorage.getItem("nx:wallet") ||
+      sessionStorage.getItem("nebula:wallet");
+
+    if (stored && !pubkey) {
+      try { setPubkey(new solanaWeb3.PublicKey(stored)); } catch {}
     }
 
+    // listen to Phantom if present
     const p = window.solana;
     if (!p) return;
 
@@ -309,82 +292,63 @@ function usePhantomAddress() {
         p.removeListener?.("disconnect", onDisconnect);
       } catch {}
     };
-  }, []);
+  }, []); // run once
 
-  // persist when it changes
+  // keep in storage so reloads still show a portfolio
   React.useEffect(() => {
-    if (pubkey) writeStoredPk(pubkey.toBase58());
+    if (pubkey) {
+      const b58 = pubkey.toBase58();
+      localStorage.setItem("nx:wallet", b58);
+      sessionStorage.setItem("nx:wallet", b58);
+    }
   }, [pubkey]);
 
   return pubkey;
 }
 
 
-// Replace your existing useSolBalance with this
+/* Live SOL balance (subscribes to account changes) */
 function useSolBalance(pubkey) {
   const [lamports, setLamports] = React.useState(null);
-
-  // try many RPCs
-  const RPCS = [
-    "https://api.mainnet-beta.solana.com",
-    "https://solana-mainnet.g.alchemy.com/v2/demo",
-    "https://rpc.ankr.com/solana"
-  ];
-
-  async function getLamportsFromAny(pk) {
-    for (const url of RPCS) {
-      try {
-        const conn = new solanaWeb3.Connection(url, "confirmed");
-        const v = await conn.getBalance(pk);
-        if (Number.isFinite(v)) return v;
-      } catch (e) {}
-    }
-    throw new Error("All RPCs failed");
-  }
+  const [err, setErr] = React.useState(null);
 
   React.useEffect(() => {
     if (!pubkey) return;
-    let stop = false;
-    let subId = null;
+    let mounted = true, subId;
 
-    const refresh = async () => {
-      try {
-        const v = await getLamportsFromAny(pubkey);
-        if (!stop) setLamports(v);
-      } catch (e) {}
-    };
-
-    // 1) fetch now
-    refresh();
-
-    // 2) subscribe (best-effort) + keep polling as a safety net
     (async () => {
       try {
-        const primary = new solanaWeb3.Connection(RPCS[0], "confirmed");
-        subId = await primary.onAccountChange(pubkey, acc => {
-          if (!stop) setLamports(acc.lamports);
-        }, "confirmed");
-      } catch (e) {}
+        setErr(null);
+        // one-shot fetch with fallback RPCs
+        const lam = await getLamportsFromAny(pubkey);
+        if (!mounted) return;
+        setLamports(lam);
+
+        // live subscription on the first RPC (best-effort)
+        const conn = new solanaWeb3.Connection(RPCS[0], "confirmed");
+        subId = await conn.onAccountChange(
+          pubkey,
+          acc => mounted && setLamports(acc.lamports),
+          "confirmed"
+        );
+      } catch (e) {
+        if (!mounted) return;
+        console.warn("[SOL RPC] balance error:", e);
+        setErr(e.message || "RPC failed");
+        setLamports(null);
+      }
     })();
 
-    const poll = setInterval(refresh, 30000);
-    return () => {
-      stop = true;
-      clearInterval(poll);
-      if (subId) {
-        try {
-          const primary = new solanaWeb3.Connection(RPCS[0], "confirmed");
-          primary.removeAccountChangeListener(subId);
-        } catch {}
-      }
-    };
-  }, [pubkey?.toBase58()]);
+    return () => { mounted = false; if (subId) RPCS[0] && new solanaWeb3.Connection(RPCS[0]).removeAccountChangeListener(subId); };
+  }, [pubkey?.toBase58?.()]);
 
+  // expose the error if you want to show a small hint in the UI
+  useSolBalance.lastError = err;
   return lamports;
 }
 
 
-// Replace your existing useSplTokens with this
+/* One-shot SPL token balances (top 10 by amount) */
 function useSplTokens(pubkey) {
   const [tokens, setTokens] = React.useState([]);
 
@@ -392,27 +356,24 @@ function useSplTokens(pubkey) {
     if (!pubkey) return;
     (async () => {
       try {
-        const conn = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", "confirmed");
-        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-        const TOKEN_2022_PROGRAM_ID = new solanaWeb3.PublicKey("TokenzQdBNbLqRjSkVpVp5dY2n8jPfyaf9qN5KXUWyJ");
-
-        const [v1, v2] = await Promise.all([
-          conn.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_PROGRAM_ID }),
-          conn.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_2022_PROGRAM_ID })
-        ]);
-
-        const parse = v => v.value.map(r => {
-          const info = r.account.data.parsed.info;
-          const amt  = info.tokenAmount;
-          const ui   = parseFloat(amt.uiAmountString || "0");
-          return { mint: info.mint, amount: ui, decimals: amt.decimals };
-        });
-
-        const list = [...parse(v1), ...parse(v2)]
+        const resp = await connection.getParsedTokenAccountsByOwner(
+          pubkey,
+          { programId: TOKEN_PROGRAM_ID }
+        );
+        const list = resp.value
+          .map(r => {
+            const info = r.account.data.parsed.info;
+            const amt  = info.tokenAmount;
+            const ui   = parseFloat(amt.uiAmountString || "0");
+            return {
+              mint: info.mint,
+              amount: ui,
+              decimals: amt.decimals
+            };
+          })
           .filter(t => t.amount > 0)
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 10);
-
         setTokens(list);
       } catch (e) {
         console.warn("token fetch failed", e);
@@ -526,8 +487,75 @@ function ChartPanel2({ symbol }) {
       </div>
     </Card>
   );
-}
 
+
+
+
+
+
+        // Build once
+        React.useEffect(() => {
+          const createChart = window.LightweightCharts && window.LightweightCharts.createChart;
+          if (!containerRef.current || typeof createChart !== "function") return;
+
+          const el = containerRef.current;
+          const chart = createChart(el, {
+            height: el.clientHeight || 300,
+            layout: { background: { type: "solid", color: "transparent" }, textColor: "var(--cyberpunk-text)" },
+            grid: { vertLines: { color: "var(--cyberpunk-border)" }, horzLines: { color: "var(--cyberpunk-border)" } },
+            rightPriceScale: { borderColor: "var(--cyberpunk-border)" },
+            timeScale: { borderColor: "var(--cyberpunk-border)" },
+            crosshair: { mode: 1 },
+          });
+          chartRef.current = chart;
+
+          let s=null;
+          if (typeof chart.addCandlestickSeries === "function") {
+            isCandleRef.current = true;
+            s = chart.addCandlestickSeries({
+              upColor:"#10b981",downColor:"#ef4444",
+              borderUpColor:"#10b981",borderDownColor:"#ef4444",
+              wickUpColor:"#10b981",wickDownColor:"#ef4444",
+            });
+          } else if (typeof chart.addAreaSeries === "function") {
+            isCandleRef.current = false; s = chart.addAreaSeries({ priceLineVisible: true });
+          } else if (typeof chart.addLineSeries === "function") {
+            isCandleRef.current = false; s = chart.addLineSeries({ priceLineVisible: true });
+          }
+          seriesRef.current = s;
+
+          const ro = new ResizeObserver(()=>chart.applyOptions({ height: el.clientHeight || 260 }));
+          ro.observe(el);
+
+          return ()=>{ ro.disconnect(); chart.remove?.(); chartRef.current=null; seriesRef.current=null; };
+        },[]);
+
+        // On symbol change: set full data and fit once
+        React.useEffect(() => {
+          const s=seriesRef.current, ch=chartRef.current; if(!s||!ch) return;
+          const cs=(candlesBySymbol[symbol]||[]);
+          const data=isCandleRef.current? cs.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close})) : cs.map(c=>({time:c.time,value:c.close}));
+          try{s.setData(data);}catch{}
+          try{ch.timeScale().fitContent && ch.timeScale().fitContent();}catch{}
+        }, [symbol]);
+
+        // Incremental updates: last bar only (prevents jump)
+        const candles = (candlesBySymbol[symbol] || []);
+        const lastC = last(candles);
+        React.useEffect(()=>{
+          const s=seriesRef.current; if(!s||!lastC) return;
+          try{
+            if(isCandleRef.current){
+              s.update({time:lastC.time,open:lastC.open,high:lastC.high,low:lastC.low,close:lastC.close});
+            }else{
+              s.update({time:lastC.time,value:lastC.close});
+            }
+          }catch{}
+        },[lastC?.time]);
+
+        return <Card title="Chart" toolbar={<Pill>1m</Pill>}>
+<div ref={containerRef} className="w-full h-full"/></Card>;
+      }
 
 
       /* ===== Layout model ===== */
@@ -926,8 +954,6 @@ function LivePortfolioCard({ solUsd }) {
   const lamports = useSolBalance(pk);
   const solBal = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
   const addr = pk ? pk.toBase58() : null;
-
-
 
   // local formatters (don’t rely on globals)
   const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -1447,7 +1473,7 @@ function ExplorePanel({dockBack, isTop}){
                 {editMode && <Button variant="outline" className="px-2 py-1 text-xs" onClick={()=>{ setLayout(DEFAULT_LAYOUT); setEditMode(true); setAsideW("19rem"); }}><Icon name="rotate-ccw" className="w-4 h-4 mr-1" /> Reset</Button>}
 
 
-<a href="nebula_x_store_official.html" id="nx-store" className="nx-btn">Store</a>
+      <a href="nebula_x_store_official.html" id="nx-store" class="nx-btn">Store</a>
 
 <Button variant="outline" className="flex items-center gap-2">
   <i data-lucide="wallet" className="w-4 h-4" />
