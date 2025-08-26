@@ -532,67 +532,7 @@ function ChartPanel2({ symbol }) {
 
 
 
-        // Build once
-        React.useEffect(() => {
-          const createChart = window.LightweightCharts && window.LightweightCharts.createChart;
-          if (!containerRef.current || typeof createChart !== "function") return;
-
-          const el = containerRef.current;
-          const chart = createChart(el, {
-            height: el.clientHeight || 300,
-            layout: { background: { type: "solid", color: "transparent" }, textColor: "var(--cyberpunk-text)" },
-            grid: { vertLines: { color: "var(--cyberpunk-border)" }, horzLines: { color: "var(--cyberpunk-border)" } },
-            rightPriceScale: { borderColor: "var(--cyberpunk-border)" },
-            timeScale: { borderColor: "var(--cyberpunk-border)" },
-            crosshair: { mode: 1 },
-          });
-          chartRef.current = chart;
-
-          let s=null;
-          if (typeof chart.addCandlestickSeries === "function") {
-            isCandleRef.current = true;
-            s = chart.addCandlestickSeries({
-              upColor:"#10b981",downColor:"#ef4444",
-              borderUpColor:"#10b981",borderDownColor:"#ef4444",
-              wickUpColor:"#10b981",wickDownColor:"#ef4444",
-            });
-          } else if (typeof chart.addAreaSeries === "function") {
-            isCandleRef.current = false; s = chart.addAreaSeries({ priceLineVisible: true });
-          } else if (typeof chart.addLineSeries === "function") {
-            isCandleRef.current = false; s = chart.addLineSeries({ priceLineVisible: true });
-          }
-          seriesRef.current = s;
-
-          const ro = new ResizeObserver(()=>chart.applyOptions({ height: el.clientHeight || 260 }));
-          ro.observe(el);
-
-          return ()=>{ ro.disconnect(); chart.remove?.(); chartRef.current=null; seriesRef.current=null; };
-        },[]);
-
-        // On symbol change: set full data and fit once
-        React.useEffect(() => {
-          const s=seriesRef.current, ch=chartRef.current; if(!s||!ch) return;
-          const cs=(candlesBySymbol[symbol]||[]);
-          const data=isCandleRef.current? cs.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close})) : cs.map(c=>({time:c.time,value:c.close}));
-          try{s.setData(data);}catch{}
-          try{ch.timeScale().fitContent && ch.timeScale().fitContent();}catch{}
-        }, [symbol]);
-
-        // Incremental updates: last bar only (prevents jump)
-        const candles = (candlesBySymbol[symbol] || []);
-        const lastC = last(candles);
-        React.useEffect(()=>{
-          const s=seriesRef.current; if(!s||!lastC) return;
-          try{
-            if(isCandleRef.current){
-              s.update({time:lastC.time,open:lastC.open,high:lastC.high,low:lastC.low,close:lastC.close});
-            }else{
-              s.update({time:lastC.time,value:lastC.close});
-            }
-          }catch{}
-        },[lastC?.time]);
-
-        return <Card title="Chart" toolbar={<Pill>1m</Pill>}>
+             return <Card title="Chart" toolbar={<Pill>1m</Pill>}>
 <div ref={containerRef} className="w-full h-full"/></Card>;
       }
 
@@ -2165,6 +2105,7 @@ NX.goToCoin = function(coin){
 
   </body>
 </html>
+
 
 
 
