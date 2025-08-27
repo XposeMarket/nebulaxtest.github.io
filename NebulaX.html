@@ -7,8 +7,14 @@
     <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="./nx-theme.js"></script>
-…
-<script src="./nx-wallet.js"></script>
+
+    <!-- React and Babel must load before any JSX -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
   :root {
@@ -203,12 +209,6 @@
 </script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 
-<!-- Dependencies first --> 
-<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- ====================== APP ====================== -->
     <script type="text/babel" data-presets="react">
@@ -2006,10 +2006,6 @@ NX.goToCoin = function(coin){
 })();
 </script>
 
-<script>
-  // OPTIONAL: require a wallet for this page
-  // window.NX?.wallet?.guard({ redirectTo: 'login.html' });
-</script>
 
 
 
