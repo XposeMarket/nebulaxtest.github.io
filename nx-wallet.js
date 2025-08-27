@@ -166,4 +166,4 @@ try{ window.lucide?.createIcons?.(); }catch{}
   window.NX.wallet = { connect, disconnect, isConnected, isInstalled, getAddress, getBalance, guard };
 })();
 
-</script>
+
