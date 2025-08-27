@@ -1,4 +1,3 @@
-<script type="text/plain" data-filename="nx-wallet.js">
 btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
 btn.onclick = openWalletMenu;
 }
@@ -166,4 +165,5 @@ try{ window.lucide?.createIcons?.(); }catch{}
   window.NX = window.NX || {};
   window.NX.wallet = { connect, disconnect, isConnected, isInstalled, getAddress, getBalance, guard };
 })();
+
 </script>
