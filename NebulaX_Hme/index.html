@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>NebulaX • Standalone</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+<script src="./nx-theme.js"></script>
+…
+<script src="./nx-wallet.js"></script>
+
+<link rel="stylesheet" href="assets/css/inline-01.css">
+    <link rel="stylesheet" href="assets/css/inline-02.css">
+
+<!-- Put this SVG once anywhere in the page (e.g., right after </body> opens or before it closes). Hidden but referenced by CSS filter -->
+<svg width="0" height="0" style="position:absolute">
+  <filter id="nx-flame">
+    <!-- Wavy displacement -->
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="8" result="noise">
+      <animate attributeName="baseFrequency" values="0.7;0.95;0.7" dur="3.8s" repeatCount="indefinite"/>
+    </feTurbulence>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G"/>
+    <feGaussianBlur stdDeviation="0.8"/>
+  </filter>
+</svg>
+
+    </style>
+<link rel="stylesheet" href="assets/css/inline-03.css">
+
+    <!-- Fonts & libs -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="err"><strong>Runtime error</strong><pre id="err-msg"></pre></div>
+    <noscript style="color:#ff6b6b;padding:12px;display:block">This page requires JavaScript.</noscript>
+
+<!-- Wallet Panel (Phantom) -->
+<div id="wallet-panel" style="position:fixed; top:16px; right:16px; z-index:9999; font-family:ui-sans-serif,system-ui; color:#e0e7ff;">
+  <button id="connectBtn" style="background:#111827;border:1px solid #1e2747;border-radius:12px;padding:10px 14px;box-shadow:0 0 8px rgba(0,240,255,.2);cursor:pointer;">
+    <span id="connectLabel">Connect Phantom</span>
+  </button>
+  <div id="walletInfo" style="display:none;margin-top:8px;padding:10px 12px;background:#0a0d1b;border:1px solid #1e2747;border-radius:12px;">
+    <div style="opacity:.85">Address: <span id="addressShort">—</span></div>
+    <div style="margin-top:4px;">SOL Balance: <span id="solBalance">0.0000</span></div>
+  </div>
+  <div id="walletError" style="display:none;margin-top:8px;padding:8px 10px;background:#2b0f16;border:1px solid #6b1c24;border-radius:10px; font-size:12px;"></div>
+</div>
+
+
+<script src="assets/js/inline-01.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+
+
+    <!-- ====================== APP ====================== -->
+<script src="assets/js/inline-02.jsx" type="text/babel" data-presets="env,react"></script>
+<script src="assets/js/inline-03.js"></script>
+
+    <script src="assets/js/inline-04.js"></script>
+<script src="assets/js/inline-05.js"></script>
+<script src="assets/js/inline-06.js"></script>
+<script src="assets/js/inline-07.js"></script>
+
+<script src="assets/js/inline-08.js"></script>
+<script src="assets/js/inline-09.js"></script>
+
+<script src="assets/js/inline-10.js"></script>
+<!-- Solana web3 (for balance lookup) -->
+<script src="assets/nx-wallet.js"></script>
+<script src="assets/js/inline-11.js"></script>
+<!-- At the very bottom of NebulaX (2).html, before </body> -->
+<script src="assets/js/inline-12.js"></script>
+
+
+
+  </body>
+</html>
