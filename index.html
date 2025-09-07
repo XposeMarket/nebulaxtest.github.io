@@ -365,14 +365,15 @@
 
   
 <script>
-  function nxGotoAfterLogin(){
-    try{
-      const url = new URL(window.location.href);
-      const next = url.searchParams.get("next");
-      if(next){ window.location.href = next; return; }
-    }catch(e){}
-    nxGotoAfterLogin();
-  }
+function nxGotoAfterLogin(){
+  try{
+    const url = new URL(window.location.href);
+    const next = url.searchParams.get("next");
+    if(next){ window.location.href = next; return; }
+  }catch(e){}
+  window.location.href = "NebulaX.html";   // ← correct fallback
+}
+
   // Try to monkey-patch any simple calls that used nxGotoAfterLogin()
   // (If not needed, this helper can be called from your connect success callback.)
 </script>
