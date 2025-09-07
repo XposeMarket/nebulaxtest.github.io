@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>NebulaX • Login (Diagnostic)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body{ background:#0a0d1b; color:#e0e7ff; font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica Neue,Arial; }
+    .panel{ background:#0d1328cc; border:1px solid #1e2747; border-radius:14px; box-shadow:0 0 22px #00f0ff33, inset 0 0 8px #00e6ff11; }
+    .btn{ background:#00e6ff; color:#07101b; font-weight:800; border-radius:12px; padding:10px 14px; }
+    code{ color:#a5b4fc }
+    pre{ white-space:pre-wrap; background:#0b1022; border:1px solid #1e2747; border-radius:10px; padding:10px; }
+    a.link{ color:#00e6ff; text-decoration:underline; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-xl mx-auto p-4 mt-10 panel">
+    <h1 class="text-xl font-extrabold tracking-wide">NebulaX — Connect Phantom</h1>
+    <p class="mt-2 text-sm text-zinc-300">This diagnostic login prints wallet provider details below so we can spot what’s intercepting the request.</p>
+
+    <div class="mt-4 flex gap-2">
+      <button id="connect" class="btn">Connect Phantom</button>
+      <button id="retryTrusted" class="px-3 py-2 border rounded-lg border-[#1e2747]">Silent Try</button>
+      <button id="skip" class="px-3 py-2 border rounded-lg border-[#1e2747]">Skip to Home</button>
+    </div>
+
+    <div class="mt-4 grid gap-3 text-sm">
+      <div class="panel p-3">
+        <div class="font-semibold">Provider Detection</div>
+        <pre id="det"></pre>
+      </div>
+      <div class="panel p-3">
+        <div class="font-semibold">Events</div>
+        <pre id="log"></pre>
+      </div>
+      <div class="panel p-3">
+        <div class="font-semibold">Tips</div>
+        <ul class="list-disc pl-5 text-zinc-300">
+          <li>Ensure you’re on <b>HTTPS</b> (GitHub Pages is fine).</li>
+          <li>Disable other Solana wallets or set Phantom as default.</li>
+          <li>In Phantom → Settings → <b>Connected Apps</b>: remove this site, then try again.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const det = document.getElementById('det');
+    const log = document.getElementById('log');
+    const $ = (id)=>document.getElementById(id);
+
+    function println(s){ log.textContent += s + "\n"; }
+    function show(obj){
+      try{ det.textContent = JSON.stringify(obj, (k,v)=> (typeof v==='function'?'[fn]':v), 2); }
+      catch(e){ det.textContent = String(obj); }
+    }
+
+    function pickPhantom(){
+      const phantom = window.phantom && window.phantom.solana;
+      const multi = Array.isArray(window.solana?.providers) ? window.solana.providers.find(p=>p?.isPhantom) : null;
+      const single = (window.solana && window.solana.isPhantom) ? window.solana : null;
+      return phantom || multi || single || null;
+    }
+
+    function describe(){
+      const info = {
+        location: String(window.location.href),
+        protocol: location.protocol,
+        has_window_solana: !!window.solana,
+        has_window_phantom_solana: !!(window.phantom && window.phantom.solana),
+        solana_keys: Object.keys(window.solana||{}),
+        provider_listed: Array.isArray(window.solana?.providers) ? window.solana.providers.map(p=>({isPhantom:!!p?.isPhantom, isSolflare:!!p?.isSolflare})) : null,
+        chosen_isPhantom: !!(pickPhantom()?.isPhantom),
+      };
+      show(info);
+    }
+
+    async function tryOnlyIfTrusted(){
+      const provider = pickPhantom();
+      if(!provider){ alert("Phantom not detected."); return; }
+      try{
+        println("onlyIfTrusted: attempting…");
+        const resp = await provider.connect({ onlyIfTrusted: true });
+        const pk = (resp?.publicKey || provider.publicKey)?.toString?.();
+        if(pk){
+          localStorage.setItem("nebula:wallet", pk);
+          println("onlyIfTrusted: success " + pk);
+          window.location.href = "NebulaX.html";
+          return;
+        }
+        println("onlyIfTrusted: no key");
+      }catch(e){
+        println("onlyIfTrusted: " + (e?.message||e));
+      }
+    }
+
+    async function doConnect(){
+      const provider = pickPhantom();
+      if(!provider){
+        alert("Phantom not detected. Install Phantom, then refresh.");
+        try{ window.open("https://phantom.app/", "_blank"); }catch{}
+        return;
+      }
+      try{
+        println("connect(): prompt…");
+        const resp = await provider.connect(); // user prompt
+        const pk = (resp?.publicKey || provider.publicKey)?.toString?.();
+        if(!pk) throw new Error("No public key returned");
+        localStorage.setItem("nebula:wallet", pk);
+        println("connect(): success " + pk);
+        window.location.href = "NebulaX.html";
+      }catch(err){
+        const msg = String(err?.message||err).toLowerCase();
+        const code = err && (err.code || err.error?.code);
+        if(code===4001 || /reject|cancel/.test(msg)){
+          println("connect(): user canceled");
+          return;
+        }
+        println("connect(): error " + (err?.message||err));
+        alert("Could not connect. If multiple wallets are installed, disable others and try again.");
+      }
+    }
+
+    // Wire buttons
+    $("connect").onclick = doConnect;
+    $("retryTrusted").onclick = tryOnlyIfTrusted;
+    $("skip").onclick = ()=> window.location.href = "NebulaX.html";
+
+    // Listen for provider events for clarity
+    const p = pickPhantom();
+    if(p){
+      p.on?.("connect", (pk)=> println("event: connect " + String(pk)));
+      p.on?.("disconnect", ()=> println("event: disconnect"));
+      p.on?.("accountChanged", (pk)=> println("event: accountChanged " + String(pk)));
+    } else {
+      println("No Phantom provider detected.");
+    }
+
+    // Initial info
+    describe();
+  </script>
+</body>
+</html>
