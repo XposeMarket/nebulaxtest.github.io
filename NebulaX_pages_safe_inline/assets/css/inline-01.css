@@ -1,0 +1,15 @@
+
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
