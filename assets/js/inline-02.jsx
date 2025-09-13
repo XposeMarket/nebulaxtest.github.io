@@ -1033,10 +1033,21 @@ function ExplorePanel({dockBack, isTop}){
                     );
                   })}
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="px-2 py-1" onClick={()=>setAlertMenuOpen(false)}>Cancel</Button>
-                  <Button className="px-2 py-1" onClick={()=>saveAlertMenu(symbol)}>Save</Button>
-                </div>
+<div className="mt-2 grid grid-cols-2 gap-2">
+  <button
+    className="px-2 py-1 rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] hover:bg-[rgba(18,21,42,.85)] neon-text"
+    onClick={()=>setAlertMenuOpen(false)}
+  >
+    Cancel
+  </button>
+  <button
+    className="px-2 py-1 rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] hover:bg-[rgba(18,21,42,.85)] neon-text"
+    onClick={()=>saveAlertMenu(symbol)}
+  >
+    Save
+  </button>
+</div>
+
               </div>
             )}
 
