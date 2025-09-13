@@ -1119,7 +1119,7 @@ function ExplorePanel({dockBack, isTop}){
 
 return (
   <>
-            (/* Body: Sidebar + Canvas */)
+        {/* Body: Sidebar + Canvas */}
             <div className="mx-auto max-w-[1600px] p-3 relative">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[var(--aside-w)_1fr]">
                 {/* Sidebar */}
