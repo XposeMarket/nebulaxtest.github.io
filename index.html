@@ -98,35 +98,7 @@
     </main>
 
     <script>
-      // Simple wallet-only gate with localStorage. No auto-connect.
-      const LKEY = 'nebula:wallet';
-      const $ = (id)=>document.getElementById(id);
-      const remember = $('remember');
-      const connectBtn = $('connect-btn');
-      const disconnectBtn = $('phantom-disconnect');
-      const statusEl = $('wallet-status');
-      $('yr').textContent = new Date().getFullYear();
-
-      const short = (s)=> s ? (s.slice(0,4)+"…"+s.slice(-4)) : '';
-      const save = (pk)=>{ try{ localStorage.setItem(LKEY, JSON.stringify({ pk })); }catch{} };
-      const load = ()=>{ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} };
-      const clear = ()=>{ try{ localStorage.removeItem(LKEY); }catch{} };
-
-      function setConnected(pubkey){
-        connectBtn.classList.add('hidden');
-        disconnectBtn.classList.remove('hidden');
-        statusEl.textContent = `Connected: ${short(pubkey)}`;
-        statusEl.classList.remove('text-zinc-400');
-        statusEl.classList.add('text-emerald-400');
-      }
-      function setDisconnected(msg){
-        disconnectBtn.classList.add('hidden');
-        connectBtn.classList.remove('hidden');
-        statusEl.textContent = msg || 'Not connected';
-        statusEl.classList.remove('text-emerald-400');
-        statusEl.classList.add('text-zinc-400');
-      }
-
+   
       // Manual connect only
       connectBtn.addEventListener('click', async ()=>{
         const provider = window.solana;
@@ -290,34 +262,7 @@
 })();
 </script>
 <script>
-  // Helper: robust Phantom resolver
-  function getPhantomProvider() {
-    // 1) Mobile/in-app
-    if (window.phantom?.solana) return window.phantom.solana;
-
-    const w = window.solana;
-    // 2) Single provider case
-    if (w?.isPhantom) return w;
-
-    // 3) Multi-provider (some wallets expose an array)
-    if (Array.isArray(w?.providers)) {
-      const ph = w.providers.find(p => p?.isPhantom);
-      if (ph) return ph;
-    }
-    return null;
-  }
-
-  connectBtn.addEventListener('click', async () => {
-    const provider = getPhantomProvider();
-
-    // If loading from file:// without extension access, this will be null.
-    if (!provider) {
-      setDisconnected('Phantom not injected. Serve via http:// or enable “Allow access to file URLs”.');
-      // Optional: open install page as fallback
-      // window.open('https://phantom.app/', '_blank');
-      return;
-    }
-
+ 
     try {
       // Listen once (optional but handy)
       provider.on?.('connect', () => {/* you could flash a toast here */});
@@ -337,31 +282,7 @@
 </script>
 <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 
-<script>
-  async function connectWallet() {
-    if (window.solana && window.solana.isPhantom) {
-      try {
-        const resp = await window.solana.connect({ onlyIfTrusted: false });
-        const pubkey = resp.publicKey.toString();
 
-        // Save wallet to localStorage (so other pages see it)
-        localStorage.setItem("nebula:wallet", pubkey);
-
-        // ✅ Redirect to homepage
-        window.location.href = "NebulaX.html";
-      } catch (err) {
-        console.error("Wallet connect canceled", err);
-      }
-    } else {
-      alert("Phantom Wallet not found. Please install Phantom.");
-      window.open("https://phantom.app/", "_blank");
-    }
-  }
-
-  // Wire up your connect button
-  document.getElementById("connect-btn")
-    ?.addEventListener("click", connectWallet);
-</script>
 
 <!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
 <script type="module">
