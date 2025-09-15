@@ -210,7 +210,7 @@
     })();
     </script>
 
-<!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
+    <!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
 <script type="module">
   import React from "https://esm.sh/react@18.2.0";
   import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
@@ -219,7 +219,7 @@
     UnifiedWalletProvider,
     useUnifiedWallet,
     useUnifiedWalletModal
-  } from "https://esm.sh/@jup-ag/wallet-kit@^2?deps=react@18.2.0";
+  } from "https://esm.sh/@jup-ag/wallet-kit?deps=react@18.2.0";
 
   const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
@@ -261,10 +261,10 @@
   })();
 
   ReactDOM.createRoot(mount).render(React.createElement(Mount));
+  // Sanity log
+  setTimeout(() => console.log("[NX] Bridge ready:", !!window.NXWallet), 500);
 </script>
 <!-- ========== /NX: Jupiter Wallet Bridge ========== -->
-
-    <!-- ========== /NX: Jupiter Wallet Bridge ========== -->
 
     <!-- ========== NX: Login connect wiring (keeps your UI) ========== -->
     <script>
