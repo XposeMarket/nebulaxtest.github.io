@@ -44,27 +44,25 @@
       .stars2{ animation: driftSlow 52s ease-in-out infinite alternate; }
       @media (prefers-reduced-motion: reduce){ .stars,.stars2{ animation:none } }
     </style>
-<style>
-  /* Starfield sits behind all content, no clicks */
-  #nx-stars{
-    position: fixed;
-    inset: 0;
-    z-index: 0;            /* content sits above this naturally */
-    pointer-events: none;  /* never intercept clicks */
-  }
-  /* Ensure your main containers render above the canvas */
-  header, #root, .page-wrap, main { position: relative; z-index: 1; }
-  @media (prefers-reduced-motion: reduce){
-    #nx-stars{ display:none !important; }
-  }
-</style>
-
+    <style>
+      /* Starfield sits behind all content, no clicks */
+      #nx-stars{
+        position: fixed;
+        inset: 0;
+        z-index: 0;            /* content sits above this naturally */
+        pointer-events: none;  /* never intercept clicks */
+      }
+      /* Ensure your main containers render above the canvas */
+      header, #root, .page-wrap, main { position: relative; z-index: 1; }
+      @media (prefers-reduced-motion: reduce){
+        #nx-stars{ display:none !important; }
+      }
+    </style>
   </head>
   <body>
     <!-- Subtle star background -->
     <div class="starfield"><div class="stars"></div><div class="stars2"></div></div>
-<!-- Subtle starfield background -->
-<canvas id="nx-stars" aria-hidden="true"></canvas>
+    <canvas id="nx-stars" aria-hidden="true"></canvas>
 
     <main class="min-h-full grid place-items-center p-4">
       <section class="nx-panel w-full max-w-[460px] p-5">
@@ -82,10 +80,12 @@
             <input id="remember" type="checkbox" class="accent-cyan-500" checked>
             Remember this wallet on this device
           </label>
-<button id="connect-btn"
-  class="px-6 py-3 bg-[var(--nx-cyan)] text-black rounded-xl font-bold shadow-lg hover:opacity-90">
-  Connect Phantom
-</button>
+
+          <!-- Keep your existing button text/UI exactly -->
+          <button id="connect-btn"
+            class="px-6 py-3 bg-[var(--nx-cyan)] text-black rounded-xl font-bold shadow-lg hover:opacity-90">
+            Connect Phantom
+          </button>
 
           <button id="phantom-disconnect" class="nx-btn hidden">Disconnect</button>
           <div id="wallet-status" class="text-xs text-zinc-400">Not connected</div>
@@ -97,303 +97,240 @@
       </section>
     </main>
 
+    <!-- Background warp stars (unchanged) -->
+    <canvas id="nx-warp" aria-hidden="true"></canvas>
     <script>
-   
-      // Manual connect only
-      connectBtn.addEventListener('click', async ()=>{
-        const provider = window.solana;
-        if (!provider || !provider.isPhantom){
-          setDisconnected('Phantom not found — install it first');
-          window.open('https://phantom.app/', '_blank');
-          return;
+    (function(){
+      const cnv = document.getElementById('nx-warp');
+      const ctx = cnv.getContext('2d', { alpha: true });
+
+      const STAR_COUNT = 120;
+      const BASE_SPEED = 0.01;
+      const MAX_Z = 1.0;
+      const MIN_Z = 0.05;
+      const FOV = 350;
+      const STAR_BASE_SIZE = 0.7;
+      const STAR_MAX_SIZE = 2.2;
+      const COLOR = getComputedStyle(document.documentElement).getPropertyValue('--nx-cyan')?.trim() || '#6ff3ff';
+      const SWIRL = 0.002;
+
+      const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const SPEED = prefersReduce ? BASE_SPEED*0.5 : BASE_SPEED;
+      const COUNT = prefersReduce ? Math.max(60, STAR_COUNT*0.6) : STAR_COUNT;
+
+      let W=0,H=0, CX=0, CY=0, running=true;
+
+      function resize(){
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        W = cnv.clientWidth = window.innerWidth;
+        H = cnv.clientHeight = window.innerHeight;
+        cnv.width  = Math.floor(W * dpr);
+        cnv.height = Math.floor(H * dpr);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        CX = W/2; CY = H/2;
+      }
+      window.addEventListener('resize', resize, { passive:true });
+      resize();
+
+      const stars = Array.from({length: COUNT}, seedStar);
+
+      function seedStar(){
+        const angle = Math.random()*Math.PI*2;
+        const radius = Math.pow(Math.random(), 0.85);
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        const z = Math.random()*(MAX_Z-MIN_Z) + MIN_Z;
+        return { x, y, z, px:0, py:0 };
+      }
+
+      function project(s){
+        const scale = FOV / (FOV + (s.z * FOV));
+        const sx = CX + s.x * scale * W;
+        const sy = CY + s.y * scale * W;
+        const r  = Math.min(STAR_MAX_SIZE, STAR_BASE_SIZE + (1 - s.z) * 2.0);
+        return { sx, sy, r };
+      }
+
+      function update(dt){
+        const swirl = SWIRL;
+        for (let s of stars){
+          const rot = swirl * (1 - s.z);
+          const nx = s.x * Math.cos(rot) - s.y * Math.sin(rot);
+          const ny = s.x * Math.sin(rot) + s.y * Math.cos(rot);
+          s.x = nx; s.y = ny;
+
+          s.z -= SPEED * dt;
+          if (s.z <= MIN_Z){
+            const n = seedStar(); s.x=n.x; s.y=n.y; s.z=MAX_Z; s.px=0; s.py=0;
+          }
         }
-        try{
-          const resp = await provider.connect({ onlyIfTrusted:false });
-          const pk = resp?.publicKey?.toString?.() || provider?.publicKey?.toString?.() || '';
-          if(remember.checked) save(pk);
-          setConnected(pk);
+      }
 
-          // Bounce to next page if present
-          const next = new URLSearchParams(location.search).get('next');
-          if(next) location.href = next;
-        }catch(err){ setDisconnected('Connection cancelled'); }
+      function draw(){
+        ctx.clearRect(0,0,W,H);
+        ctx.globalCompositeOperation = 'lighter';
+        for (let s of stars){
+          const p = project(s);
+          if (s.px && s.py){
+            ctx.beginPath();
+            ctx.moveTo(s.px, s.py);
+            ctx.lineTo(p.sx, p.sy);
+            ctx.strokeStyle = COLOR + 'AA';
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, p.r, 0, Math.PI*2);
+          ctx.fillStyle = COLOR;
+          ctx.globalAlpha = 0.65 + (1 - s.z) * 0.25;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          s.px = p.sx; s.py = p.sy;
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      let lastT = performance.now();
+      function loop(t){
+        if(!running) return;
+        const dt = Math.min(60, (t - lastT)) / 16.6667;
+        lastT = t;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      Object.assign(cnv.style, {
+        position:'fixed', inset:'0', zIndex:'0',
+        pointerEvents:'none', background:'transparent'
       });
 
-      disconnectBtn.addEventListener('click', async ()=>{
-        try{ await window.solana?.disconnect?.(); }catch{}
-        clear(); setDisconnected('Disconnected');
-      });
-
-      // If previously remembered, reflect that state (without auto-connecting)
-      const remembered = load();
-      if(remembered){ setConnected(remembered); }
-      else if(window.solana?.isPhantom){ statusEl.textContent = 'Phantom detected — click Connect'; }
+      document.addEventListener('visibilitychange', ()=>{ running = !document.hidden; if(running){ lastT=performance.now(); requestAnimationFrame(loop);} });
+      requestAnimationFrame(loop);
+    })();
     </script>
 
-<!-- Background warp stars -->
-<canvas id="nx-warp" aria-hidden="true"></canvas>
-<script>
-(function(){
-  const cnv = document.getElementById('nx-warp');
-  const ctx = cnv.getContext('2d', { alpha: true });
+    <!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
+    <script type="module">
+      import React from "https://esm.sh/react@18.2.0";
+      import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
+      import { Connection, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.95.3";
+      import { UnifiedWalletProvider, useUnifiedWallet, useUnifiedWalletModal } from "https://esm.sh/@jup-ag/wallet-kit@^2?deps=react@18.2.0";
 
-  // ------- TUNEABLES -------
-  const STAR_COUNT = 120;          // keep modest
-  const BASE_SPEED = 0.01;        // subtle zoom
-  const MAX_Z = 1.0;               // furthest depth
-  const MIN_Z = 0.05;              // nearest before reset
-  const FOV = 350;                 // perspective strength
-  const STAR_BASE_SIZE = 0.7;      // minimal dot size
-  const STAR_MAX_SIZE = 2.2;       // clamp growth
-  const COLOR = getComputedStyle(document.documentElement)
-                .getPropertyValue('--nx-cyan')?.trim() || '#6ff3ff';
-  // gentle outward swirl (0 = straight)
-  const SWIRL = 0.002;
+      const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
-  // Reduced motion = slower & fewer
-  const prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const SPEED = prefersReduce ? BASE_SPEED*0.5 : BASE_SPEED;
-  const COUNT = prefersReduce ? Math.max(60, STAR_COUNT*0.6) : STAR_COUNT;
+      function Bridge() {
+        const { publicKey, signAndSendTransaction } = useUnifiedWallet();
+        const modal = useUnifiedWalletModal();
 
-  let W=0,H=0, CX=0, CY=0, running=true;
-
-  function resize(){
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    W = cnv.clientWidth = window.innerWidth;
-    H = cnv.clientHeight = window.innerHeight;
-    cnv.width  = Math.floor(W * dpr);
-    cnv.height = Math.floor(H * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    CX = W/2; CY = H/2;
-  }
-  window.addEventListener('resize', resize, { passive:true });
-  resize();
-
-  // Create stars in normalized space (-1..1 for x,y, depth 0..1)
-  const stars = Array.from({length: COUNT}, seedStar);
-
-  function seedStar(){
-    // bias toward center a touch so it feels deeper
-    const angle = Math.random()*Math.PI*2;
-    const radius = Math.pow(Math.random(), 0.85); // 0..1, more near center
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
-    const z = Math.random()*(MAX_Z-MIN_Z) + MIN_Z;
-    return { x, y, z, px:0, py:0 }; // px/py keep prior screen pos for a tiny streak
-  }
-
-  function project(s){
-    // perspective projection
-    const scale = FOV / (FOV + (s.z * FOV));
-    const sx = CX + s.x * scale * W; // scale by viewport width so it breathes with size
-    const sy = CY + s.y * scale * W;
-    const r  = Math.min(STAR_MAX_SIZE, STAR_BASE_SIZE + (1 - s.z) * 2.0);
-    return { sx, sy, r };
-  }
-
-  function update(dt){
-    const swirl = SWIRL;
-    for (let s of stars){
-      // gentle spiral: rotate (x,y) slightly based on depth
-      const rot = swirl * (1 - s.z);
-      const nx = s.x * Math.cos(rot) - s.y * Math.sin(rot);
-      const ny = s.x * Math.sin(rot) + s.y * Math.cos(rot);
-      s.x = nx; s.y = ny;
-
-      // move toward camera
-      s.z -= SPEED * dt;
-      if (s.z <= MIN_Z){
-        // reset to far plane keeping direction random
-        const n = seedStar(); s.x=n.x; s.y=n.y; s.z=MAX_Z; s.px=0; s.py=0;
+        window.NXWallet = {
+          isConnected: () => !!publicKey,
+          getAddress: () => publicKey?.toBase58?.() ?? null,
+          async getBalance() {
+            if (!publicKey) return null;
+            const lam = await connection.getBalance(publicKey);
+            return lam / LAMPORTS_PER_SOL;
+          },
+          async send(transaction) {
+            if (!publicKey) throw new Error("Wallet not connected");
+            const { signature } = await signAndSendTransaction(transaction);
+            return signature;
+          },
+          openModal() { modal.setVisible(true); }
+        };
+        return null;
       }
-    }
-  }
 
-  function draw(){
-    ctx.clearRect(0,0,W,H);
-    ctx.globalCompositeOperation = 'lighter';
-    for (let s of stars){
-      const p = project(s);
-      // faint streak from previous pos -> current (only when we have a prior)
-      if (s.px && s.py){
-        ctx.beginPath();
-        ctx.moveTo(s.px, s.py);
-        ctx.lineTo(p.sx, p.sy);
-        ctx.strokeStyle = COLOR + 'AA'; // subtle alpha
-        ctx.lineWidth = 0.6;
-        ctx.stroke();
+      function Mount() {
+        return (
+          <UnifiedWalletProvider
+            config={{ autoConnect: true, env: "mainnet-beta", theme: "dark", deepLinkPreference: "all" }}
+          >
+            <Bridge />
+          </UnifiedWalletProvider>
+        );
       }
-      // star dot
-      ctx.beginPath();
-      ctx.arc(p.sx, p.sy, p.r, 0, Math.PI*2);
-      ctx.fillStyle = COLOR;
-      ctx.globalAlpha = 0.65 + (1 - s.z) * 0.25; // nearer = slightly brighter
-      ctx.fill();
-      ctx.globalAlpha = 1;
 
-      s.px = p.sx; s.py = p.sy;
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
+      const mount = document.getElementById("wallet-root") || (() => {
+        const n = document.createElement("div");
+        n.id = "wallet-root";
+        document.body.appendChild(n);
+        return n;
+      })();
 
-  // Manage animation time for consistent speed
-  let lastT = performance.now();
-  function loop(t){
-    if(!running) return;
-    const dt = Math.min(60, (t - lastT)) / 16.6667; // normalize to ~frames
-    lastT = t;
-    update(dt);
-    draw();
-    requestAnimationFrame(loop);
-  }
+      ReactDOM.createRoot(mount).render(React.createElement(Mount));
+    </script>
+    <!-- ========== /NX: Jupiter Wallet Bridge ========== -->
 
-  // Layering styles: full-viewport, behind content, click-through
-  Object.assign(cnv.style, {
-    position:'fixed', inset:'0', zIndex:'0',
-    pointerEvents:'none', background:'transparent'
-  });
-  // Ensure your main content has a higher stacking context than 0 if needed.
-  // (Your panels/header already do.)
+    <!-- ========== NX: Login connect wiring (keeps your UI) ========== -->
+    <script>
+      (function(){
+        const $ = (id) => document.getElementById(id);
+        const connectBtn    = $("connect-btn");
+        const disconnectBtn = $("phantom-disconnect");
+        const statusEl      = $("wallet-status");
+        const remember      = $("remember");
+        const LKEY          = "nebula:wallet";
 
-  // Pause when tab hidden to save cycles
-  document.addEventListener('visibilitychange', ()=>{ running = !document.hidden; if(running){ lastT=performance.now(); requestAnimationFrame(loop);} });
+        const short = (a) => (a ? a.slice(0,4) + "…" + a.slice(-4) : "Guest");
+        const save  = (pk) => { try { localStorage.setItem(LKEY, JSON.stringify({ pk })); } catch {} };
+        const load  = () => { try { return JSON.parse(localStorage.getItem(LKEY) || "{}").pk || null; } catch { return null; } };
+        const clear = () => { try { localStorage.removeItem(LKEY); } catch {} };
 
-  requestAnimationFrame(loop);
-})();
-</script>
-<script>
- 
-    try {
-      // Listen once (optional but handy)
-      provider.on?.('connect', () => {/* you could flash a toast here */});
-      provider.on?.('disconnect', () => { clear(); setDisconnected('Disconnected'); });
+        function setConnected(pk) {
+          if (statusEl) {
+            statusEl.textContent = `Connected: ${short(pk)}`;
+            statusEl.classList.remove("text-zinc-400");
+            statusEl.classList.add("text-emerald-400");
+          }
+          disconnectBtn && disconnectBtn.classList.remove("hidden");
+          connectBtn   && connectBtn.classList.add("hidden");
+        }
+        function setDisconnected(msg) {
+          if (statusEl) {
+            statusEl.textContent = msg || "Not connected";
+            statusEl.classList.remove("text-emerald-400");
+            statusEl.classList.add("text-zinc-400");
+          }
+          disconnectBtn && disconnectBtn.classList.add("hidden");
+          connectBtn   && connectBtn.classList.remove("hidden");
+        }
 
-      const resp = await provider.connect({ onlyIfTrusted: false });
-      const pk = resp?.publicKey?.toString?.() || provider?.publicKey?.toString?.() || '';
-      if (remember.checked) save(pk);
-      setConnected(pk);
+        // Button -> open Jupiter modal
+        connectBtn && connectBtn.addEventListener("click", () => {
+          window.NXWallet?.openModal?.();
+        });
 
-      const next = new URLSearchParams(location.search).get('next');
-      if (next) location.href = next;
-    } catch (err) {
-      setDisconnected('Connection cancelled');
-    }
-  });
-</script>
-<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+        // "Disconnect" only clears remembered state (wallets disconnect in their own UI)
+        disconnectBtn && disconnectBtn.addEventListener("click", () => {
+          clear();
+          setDisconnected("Disconnected");
+        });
 
+        async function tick() {
+          try {
+            const pk = window.NXWallet?.getAddress?.();
+            if (pk) {
+              if (remember?.checked) save(pk);
+              setConnected(pk);
+              // Redirect to NebulaX homepage once connected
+              setTimeout(() => { window.location.href = "NebulaX.html"; }, 200);
+            } else {
+              const cached = load();
+              cached ? setConnected(cached) : setDisconnected("Not connected");
+            }
+          } catch(e) {
+            // swallow until wallet bridge ready
+          }
+        }
+        tick();
+        setInterval(tick, 1000);
 
-
-<!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
-<script type="module">
-  import React from "https://esm.sh/react@18.2.0";
-  import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
-  import { Connection, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.95.3";
-  import {
-    UnifiedWalletProvider,
-    useUnifiedWallet,
-    useUnifiedWalletModal
-  } from "https://esm.sh/@jup-ag/wallet-kit@^2?deps=react@18.2.0";
-
-  const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
-
-  function Bridge() {
-    const { publicKey, signAndSendTransaction } = useUnifiedWallet();
-    const modal = useUnifiedWalletModal();
-
-    // Expose a stable, UI-free API for your page
-    window.NXWallet = {
-      isConnected: () => !!publicKey,
-      getAddress: () => publicKey?.toBase58?.() ?? null,
-      async getBalance() {
-        if (!publicKey) return null;
-        const lam = await connection.getBalance(publicKey);
-        return lam / LAMPORTS_PER_SOL;
-      },
-      async send(transaction) {
-        if (!publicKey) throw new Error("Wallet not connected");
-        const { signature } = await signAndSendTransaction(transaction);
-        return signature;
-      },
-      openModal() { modal.setVisible(true); }
-    };
-    return null; // no visible UI
-  }
-
-  function Mount() {
-    return (
-      <UnifiedWalletProvider
-        config={{ autoConnect: true, env: "mainnet-beta", theme: "dark", deepLinkPreference: "all" }}
-      >
-        <Bridge />
-      </UnifiedWalletProvider>
-    );
-  }
-
-  const mount = document.getElementById("wallet-root") || (() => {
-    const n = document.createElement("div");
-    n.id = "wallet-root";
-    document.body.appendChild(n);
-    return n;
-  })();
-
-  ReactDOM.createRoot(mount).render(React.createElement(Mount));
-</script>
-<!-- ========== /NX: Jupiter Wallet Bridge ========== -->
-
-<!-- ========== NX: Login connect wiring (uses your existing UI) ========== -->
-<script>
-  const $ = (id) => document.getElementById(id);
-  const connectBtn = $("connect-btn");
-  const disconnectBtn = $("phantom-disconnect");
-  const statusEl = $("wallet-status");
-  const remember = $("remember");
-  const LKEY = "nebula:wallet";
-
-  const short = (a) => (a ? a.slice(0,4) + "…" + a.slice(-4) : "Guest");
-  const save  = (pk) => { try { localStorage.setItem(LKEY, JSON.stringify({ pk })); } catch {} };
-  const load  = () => { try { return JSON.parse(localStorage.getItem(LKEY) || "{}").pk || null; } catch { return null; } };
-  const clear = () => { try { localStorage.removeItem(LKEY); } catch {} };
-
-  function setConnected(pk) {
-    statusEl && (statusEl.textContent = `Connected: ${short(pk)}`);
-    statusEl?.classList.remove("text-zinc-400");
-    statusEl?.classList.add("text-emerald-400");
-    disconnectBtn?.classList.remove("hidden");
-    connectBtn?.classList.add("hidden");
-  }
-  function setDisconnected(msg) {
-    statusEl && (statusEl.textContent = msg || "Not connected");
-    statusEl?.classList.remove("text-emerald-400");
-    statusEl?.classList.add("text-zinc-400");
-    disconnectBtn?.classList.add("hidden");
-    connectBtn?.classList.remove("hidden");
-  }
-
-  // Your button -> open Jupiter modal
-  connectBtn?.addEventListener("click", () => window.NXWallet?.openModal?.());
-
-  // “Disconnect” just clears the remembered address (wallets disconnect via their own UIs)
-  disconnectBtn?.addEventListener("click", () => { clear(); setDisconnected("Disconnected"); });
-
-  // Poll wallet state and mirror it to UI; optionally remember the address
-  async function tick() {
-    const pk = window.NXWallet?.getAddress?.();
-    if (pk) {
-      if (remember?.checked) save(pk);
-      setConnected(pk);
-      const next = new URLSearchParams(location.search).get("next");
-      if (next) setTimeout(() => (location.href = next), 200);
-    } else {
-      const cached = load();
-      cached ? setConnected(cached) : setDisconnected("Not connected");
-    }
-  }
-  tick(); setInterval(tick, 1000);
-</script>
-<!-- ========== /NX: Login connect wiring ========== -->
-
-
-    
+        // Cosmetic: current year
+        const yr = document.getElementById("yr");
+        if (yr) yr.textContent = new Date().getFullYear();
+      })();
+    </script>
+    <!-- ========== /NX: Login connect wiring ========== -->
   </body>
 </html>
