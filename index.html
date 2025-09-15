@@ -210,56 +210,60 @@
     })();
     </script>
 
-    <!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
-    <script type="module">
-      import React from "https://esm.sh/react@18.2.0";
-      import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
-      import { Connection, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.95.3";
-      import { UnifiedWalletProvider, useUnifiedWallet, useUnifiedWalletModal } from "https://esm.sh/@jup-ag/wallet-kit@^2?deps=react@18.2.0";
+<!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
+<script type="module">
+  import React from "https://esm.sh/react@18.2.0";
+  import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
+  import { Connection, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/web3.js@1.95.3";
+  import {
+    UnifiedWalletProvider,
+    useUnifiedWallet,
+    useUnifiedWalletModal
+  } from "https://esm.sh/@jup-ag/wallet-kit@^2?deps=react@18.2.0";
 
-      const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+  const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
-      function Bridge() {
-        const { publicKey, signAndSendTransaction } = useUnifiedWallet();
-        const modal = useUnifiedWalletModal();
+  function Bridge() {
+    const { publicKey, signAndSendTransaction } = useUnifiedWallet();
+    const modal = useUnifiedWalletModal();
 
-        window.NXWallet = {
-          isConnected: () => !!publicKey,
-          getAddress: () => publicKey?.toBase58?.() ?? null,
-          async getBalance() {
-            if (!publicKey) return null;
-            const lam = await connection.getBalance(publicKey);
-            return lam / LAMPORTS_PER_SOL;
-          },
-          async send(transaction) {
-            if (!publicKey) throw new Error("Wallet not connected");
-            const { signature } = await signAndSendTransaction(transaction);
-            return signature;
-          },
-          openModal() { modal.setVisible(true); }
-        };
-        return null;
-      }
+    window.NXWallet = {
+      isConnected: () => !!publicKey,
+      getAddress: () => publicKey?.toBase58?.() ?? null,
+      async getBalance() {
+        if (!publicKey) return null;
+        const lam = await connection.getBalance(publicKey);
+        return lam / LAMPORTS_PER_SOL;
+      },
+      async send(transaction) {
+        if (!publicKey) throw new Error("Wallet not connected");
+        const { signature } = await signAndSendTransaction(transaction);
+        return signature;
+      },
+      openModal() { modal.setVisible(true); }
+    };
+    return null;
+  }
 
-      function Mount() {
-        return (
-          <UnifiedWalletProvider
-            config={{ autoConnect: true, env: "mainnet-beta", theme: "dark", deepLinkPreference: "all" }}
-          >
-            <Bridge />
-          </UnifiedWalletProvider>
-        );
-      }
+  function Mount() {
+    return React.createElement(
+      UnifiedWalletProvider,
+      { config: { autoConnect: true, env: "mainnet-beta", theme: "dark", deepLinkPreference: "all" } },
+      React.createElement(Bridge, null)
+    );
+  }
 
-      const mount = document.getElementById("wallet-root") || (() => {
-        const n = document.createElement("div");
-        n.id = "wallet-root";
-        document.body.appendChild(n);
-        return n;
-      })();
+  const mount = document.getElementById("wallet-root") || (() => {
+    const n = document.createElement("div");
+    n.id = "wallet-root";
+    document.body.appendChild(n);
+    return n;
+  })();
 
-      ReactDOM.createRoot(mount).render(React.createElement(Mount));
-    </script>
+  ReactDOM.createRoot(mount).render(React.createElement(Mount));
+</script>
+<!-- ========== /NX: Jupiter Wallet Bridge ========== -->
+
     <!-- ========== /NX: Jupiter Wallet Bridge ========== -->
 
     <!-- ========== NX: Login connect wiring (keeps your UI) ========== -->
