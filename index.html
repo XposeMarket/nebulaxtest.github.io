@@ -363,5 +363,91 @@
     ?.addEventListener("click", connectWallet);
 </script>
 
+<!-- ========== NX: Jupiter Wallet Bridge (LOGIN PAGE ONLY) ========== -->
+<script type="module">
+  import React from "https://esm.sh/react@18.2.0";
+  import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
+  import {
+    Connection,
+    LAMPORTS_PER_SOL
+  } from "https://esm.sh/@solana/web3.js@1.95.3";
+  import {
+    UnifiedWalletProvider,
+    UnifiedWalletButton
+  } from "https://esm.sh/@jup-ag/wallet-adapter@^1?deps=react@18.2.0";
+  // NOTE: We’ll open the modal by clicking a hidden UnifiedWalletButton.
+  // This keeps your own “Connect Wallet” button & styling intact.
+
+  const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+
+  function Bridge() {
+    // We’ll read state via window.NXWallet.getAddress() + polling, so no hooks needed here.
+    // Expose a stable, UI-free wallet facade for the rest of your page:
+    window.NXWallet = window.NXWallet || {
+      isConnected: () => !!window.__nx_pubkey,
+      getAddress: () => window.__nx_pubkey ?? null,
+      async getBalance() {
+        if (!window.__nx_pubkey) return null;
+        const lam = await connection.getBalance(window.__nx_pubkey);
+        return lam / LAMPORTS_PER_SOL;
+      },
+      async send(signAndSend) {
+        // Optional: if you pass a function that does sign+send, call it here.
+        if (typeof signAndSend !== "function") throw new Error("Provide a signer function");
+        return await signAndSend();
+      },
+      openModal() {
+        // Click the hidden Jupiter button to open the wallet modal
+        document.getElementById("nx-hidden-wallet-button")?.click();
+      },
+    };
+    return (
+      <div style={{ display: "none" }}>
+        {/* This renders the official modal trigger, but kept hidden */}
+        <UnifiedWalletButton id="nx-hidden-wallet-button" />
+      </div>
+    );
+  }
+
+  function Mount() {
+    return (
+      <UnifiedWalletProvider
+        config={{
+          autoConnect: true,
+          env: "mainnet-beta",
+          theme: "dark",
+        }}
+      >
+        <Bridge />
+      </UnifiedWalletProvider>
+    );
+  }
+
+  const mount =
+    document.getElementById("wallet-root") ||
+    (() => {
+      const n = document.createElement("div");
+      n.id = "wallet-root";
+      document.body.appendChild(n);
+      return n;
+    })();
+
+  ReactDOM.createRoot(mount).render(React.createElement(Mount));
+
+  // Minimal listener to capture the connected publicKey when user finishes the modal flow.
+  // Jupiter’s adapter dispatches a CustomEvent on window when connection changes.
+  // Fallback: we also poll the DOM the button manages.
+  window.addEventListener("walletAdapter:connected", (e) => {
+    try {
+      // If the event includes a publicKey, stash it.
+      if (e?.detail?.publicKey?.toBase58) {
+        window.__nx_pubkey = e.detail.publicKey;
+      }
+    } catch {}
+  });
+</script>
+<!-- ========== /NX: Jupiter Wallet Bridge ========== -->
+
+    
   </body>
 </html>
