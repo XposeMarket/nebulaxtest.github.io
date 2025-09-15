@@ -447,6 +447,74 @@
   });
 </script>
 <!-- ========== /NX: Jupiter Wallet Bridge ========== -->
+<!-- ========== NX: Login connect wiring (replace old Phantom connect script) ========== -->
+<script>
+  // IDs you already have in your login page:
+  // - Connect button:   #connect-btn      (text “Connect Wallet”)
+  // - Disconnect btn:   #phantom-disconnect   (optional)
+  // - Status label:     #wallet-status    (e.g., “Not connected”)
+  // - “Remember me”:    #remember         (optional checkbox)
+
+  const $ = (id) => document.getElementById(id);
+  const connectBtn = $("connect-btn");
+  const disconnectBtn = $("phantom-disconnect");
+  const statusEl = $("wallet-status");
+  const remember = $("remember");
+  const LKEY = "nebula:wallet";
+
+  const short = (a) => (a ? a.slice(0, 4) + "…" + a.slice(-4) : "Guest");
+  const save = (pk) => { try { localStorage.setItem(LKEY, JSON.stringify({ pk })); } catch {} };
+  const load = () => { try { return JSON.parse(localStorage.getItem(LKEY) || "{}").pk || null; } catch { return null; } };
+  const clear = () => { try { localStorage.removeItem(LKEY); } catch {} };
+
+  function setConnected(pk) {
+    if (statusEl) {
+      statusEl.textContent = `Connected: ${short(pk)}`;
+      statusEl.classList.remove("text-zinc-400");
+      statusEl.classList.add("text-emerald-400");
+    }
+    if (disconnectBtn) disconnectBtn.classList.remove("hidden");
+    if (connectBtn) connectBtn.classList.add("hidden");
+  }
+  function setDisconnected(msg) {
+    if (statusEl) {
+      statusEl.textContent = msg || "Not connected";
+      statusEl.classList.remove("text-emerald-400");
+      statusEl.classList.add("text-zinc-400");
+    }
+    if (disconnectBtn) disconnectBtn.classList.add("hidden");
+    if (connectBtn) connectBtn.classList.remove("hidden");
+  }
+
+  // Your button → open Jupiter modal (keeps your UI)
+  connectBtn?.addEventListener("click", () => window.NXWallet?.openModal?.());
+
+  // “Disconnect” just clears your remembered address; users disconnect in their wallet UIs
+  disconnectBtn?.addEventListener("click", () => {
+    clear();
+    setDisconnected("Disconnected");
+  });
+
+  // Poll the facade for status and mirror to UI; optionally remember the address
+  async function tick() {
+    const pk = window.NXWallet?.getAddress?.();
+    if (pk) {
+      if (remember?.checked) save(pk.toBase58 ? pk.toBase58() : pk);
+      setConnected(pk.toBase58 ? pk.toBase58() : pk);
+
+      // Optional: redirect when logged-in
+      const next = new URLSearchParams(location.search).get("next");
+      if (next) setTimeout(() => (location.href = next), 200);
+    } else {
+      const cached = load();
+      if (cached) setConnected(cached);
+      else setDisconnected("Not connected");
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+<!-- ========== /NX: Login connect wiring ========== -->
 
     
   </body>
