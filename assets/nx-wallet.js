@@ -193,7 +193,7 @@ async function fetchBalanceThrottled(pubkey){
   isConnected, isInstalled,
   getAddress, getBalance,
   refreshBalance,   // <--- add here
-  guard
+  guard,
     openMenu: openWalletMenu
 };
 
