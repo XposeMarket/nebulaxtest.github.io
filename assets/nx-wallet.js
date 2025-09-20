@@ -25,7 +25,11 @@
   }
 
   function shorten(pk){ if(!pk) return ''; return pk.slice(0,4)+'…'+pk.slice(-4); }
-  function save(pk){ try{ localStorage.setItem("nebula:wallet", JSON.stringify({ pk: pubkey })); }catch{} }
+function save(pk){
+  try {
+    localStorage.setItem("nebula:wallet", JSON.stringify({ pk }));
+  } catch {}
+}
   function load(){ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} }
   function clear(){ try{ localStorage.removeItem(LKEY); }catch{} }
 
