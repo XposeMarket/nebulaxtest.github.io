@@ -1,7 +1,11 @@
 
 (() => {
   // Optional: set a dedicated RPC first, above this script:
-const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
+// Prefer a runtime override, else your Helius key, else public
+const RPC =
+  (typeof localStorage !== 'undefined' && localStorage.getItem('NX_RPC')) ||
+  "https://rpc.helius.xyz/?api-key=YOUR_KEY"; // <-- put your real key here
+const connection = new solanaWeb3.Connection(RPC, 'confirmed');
 
   const { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
 
