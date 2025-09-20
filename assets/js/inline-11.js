@@ -54,6 +54,9 @@ if (walletBtn && window.NXWallet?.openMenu) {
 }
 // (or just delete this whole block if you don’t want the popover here)
 
+on('wallet-btn','click', openWalletMenu);
+
+
 
 
   function phantom() {
