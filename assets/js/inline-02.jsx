@@ -18,20 +18,18 @@ const DEX_EMBEDS = {
       /* Stop per-icon re-DOMing (was causing flicker). We call createIcons once at the end. */
       function Icon({name,className}){ return <i data-lucide={name} className={cx(className,"neon-text")} />; }
       const Pill=({children,className})=><span className={cx("rounded-full px-2 py-0.5 text-[11px] font-medium bg-[var(--cyberpunk-dark-secondary)] neon-text",className)}>{children}</span>;
-// Minimal Button shim (replaces shadcn/ui)
+// --- shim: Button (so all <Button> usages stop crashing) ---
 function Button({ children, variant, className, ...props }) {
-  // map shadcn variants to your nx styles
   const base = "nx-btn";
-  const cyan = variant === "cyan" || variant === "default";
-  const outline = variant === "outline";
   const cls = [
     base,
-    cyan && "nx-btn-cyan",
-    outline && "",
+    variant === "outline" ? "" : "nx-btn-cyan", // default cyan
     className
   ].filter(Boolean).join(" ");
   return <button className={cls} {...props}>{children}</button>;
 }
+// -----------------------------------------------------------
+
 
     // ↓ it goes right after Button(...) and before UseWalletReadout(...)
 function Input({ value, onChange, placeholder, right, ...rest }) {
