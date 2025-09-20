@@ -102,11 +102,12 @@ const connection = new solanaWeb3.Connection(RPC, 'confirmed');
     } catch {}
   })();
 
-  // Gentle polling
-  setInterval(async () => {
-    try {
-      const p = phantom();
-      if (p && p.isConnected && p.publicKey) await fetchBalance(p.publicKey);
-    } catch {}
-  }, 20000);
+// Gentle polling
+setInterval(async () => {
+  try {
+    const p = phantom();
+    if (p && p.isConnected && p.publicKey) await fetchBalance(p.publicKey);
+  } catch {}
+}, 20000);
 })();
+
