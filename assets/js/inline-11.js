@@ -3,6 +3,14 @@
 
   const { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
 
+// in inline-11.js, where you create the connection:
+const RPC = (typeof window.NX_RPC === "string" && window.NX_RPC.trim())
+  ? window.NX_RPC.trim()
+  : "https://api.mainnet-beta.solana.com"; // fallback if you forget to set it
+
+const connection = new solanaWeb3.Connection(RPC, "confirmed");
+
+  
   const els = {
     btn:  document.getElementById('connectBtn'),
     label:document.getElementById('connectLabel'),
@@ -47,10 +55,6 @@
     on('wallet-btn','click', openWalletMenu);
   });
 
-  const RPC = (typeof window.NX_RPC === 'string' && window.NX_RPC.trim())
-    ? window.NX_RPC.trim()
-    : clusterApiUrl('mainnet-beta');
-  const connection = new Connection(RPC, 'confirmed');
 
   function phantom() {
     const provider = window.solana;
