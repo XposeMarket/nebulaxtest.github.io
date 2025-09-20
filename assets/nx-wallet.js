@@ -194,6 +194,7 @@ async function fetchBalanceThrottled(pubkey){
   getAddress, getBalance,
   refreshBalance,   // <--- add here
   guard
+    openMenu: openWalletMenu
 };
 
 })();
