@@ -1,8 +1,10 @@
-btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
-btn.onclick = openWalletMenu;
-}
-try{ window.lucide?.createIcons?.(); }catch{}
-}
+// Good: file should begin like this (example)
+(function(){
+  const LKEY = 'nebula:wallet';
+  const STATE = { provider:null, pubkey:null, balance:null, conn:null };
+  // … rest of the wallet code …
+})();
+
 
 
 // Simple dropdown for connect/disconnect
