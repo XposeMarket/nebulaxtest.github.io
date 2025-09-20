@@ -31,7 +31,7 @@
 
   async function fetchBalance(pubkey){
     try{
-      const url = 'https://api.mainnet-beta.solana.com'; // swap to your RPC anytime
+const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
       const connection = new solanaWeb3.Connection(url, 'confirmed');
       STATE.conn = connection;
       const lam = await connection.getBalance(new solanaWeb3.PublicKey(pubkey));
