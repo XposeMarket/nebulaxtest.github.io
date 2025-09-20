@@ -1,7 +1,7 @@
 
 (() => {
   // Optional: set a dedicated RPC first, above this script:
-  // window.NX_RPC = "https://api.mainnet-beta.solana.com"; // or your Helius/QuickNode URL
+const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
 
   const { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
 
