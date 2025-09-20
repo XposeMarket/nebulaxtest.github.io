@@ -45,11 +45,7 @@ const connection = new solanaWeb3.Connection(RPC, "confirmed");
       }
     });
 
-    // (optional) hook a refresh button if you add one:
-    on('refreshBtn','click', async () => {
-      const p = phantom();
-      if (p?.publicKey) await fetchBalance(p.publicKey);
-    });
+
 
     // If you also have the header “wallet-btn”, this wires the dropdown from nx-wallet:
     on('wallet-btn','click', openWalletMenu);
