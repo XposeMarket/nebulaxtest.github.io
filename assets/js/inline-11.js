@@ -13,6 +13,34 @@ const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
     bal: document.getElementById('solBalance'),
     err: document.getElementById('walletError')
   };
+// === SAFE DOM HELPERS ===
+const $id = (id) => document.getElementById(id);
+const on = (id, evt, fn, opts) => {
+  const el = $id(id);
+  if (!el) {
+    console.warn(`[NX] missing element #${id} — skipped ${evt} listener`);
+    return;
+  }
+  el.addEventListener(evt, fn, opts);
+};
+
+// Always wire after DOM is ready
+function ready(fn){
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fn, { once:true });
+  } else {
+    fn();
+  }
+}
+
+// === MOVE your event wiring inside here ===
+ready(() => {
+  // EXAMPLES — replace with your actual IDs / handlers:
+  on('connectBtn', 'click', handleConnect);
+  on('refreshBtn', 'click', refreshPortfolio);
+  on('wallet-btn', 'click', openWalletMenu);
+  // ... any other document.getElementById(...).addEventListener(...) calls
+});
 
   const RPC = (typeof window.NX_RPC === 'string' && window.NX_RPC.trim())
     ? window.NX_RPC.trim()
