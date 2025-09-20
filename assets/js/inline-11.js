@@ -47,9 +47,13 @@ const connection = new solanaWeb3.Connection(RPC, "confirmed");
 
 
 
-    // If you also have the header “wallet-btn”, this wires the dropdown from nx-wallet:
-    on('wallet-btn','click', openWalletMenu);
-  });
+// inside your ready(() => { ... }) block
+const walletBtn = document.getElementById('wallet-btn');
+if (walletBtn && window.NXWallet?.openMenu) {
+  walletBtn.addEventListener('click', () => window.NXWallet.openMenu());
+}
+// (or just delete this whole block if you don’t want the popover here)
+
 
 
   function phantom() {
