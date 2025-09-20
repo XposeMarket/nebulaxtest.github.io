@@ -109,5 +109,5 @@ setInterval(async () => {
     if (p && p.isConnected && p.publicKey) await fetchBalance(p.publicKey);
   } catch {}
 }, 20000);
-})();
+)();
 
