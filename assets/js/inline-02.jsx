@@ -564,6 +564,43 @@ function ChartPanel2({ symbol }) {
         }, 13000, [trending.join(",")], editMode);
 
 
+            // Keep the existing <AlertsPanel/> JSX working:
+const AlertsPanel = React.useCallback(() => (
+  <Card
+    title={
+      <div className="flex items-center gap-2">
+        <span>Alerts</span>
+        {enabledSymbols.length > 0 && (
+          <Pill>{enabledSymbols.length} active</Pill>
+        )}
+      </div>
+    }
+    toolbar={
+      <button
+        id="alert-btn"
+        className="nx-btn"
+        onClick={(e) => openAlertMenuFrom(e.currentTarget)}
+      >
+        Configure
+      </button>
+    }
+  >
+    {recentTriggers.length === 0 ? (
+      <div className="text-sm text-zinc-400">No alerts yet.</div>
+    ) : (
+      <ul className="space-y-1 text-sm">
+        {recentTriggers.map((t) => (
+          <li key={t.ts} className="flex items-center justify-between">
+            <span className="truncate">{t.symbol}</span>
+            <span className="text-zinc-400 ml-2 truncate">{prettyTrigger(t)}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </Card>
+), [enabledSymbols.length, recentTriggers]);
+
+
 
 function useSolBalance(addressOrPk){
   const [sol, setSol] = React.useState(null);
