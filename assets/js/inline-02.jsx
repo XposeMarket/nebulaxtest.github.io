@@ -12,17 +12,7 @@ const DEX_EMBEDS = {
   "BTC/USDC": "https://dexscreener.com/osmosis/1943-factory_osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3_alloyed_allBTC-ibc_498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
-function useTeleportPortfolio(pid, deps=[]) {
-  React.useEffect(() => {
-    // Ensure the single real host exists
-    let host = document.getElementById('nx-portfolio-card');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'nx-portfolio-card';
-      host.className = 'nx-panel p-3';
-      host.style.position = 'relative';
-      host.style.zIndex = 1;
-    }
+
 
 const NX_RPC =
   (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
@@ -978,45 +968,7 @@ function PortfolioPanel(){
           );
         }
 
-// Kill the legacy mock panel so it stops breaking the build:
-function PortfolioPanel(){ return null }
-           function AlertsPanel(){
-          const enabled=Object.keys(alertsEnabled).filter(s=>alertsEnabled[s]);
-          return (
-            <Card title="Alerts" toolbar={<Pill>My Alerts</Pill>}>
-              <div className="mb-2 rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] p-2 text-xs">
-                <div className="mb-1 text-zinc-400">Recent triggers</div>
-                <div className="flex flex-wrap gap-2 max-h-24 overflow-auto">
-                  {recentTriggers.length===0 && <span className="text-zinc-500">No triggers yet</span>}
-                  {recentTriggers.map((rt,i)=>(
-                    <span key={rt.symbol+rt.ts+i} className="rounded-lg bg-[var(--cyberpunk-dark-secondary)] px-2 py-1 neon-text">
-                      {rt.symbol}: {prettyTrigger(rt)}{rt.meta?.magnitude?` (${rt.meta.magnitude})`:""}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                {enabled.length===0 && <div className="text-xs text-zinc-500">No coins enabled for alerts. Use the Alerts button in the ticker.</div>}
-                {enabled.map(sym=>(
-                  <div key={sym} className="rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] p-2">
-                    <div className="mb-1 flex items-center justify-between">
-                      <div className="text-sm font-semibold neon-text">{sym}</div>
-                      <div className="text-xs text-emerald-400">Active</div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs max-h-16 overflow-auto">
-                      {(alertsBySymbol[sym]||[]).slice(0,6).map((tr,i)=>(
-                        <span key={i} className="rounded-lg bg-[var(--cyberpunk-dark-secondary)] px-2 py-1 neon-text">
-                          {prettyTrigger(tr)}{tr.meta?.magnitude?` (${tr.meta.magnitude})`:""}
-                        </span>
-                      ))}
-                      {(!alertsBySymbol[sym]||alertsBySymbol[sym].length===0)&&<span className="text-zinc-500">No triggers yet</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          );
-        }
+
 
         function ReferralsPanel(){ return <Card title="Referrals" toolbar={<Icon name="share-2" className="w-4 h-4" />}><div className="flex items-center justify-between rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] p-2 text-sm"><div><div className="neon-text">Invite friends, earn rebates</div><div className="text-xs text-zinc-500">Program TBD (framework ready)</div></div><Button variant="outline"><Icon name="copy" className="w-4 h-4 mr-2"/> Copy Link</Button></div></Card>; }
 function DocsPanel(){
