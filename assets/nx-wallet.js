@@ -5,6 +5,15 @@
   // … rest of the wallet code …
 })();
 
+// choose RPC from window or localStorage, else fall back
+const NX_RPC =
+  (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
+  (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC")) ||
+  "https://api.mainnet-beta.solana.com";
+
+// use NX_RPC EVERY time you construct a Connection
+const connection = new solanaWeb3.Connection(NX_RPC, "confirmed");
+// ...and anywhere else you do new Connection(...), use NX_RPC instead of a literal
 
 
 // Simple dropdown for connect/disconnect
