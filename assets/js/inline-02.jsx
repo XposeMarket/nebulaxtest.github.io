@@ -20,87 +20,10 @@ const NX_RPC =
   "https://api.mainnet-beta.solana.com";
 
         
-    // React-render the panel into the host
-    const r = ReactDOM.createRoot(host);
-    r.render(
-      <Card
-        title={
-          <a
-            href="portfolio_official_v_2_fixed.html"
-            className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
-            aria-label="Open Portfolio page"
-          >
-            Portfolio
-          </a>
-        }
-        toolbar={
-          <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
-            Local
-          </span>
-        }
-      >
-        {/* address line */}
-        <div className="text-xs text-zinc-400 break-all mb-2">
-          {(() => {
-            const a = window.NXWallet?.getAddress?.();
-            return a ? `${a.slice(0,4)}…${a.slice(-4)}` : "—";
-          })()}
-        </div>
-
-        {/* summary tiles */}
-        <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-          <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
-            <div className="text-xs text-zinc-400">Total Value</div>
-            <div className="text-lg font-semibold neon-text">
-              {/* keep simple until token pricing is wired */}
-              {new Intl.NumberFormat(undefined,{style:"currency",currency:"USD",maximumFractionDigits:2}).format(0)}
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
-            <div className="text-xs text-zinc-400">Unrealized PnL</div>
-            <div className="text-lg font-semibold text-emerald-400">+ $0</div>
-          </div>
-
-          <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
-            <div className="text-xs text-zinc-400">Available</div>
-            <div className="text-lg font-semibold neon-text">
-              {(() => {
-                const bal = window.NXWallet?.getBalance?.();
-                return bal == null ? "— SOL" : `${Number(bal).toFixed(4)} SOL`;
-              })()}
-              <span className="text-zinc-400 text-xs"> &nbsp;• $0</span>
-            </div>
-          </div>
-        </div>
-
-        {/* positions */}
-        <div className="text-sm neon-text">
-          <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
-          <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
-            <div className="text-zinc-500 text-sm">No live positions (mock).</div>
-          </div>
-        </div>
-      </Card>
-    );
-  };
-}
-
+    
 
         
-    // Choose the first visible slot for this section
-    const slots = Array.from(document.querySelectorAll('[data-nx-slot="portfolio"]'));
-    const target = slots.find(s => !!s.offsetParent) || slots[0];
-    if (target && host.parentNode !== target) target.appendChild(host);
 
-    // Mount only once
-    if (!host.dataset.rendered) {
-      host.dataset.rendered = '1';
-      host.innerHTML = '';
-      window.NXMountPortfolio?.(host); // your portfolio-card render function
-    }
-  }, [pid, ...deps]);
-}
 
 
 
