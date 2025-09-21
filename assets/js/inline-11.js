@@ -88,7 +88,19 @@ async function onConnected(pk){
     })();
   });
 
-  // Gentle polling (optional). Remove if you want TX-only updates.
-  setInterval(async () => {
-    try{
-      const p = phantom();
+// … keep everything you already have above …
+
+// Gentle polling (optional). Remove if you want TX-only updates.
+setInterval(async () => {
+  try {
+    const p = phantom();
+    if (!p || !p.isConnected) return;
+    const pk = p.publicKey?.toString?.();
+    if (pk) await fetchBalance(pk);
+  } catch (e) {
+    // swallow
+  }
+}, 15000);
+
+// close the IIFE you opened at the top
+})();
