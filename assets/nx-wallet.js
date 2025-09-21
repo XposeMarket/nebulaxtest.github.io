@@ -116,6 +116,16 @@ async function startBalanceWatch(pubkey){
   }, 5*60*1000);
 }
 
+    // after: STATE.balance = await fetchBalance(pk); ui();
+startBalanceWatch(STATE.pubkey);
+// and broadcast the first value
+window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
+
+// after: STATE.balance = STATE.pubkey ? await fetchBalance(STATE.pubkey) : null; ui();
+if (STATE.pubkey) startBalanceWatch(STATE.pubkey); else stopBalanceWatch();
+window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
+
+    
 // After STATE.balance is set/cached:
 window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
 
@@ -133,6 +143,8 @@ window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: S
   async function disconnect(){
     try{ await STATE.provider?.disconnect?.(); }catch{}
     STATE.pubkey = null; STATE.balance = null; clear(); ui();
+    stopBalanceWatch();
+
   }
 
   function isConnected(){ return !!STATE.pubkey; }
