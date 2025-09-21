@@ -98,36 +98,47 @@ function UseWalletReadout(){
   const [addr, setAddr] = React.useState(null);
   const [bal,  setBal]  = React.useState(null);
 
-  // poll lightly; React never calls Phantom directly
-  React.useEffect(()=>{
-    let alive = true;
+// Replace the entire useEffect in UseWalletReadout with this:
+React.useEffect(() => {
+  let alive = true;
 
-    const tick = async () => {
-      const a = window.NXWallet?.getAddress?.() || null;
-      const b = window.NXWallet?.getBalance?.();
-      setAddr(a);
-      setBal(b == null ? null : b);
+  // set initial from wallet cache
+  const setFromWallet = () => {
+    const a = window.NXWallet?.getAddress?.() || null;
+    const b = window.NXWallet?.getBalance?.();
+    if (!alive) return;
+    setAddr(a);
+    setBal(b == null ? null : b);
+  };
 
-      // opportunistic refresh if balance is unknown
-      if (a && b == null) {
-        await window.NXWallet?.refreshBalance?.();
-        const b2 = window.NXWallet?.getBalance?.();
-        if (alive) setBal(b2 == null ? null : b2);
-      }
-    };
+  // 1) push updates: fired by nx-wallet when balance changes
+  const onSol = (e) => {
+    const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+    if (alive) setBal(b == null ? null : b);
+  };
+  window.addEventListener("nebula:sol:changed", onSol);
 
-    tick();
-    const id = setInterval(tick, 1500);
-    return ()=>{ alive = false; clearInterval(id); };
-  }, []);
+  // 2) gentle 60s tick (hits RPC at most once/min because of your throttle)
+  setFromWallet();
+  const id = setInterval(() => {
+    try { window.NXWallet?.refreshBalance?.(false); } catch {}
+  }, 60_000);
 
-  return (
-    <div className="text-xs">
-      Address: {addr ? `${addr.slice(0,4)}…${addr.slice(-4)}` : '—'} •
-      SOL: {bal == null ? '—' : bal.toFixed(4)}
-    </div>
-  );
-}
+  // 3) fast catch-up when tab regains focus
+  const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+  const onVis = () => { if (!document.hidden) onFocus(); };
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("visibilitychange", onVis);
+
+  return () => {
+    alive = false;
+    window.removeEventListener("nebula:sol:changed", onSol);
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("visibilitychange", onVis);
+    clearInterval(id);
+  };
+}, []);
+
 
       /* Card now accepts string OR node for title */
 function Card({title,toolbar,children,className,onClick}){
