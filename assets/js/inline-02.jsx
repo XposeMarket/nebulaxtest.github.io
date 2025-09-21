@@ -24,12 +24,12 @@ function useTeleportPortfolio(pid, deps=[]) {
       host.style.zIndex = 1;
     }
 
-// Render the portfolio panel into a given host (singleton-safe)
-if (!window.NXMountPortfolio) {
-  window.NXMountPortfolio = (host) => {
-    if (!host || host.dataset.bound === "1") return;
-    host.dataset.bound = "1";
+const NX_RPC =
+  (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
+  (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC")) ||
+  "https://api.mainnet-beta.solana.com";
 
+        
     // React-render the panel into the host
     const r = ReactDOM.createRoot(host);
     r.render(
@@ -656,47 +656,67 @@ function ChartPanel2({ symbol }) {
         }, 13000, [trending.join(",")], editMode);
 
 
-// Live SOL balance for an address (string base58 or PublicKey)
+
 function useSolBalance(addressOrPk){
   const [sol, setSol] = React.useState(null);
-
-  React.useEffect(() => {
+  React.useEffect(()=>{
     if (!addressOrPk) { setSol(null); return; }
-
-    const pk = typeof addressOrPk === "string"
-      ? new solanaWeb3.PublicKey(addressOrPk)
-      : addressOrPk;
-
+    const pk = typeof addressOrPk === "string" ? new solanaWeb3.PublicKey(addressOrPk) : addressOrPk;
     const conn = new solanaWeb3.Connection(NX_RPC, "confirmed");
-    let cancelled = false, subId = null;
-
-    async function read() {
-      try {
-        const lam = await conn.getBalance(pk);
-        if (!cancelled) setSol(lam / solanaWeb3.LAMPORTS_PER_SOL);
-      } catch (e) {
-        console.warn("[NX] getBalance failed", e);
-      }
-    }
-
-    read(); // initial
-    (async () => {
-      try { subId = await conn.onAccountChange(pk, read, "confirmed"); } catch {}
-    })();
-
-    return () => {
-      cancelled = true;
-      if (subId != null) { try { conn.removeAccountChangeListener(subId); } catch {} }
-    };
-  }, [addressOrPk && (typeof addressOrPk === "string" ? addressOrPk : addressOrPk.toBase58?.())]);
-
-  return sol; // returns SOL
+    let kill=false, sub=null;
+    const read = async()=>{ try{
+      const lam = await conn.getBalance(pk);
+      if(!kill) setSol(lam/solanaWeb3.LAMPORTS_PER_SOL);
+    }catch(e){ console.warn("[NX] getBalance", e); } };
+    read();
+    (async()=>{ try{ sub = await conn.onAccountChange(pk, read, "confirmed"); }catch{} })();
+    return ()=>{ kill=true; if(sub!=null) try{ conn.removeAccountChangeListener(sub);}catch{} };
+  }, [addressOrPk && (typeof addressOrPk==="string"?addressOrPk:addressOrPk?.toBase58?.())]);
+  return sol;
 }
 
+// --- PANEL: Portfolio (same Card pattern as others) ---
+function PortfolioPanel(){
+  const pk = window.NXWallet?.getAddress?.() || window.solana?.publicKey?.toBase58?.() || null;
+  const sol = useSolBalance(pk);
+  const nf = new Intl.NumberFormat(undefined,{ maximumFractionDigits:4 });
+  const usd = new Intl.NumberFormat(undefined,{style:"currency",currency:"USD"}).format(0);
+  const short = a => a ? `${a.slice(0,4)}…${a.slice(-4)}` : "—";
 
-function formatSOL(x){
-  return x == null ? "—" : Number(x).toFixed(4);
+  return (
+    <Card
+      title={<a href="portfolio_official_v_2_fixed.html" className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4">Portfolio</a>}
+      toolbar={<span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">Local</span>}
+    >
+      <div className="text-xs text-zinc-400 break-all mb-2">{short(pk)}</div>
+
+      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Total Value</div>
+          <div className="text-lg font-semibold neon-text">{usd}</div>
+        </div>
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Unrealized PnL</div>
+          <div className="text-lg font-semibold text-emerald-400">+ $0</div>
+        </div>
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Available</div>
+          <div className="text-lg font-semibold neon-text">
+            {sol==null ? "— SOL" : `${nf.format(sol)} SOL`} <span className="text-zinc-400 text-xs">• $0</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-sm neon-text">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
+        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
+          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+        </div>
+      </div>
+    </Card>
+  );
 }
+
 
 
 
@@ -1443,8 +1463,7 @@ function ExplorePanel({dockBack, isTop}){
                           {pid==="data-feed" && <DataFeedPanel/>}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
-                          {pid==="docs" && <DocsPanel/>}
+{pid === "portfolio" && <PortfolioPanel/>}                          {pid==="docs" && <DocsPanel/>}
                           {pid==="selftest" && <SelfTestPanel/>}
                           {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
                           {pid==="explore" && <ExplorePanel isTop={true} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
@@ -1483,8 +1502,8 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
-                              {pid==="docs" && <DocsPanel/>}
+{pid === "portfolio" && <PortfolioPanel/>}
+                                  {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
                             </DraggableResizablePanel>
                             <ColumnGutter visible={editMode} onInsert={(pid2)=>onInsertAt(pid2,"left",idx+1)} idx={idx+1}/>
@@ -1516,8 +1535,8 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
-                              {pid==="docs" && <DocsPanel/>}
+{pid === "portfolio" && <PortfolioPanel/>}
+                                  {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
 
                               {pid==="signal" && (
