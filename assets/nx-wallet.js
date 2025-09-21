@@ -207,3 +207,14 @@ async function fetchBalanceThrottled(pubkey){
 };
 
 })();
+
+// Auto-refresh balance every 30 seconds
+setInterval(async () => {
+  if (STATE.pubkey) {
+    try {
+      await refreshBalance();  // updates STATE.balance + UI
+    } catch (e) {
+      console.warn("Balance refresh failed:", e);
+    }
+  }
+}, 30000); // <-- adjust interval in ms (e.g., 30s)
