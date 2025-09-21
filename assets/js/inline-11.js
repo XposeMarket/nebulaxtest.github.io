@@ -1,5 +1,6 @@
 (() => {
-  const { Connection, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
+
+ const { Connection, PublicKey, LAMPORTS_PER_SOL } = solanaWeb3;
 
   // --- RPC (uses Helius if set in HTML) ---
   const RPC =
@@ -17,17 +18,16 @@
 
   async function fetchBalance(pubkey){
     try{
-      const lam = await connection.getBalance(new PublicKey(pubkey));
+  const lam = await connection.getBalance(new PublicKey(pubkey));
       const sol = lam / LAMPORTS_PER_SOL;
       const b = $("solBalance"); if (b) b.textContent = sol.toFixed(4);
       return sol;
     }catch(e){
-      showErr("Couldn’t fetch balance (check RPC/API key)."); console.warn(e);
+  showErr("Couldn’t fetch balance (check RPC/API key)."); console.warn(e);
       return null;
     }
   }
-
-  async function onConnected(pk){
+async function onConnected(pk){
     clearErr();
     const s = pk?.toString?.() || String(pk||"");
     $("connectLabel") && ( $("connectLabel").textContent = "Disconnect" );
@@ -36,22 +36,19 @@
     await fetchBalance(s);
     window.NX_refreshPortfolioCard?.();
   }
-
   async function onDisconnected(){
-    $("connectLabel") && ( $("connectLabel").textContent = "Connect Phantom" );
+  $("connectLabel") && ( $("connectLabel").textContent = "Connect Phantom" );
     $("walletInfo")   && ( $("walletInfo").style.display = "none" );
     $("addressShort") && ( $("addressShort").textContent = "—" );
     $("solBalance")   && ( $("solBalance").textContent = "0.0000" );
     window.NX_refreshPortfolioCard?.();
   }
-
-  function ready(fn){
+ function ready(fn){
     if(document.readyState==="loading"){
       document.addEventListener("DOMContentLoaded", fn, {once:true});
     } else fn();
   }
-
-  ready(() => {
+ ready(() => {
     // Connect / Disconnect
     const btn = $("connectBtn");
     if (btn){
@@ -81,8 +78,7 @@
       p0.on("connect",      async (pubkey)=> onConnected(pubkey));
       p0.on("disconnect",   async ()=>      onDisconnected());
     }
-
-    // Auto-restore if trusted
+ // Auto-restore if trusted
     (async () => {
       try{
         const p = phantom(); if(!p) return;
@@ -96,7 +92,3 @@
   setInterval(async () => {
     try{
       const p = phantom();
-      if (p && p.isConnected && p.publicKey) await fetchBalance(p.publicKey);
-    }catch{}
-  }, 20000);
-})();
