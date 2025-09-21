@@ -862,6 +862,77 @@ function MarketInfo(){
   );
 }
 
+            // ==== PANEL: Portfolio (same flow as the rest) ====
+function PortfolioPanel(){
+  // pull from your wallet bridge (no React wallet libs needed)
+  const [addr, setAddr] = React.useState(window.NXWallet?.getAddress?.() || null);
+  const [bal,  setBal ] = React.useState(window.NXWallet?.getBalance?.());
+
+  React.useEffect(()=>{
+    // light poll so the UI updates after connect / refresh balance
+    const t = setInterval(()=>{
+      setAddr(window.NXWallet?.getAddress?.() || null);
+      setBal(window.NXWallet?.getBalance?.());
+    }, 1500);
+    return ()=>clearInterval(t);
+  },[]);
+
+  const usdFmt = new Intl.NumberFormat(undefined,{ style:"currency", currency:"USD", maximumFractionDigits:2 });
+  const nf     = new Intl.NumberFormat(undefined,{ maximumFractionDigits:4 });
+  const short  = (a)=> a ? `${a.slice(0,4)}…${a.slice(-4)}` : "—";
+
+  return (
+    <Card
+      title={
+        <a
+          href="portfolio_official_v_2_fixed.html"
+          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
+          aria-label="Open Portfolio page"
+        >
+          Portfolio
+        </a>
+      }
+      toolbar={
+        <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
+          Local
+        </span>
+      }
+    >
+      {/* address */}
+      <div className="text-xs text-zinc-400 break-all mb-2">{short(addr)}</div>
+
+      {/* summary tiles – same structure as others */}
+      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Total Value</div>
+          <div className="text-lg font-semibold neon-text">{usdFmt.format(0)}</div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Unrealized PnL</div>
+          <div className="text-lg font-semibold text-emerald-400">+ $0</div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Available</div>
+          <div className="text-lg font-semibold neon-text">
+            {bal == null ? "— SOL" : `${nf.format(bal)} SOL`}
+            <span className="text-zinc-400 text-xs"> &nbsp;• $0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* positions */}
+      <div className="text-sm neon-text">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
+        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
+          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
         // Data feed panel: messages never overlap (flex + min-h-0)
         function DataFeedPanel(){
           return (
@@ -1482,9 +1553,8 @@ function ExplorePanel({dockBack, isTop}){
                       </div>
                     </div>
                   </div>
-                      
-// make sure this runs in the component body:
-useTeleportPortfolio('portfolio', [layout.wide.join(','), layout.left.join(','), layout.right.join(',')]);
+            
+
 
                   {/* Footer */}
                   <footer className={cx("mt-3 flex items-center justify-between rounded-2xl px-3 py-2 text-xs", theme.panel)}>
