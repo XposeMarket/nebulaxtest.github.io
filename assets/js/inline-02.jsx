@@ -1298,7 +1298,7 @@ function ExplorePanel({dockBack, isTop}){
                           {pid==="data-feed" && <DataFeedPanel/>}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
-                        {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                           {pid==="docs" && <DocsPanel/>}
                           {pid==="selftest" && <SelfTestPanel/>}
                           {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
@@ -1338,7 +1338,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-                              {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                               {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
                             </DraggableResizablePanel>
@@ -1371,7 +1371,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-                              {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                               {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
 
