@@ -1408,6 +1408,9 @@ function ExplorePanel({dockBack, isTop}){
                       </div>
                     </div>
                   </div>
+                      
+// make sure this runs in the component body:
+useTeleportPortfolio('portfolio', [layout.wide.join(','), layout.left.join(','), layout.right.join(',')]);
 
                   {/* Footer */}
                   <footer className={cx("mt-3 flex items-center justify-between rounded-2xl px-3 py-2 text-xs", theme.panel)}>
