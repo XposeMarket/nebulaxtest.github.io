@@ -4,6 +4,16 @@
   const STATE = { provider:null, pubkey:null, balance:null, conn:null };
   // … rest of the wallet code …
 })();
+// Auto-refresh balance every 30 seconds
+setInterval(async () => {
+  if (STATE.pubkey) {
+    try {
+      await refreshBalance();  // updates STATE.balance + UI
+    } catch (e) {
+      console.warn("Balance refresh failed:", e);
+    }
+  }
+}, 30000); // <-- adjust interval in ms (e.g., 30s)
 
 // choose RPC from window or localStorage, else fall back
 const NX_RPC =
