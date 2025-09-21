@@ -73,6 +73,9 @@ const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
       STATE.balance = STATE.pubkey ? await fetchBalance(STATE.pubkey) : null;
       ui();
     });
+    
+// After STATE.balance is set/cached:
+window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
 
     const resp = await prov.connect({ onlyIfTrusted:false });
     const pk = resp?.publicKey?.toString?.() || prov?.publicKey?.toString?.() || '';
