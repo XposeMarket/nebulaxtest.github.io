@@ -675,7 +675,7 @@ function LivePortfolioCard({ solUsd }) {
   // SOL-only total for now (we’ll add token prices later)
   const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
 
-  return (
+
     <Card
       title={
         <a
@@ -730,7 +730,7 @@ function LivePortfolioCard({ solUsd }) {
       </div>
     </Card>
   );
-}
+}    
        /* Search */
         const [query,setQuery]=useState(""); const [recentSymbols,setRecentSymbols]=useState([]);
         const universe=useMemo(()=>Array.from(new Set([...majors,...TRENDING_UNIVERSE,...Object.keys(candlesBySymbol)])),[candlesBySymbol]);
