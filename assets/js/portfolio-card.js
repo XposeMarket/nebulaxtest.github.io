@@ -69,6 +69,9 @@
     // Embedded markup (no outer glass)
     host.innerHTML = `
       <div class="mb-3">
+      <div class="nx-panel p-3">
+</div>
+
         <div class="flex items-center justify-between">
           <div class="text-[18px] font-extrabold tracking-wide">Portfolio</div>
           <span class="px-2 py-0.5 rounded-full text-[11px] uppercase tracking-wider bg-white/10 border border-white/10 text-slate-300">Local</span>
@@ -93,6 +96,7 @@
             ${sol==null ? '—' : `${fmtSol(sol)} SOL · ${fmtUsd(usd)}`}
           </div>
         </div>
+      </div>
       </div>
 
       <div class="mt-4 text-[12px] uppercase tracking-wider text-slate-300/90">Positions</div>
@@ -138,3 +142,4 @@
     // setInterval(refresh, 30000); // optional
   });
 })();
+
