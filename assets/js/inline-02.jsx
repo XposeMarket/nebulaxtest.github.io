@@ -1489,7 +1489,6 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                               {pid==="data-feed" && <DataFeedPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
-                              {pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
                               {pid==="docs" && <DocsPanel/>}
