@@ -556,12 +556,6 @@ function ChartPanel2({ symbol }) {
           });
         }, 13000, [trending.join(",")], editMode);
 
-function useSolBalance(pubkey){
-  // Source of truth for RPC
-const NX_RPC =
-  (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
-  (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC")) ||
-  "https://api.mainnet-beta.solana.com";
 
 // Live SOL balance for an address (string base58 or PublicKey)
 function useSolBalance(addressOrPk){
@@ -613,9 +607,6 @@ function formatSOL(x){
 
 
 
-  // local formatters (don’t rely on globals)
-  const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-  const nf     = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
 
   // SOL-only total for now (we’ll add token prices later)
   const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
