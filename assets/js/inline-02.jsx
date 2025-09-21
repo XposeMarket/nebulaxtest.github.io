@@ -14,11 +14,6 @@ const DEX_EMBEDS = {
 };
 
 
-const NX_RPC =
-  (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
-  (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC")) ||
-  "https://api.mainnet-beta.solana.com";
-
         
     
 
