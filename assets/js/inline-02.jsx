@@ -1416,7 +1416,6 @@ function ExplorePanel({dockBack, isTop}){
                           {pid==="ticker" && <MarketInfo/>}
                           {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                           {pid==="data-feed" && <DataFeedPanel/>}
-{pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
                           {pid==="docs" && <DocsPanel/>}
@@ -1456,7 +1455,6 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
-                              {pid==="portfolio" && <LivePortfolioCard solUsd={solUsd} />}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
                               {pid==="docs" && <DocsPanel/>}
