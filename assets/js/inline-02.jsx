@@ -13,6 +13,38 @@ const DEX_EMBEDS = {
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
 
+// Put this near the top of inline-02.jsx
+function useSolBalance() {
+  const get = () => window.NXWallet?.getBalance?.() ?? null;
+  const [bal, setBal] = React.useState(get());
+
+  React.useEffect(() => {
+    // 1) Live updates pushed from nx-wallet (event-driven)
+    const onSol = (e) => setBal(e?.detail?.balance ?? get());
+    window.addEventListener('nebula:sol:changed', onSol);
+
+    // 2) Gentle 60s “tick” to keep in sync with your throttle
+    const tick = setInterval(() => {
+      try { window.NXWallet?.refreshBalance?.(false); } catch {}
+      // refreshBalance(false) respects the 60s throttle; no RPC spam
+    }, 60_000);
+
+    // 3) Fast catch-up when tab regains focus (single forced fetch)
+    const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+    const vis = () => { if (!document.hidden) onFocus(); };
+    window.addEventListener('visibilitychange', vis);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.removeEventListener('nebula:sol:changed', onSol);
+      window.removeEventListener('visibilitychange', vis);
+      window.removeEventListener('focus', onFocus);
+      clearInterval(tick);
+    };
+  }, []);
+
+  return bal;
+}
 
         
     
@@ -699,6 +731,16 @@ function LivePortfolioCard({ solUsd }) {
         </div>
       </div>
     </Card>
+  );
+}
+function PortfolioMiniCard() {
+  const bal = useSolBalance();          // <- uses cached balance + events
+  // …any positions/tokens you show should use *their own* cached state too…
+  return (
+    <div className="nx-panel p-3">
+      <div className="text-xs text-zinc-400">Cash (SOL)</div>
+      <div className="text-xl">{bal == null ? '—' : bal.toFixed(3)}</div>
+    </div>
   );
 }
 
