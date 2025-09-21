@@ -12,6 +12,31 @@ const DEX_EMBEDS = {
   "BTC/USDC": "https://dexscreener.com/osmosis/1943-factory_osmo1z6r6qdknhgsc0zeracktgpcxf43j6sekq07nw8sxduc9lg0qjjlqfu25e3_alloyed_allBTC-ibc_498A0751C798A0D9A389AA3691123DADA57DAA4FE165D5C75894505B876BA6E4?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
+function useTeleportPortfolio(pid, deps=[]) {
+  React.useEffect(() => {
+    // Ensure the single real host exists
+    let host = document.getElementById('nx-portfolio-card');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'nx-portfolio-card';
+      host.className = 'nx-panel p-3';
+      host.style.position = 'relative';
+      host.style.zIndex = 1;
+    }
+
+    // Choose the first visible slot for this section
+    const slots = Array.from(document.querySelectorAll('[data-nx-slot="portfolio"]'));
+    const target = slots.find(s => !!s.offsetParent) || slots[0];
+    if (target && host.parentNode !== target) target.appendChild(host);
+
+    // Mount only once
+    if (!host.dataset.rendered) {
+      host.dataset.rendered = '1';
+      host.innerHTML = '';
+      window.NXMountPortfolio?.(host); // your portfolio-card render function
+    }
+  }, [pid, ...deps]);
+}
 
 
 
@@ -1273,7 +1298,7 @@ function ExplorePanel({dockBack, isTop}){
                           {pid==="data-feed" && <DataFeedPanel/>}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
-                        {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                           {pid==="docs" && <DocsPanel/>}
                           {pid==="selftest" && <SelfTestPanel/>}
                           {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
@@ -1313,7 +1338,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-                               {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                               {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
                             </DraggableResizablePanel>
@@ -1346,7 +1371,7 @@ function ExplorePanel({dockBack, isTop}){
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-                              {pid === "portfolio" && <div id="nx-portfolio-card"></div>}
+{pid === "portfolio" && <div data-nx-slot="portfolio" className="min-h-[10px]"></div>}
                               {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
 
