@@ -4,16 +4,6 @@
   const STATE = { provider:null, pubkey:null, balance:null, conn:null };
   // … rest of the wallet code …
 })();
-// Auto-refresh balance every 30 seconds
-setInterval(async () => {
-  if (STATE.pubkey) {
-    try {
-      await refreshBalance();  // updates STATE.balance + UI
-    } catch (e) {
-      console.warn("Balance refresh failed:", e);
-    }
-  }
-}, 30000); // <-- adjust interval in ms (e.g., 30s)
 
 // choose RPC from window or localStorage, else fall back
 const NX_RPC =
@@ -73,7 +63,59 @@ const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
       STATE.balance = STATE.pubkey ? await fetchBalance(STATE.pubkey) : null;
       ui();
     });
-    
+    // === Minimal live watcher (SOL only) ===
+let SOL_SUB_ID = null;
+let SAFETY_TIMER = null;
+
+function stopBalanceWatch(){
+  try{
+    if (SOL_SUB_ID != null) { STATE.conn?.removeAccountChangeListener(SOL_SUB_ID); SOL_SUB_ID = null; }
+  }catch{}
+  clearInterval(SAFETY_TIMER); SAFETY_TIMER = null;
+}
+
+async function startBalanceWatch(pubkey){
+  stopBalanceWatch();
+  if (!STATE.conn) {
+    const url = 'https://api.mainnet-beta.solana.com'; // or your Helius WS URL
+    STATE.conn = new solanaWeb3.Connection(url, 'confirmed');
+  }
+
+  // initial (respects your throttled refreshBalance if you prefer)
+  try{
+    STATE.balance = await fetchBalance(pubkey);
+    ui();
+    window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
+  }catch(e){ console.warn('init bal fetch', e); }
+
+  // push updates via WS
+  const key = new solanaWeb3.PublicKey(pubkey);
+  SOL_SUB_ID = STATE.conn.onAccountChange(key, (accInfo)=>{
+    try{
+      const lam = accInfo?.lamports;
+      if (typeof lam === 'number') {
+        const next = lam / solanaWeb3.LAMPORTS_PER_SOL;
+        if (STATE.balance !== next) {
+          STATE.balance = next;
+          ui();
+          window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: next }}));
+        }
+      }
+    }catch(e){ console.warn('sol sub cb', e); }
+  }, 'confirmed');
+
+  // safety poll every 5 min (not 60s)
+  SAFETY_TIMER = setInterval(async ()=>{
+    try{
+      const b = await fetchBalance(pubkey);
+      if (b != null && b !== STATE.balance) {
+        STATE.balance = b; ui();
+        window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: b }}));
+      }
+    }catch{}
+  }, 5*60*1000);
+}
+
 // After STATE.balance is set/cached:
 window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
 
