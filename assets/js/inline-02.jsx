@@ -557,41 +557,134 @@ function ChartPanel2({ symbol }) {
         }, 13000, [trending.join(",")], editMode);
 
 function useSolBalance(pubkey){
-  const [lamports, setLamports] = React.useState(null);
-  React.useEffect(()=>{
-    if (!pubkey){ setLamports(null); return; }
-    let stop = false;
-    (async ()=>{
-      const RPCS = [
-        "https://api.mainnet-beta.solana.com",
-        "https://solana-mainnet.g.alchemy.com/v2/demo"
-      ];
-      for (const url of RPCS){
-        try{
-          const conn = new solanaWeb3.Connection(url, "confirmed");
-          const lam = await conn.getBalance(pubkey);
-          if (!stop) setLamports(lam);
-          return;
-        }catch(e){}
+  // Source of truth for RPC
+const NX_RPC =
+  (typeof window !== "undefined" && typeof window.NX_RPC === "string" && window.NX_RPC.trim()) ||
+  (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC")) ||
+  "https://api.mainnet-beta.solana.com";
+
+// Live SOL balance for an address (string base58 or PublicKey)
+function useSolBalance(addressOrPk){
+  const [sol, setSol] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!addressOrPk) { setSol(null); return; }
+
+    const pk = typeof addressOrPk === "string"
+      ? new solanaWeb3.PublicKey(addressOrPk)
+      : addressOrPk;
+
+    const conn = new solanaWeb3.Connection(NX_RPC, "confirmed");
+    let cancelled = false, subId = null;
+
+    async function read() {
+      try {
+        const lam = await conn.getBalance(pk);
+        if (!cancelled) setSol(lam / solanaWeb3.LAMPORTS_PER_SOL);
+      } catch (e) {
+        console.warn("[NX] getBalance failed", e);
       }
-      if (!stop) setLamports(null);
+    }
+
+    read(); // initial
+    (async () => {
+      try { subId = await conn.onAccountChange(pk, read, "confirmed"); } catch {}
     })();
-    return ()=>{ stop = true; };
-  }, [pubkey?.toBase58?.()]);
-  return lamports; // raw lamports
+
+    return () => {
+      cancelled = true;
+      if (subId != null) { try { conn.removeAccountChangeListener(subId); } catch {} }
+    };
+  }, [addressOrPk && (typeof addressOrPk === "string" ? addressOrPk : addressOrPk.toBase58?.())]);
+
+  return sol; // returns SOL
 }
+
 
 function formatSOL(x){
   return x == null ? "—" : Number(x).toFixed(4);
 }
 
+
+
+            
         /* Portfolio */
 function LivePortfolioCard({ solUsd }) {
-const pkObj   = window.NXWallet?.getPublicKey?.() || null; // may be a PublicKey or string
-const pkBase58= typeof pkObj === "string" ? pkObj : pkObj?.toBase58?.();
-const lamports= useSolBalance(pkObj && typeof pkObj !== "string" ? pkObj : (pkBase58 ? new solanaWeb3.PublicKey(pkBase58) : null));
-const solBal  = lamports == null ? null : lamports / solanaWeb3.LAMPORTS_PER_SOL;
-const addr    = pkBase58 || null;
+  // get current address from NXWallet (or Phantom fallback)
+  const pkObj =
+    window.NXWallet?.getPublicKey?.() ||
+    window.solana?.publicKey ||
+    null;
+
+  const address =
+    typeof pkObj === "string" ? pkObj :
+    pkObj?.toBase58?.() || pkObj?.toString?.() || null;
+
+  const solBal = useSolBalance(address);                 // SOL (live)
+  const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
+
+  const addr = address || null;
+  const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const nf     = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
+  const formatSOL = (x) => x == null ? "—" : nf.format(x);
+
+  const pnlUsd = 0; // placeholder until you compute it
+
+  return (
+    <Card
+      title={
+        <a
+          href="portfolio_official_v_2_fixed.html"
+          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
+          aria-label="Open Portfolio page"
+        >
+          Portfolio
+        </a>
+      }
+      toolbar={
+        <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
+          Local
+        </span>
+      }
+    >
+      {/* address line */}
+      <div className="text-xs text-zinc-400 break-all mb-2">
+        {addr ? `${addr.slice(0,4)}…${addr.slice(-4)}` : "—"}
+      </div>
+
+      {/* summary tiles */}
+      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Total Value</div>
+          <div className="text-lg font-semibold neon-text">
+            {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Unrealized PnL</div>
+          <div className="text-lg font-semibold text-emerald-400">+ $0</div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Available</div>
+          <div className="text-lg font-semibold neon-text">
+            {addr ? `${formatSOL(solBal)} SOL` : "— SOL"}
+            <span className="text-zinc-400 text-xs"> &nbsp;• {totalUSD != null ? usdFmt.format(totalUSD) : "$0"} USDC</span>
+          </div>
+        </div>
+      </div>
+
+      {/* positions block */}
+      <div className="text-sm neon-text">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
+        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
+          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 
 
