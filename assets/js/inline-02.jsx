@@ -575,7 +575,10 @@ function useSolBalance(addressOrPk){
   React.useEffect(()=>{
     if (!addressOrPk) { setSol(null); return; }
     const pk = typeof addressOrPk === "string" ? new solanaWeb3.PublicKey(addressOrPk) : addressOrPk;
-    const conn = new solanaWeb3.Connection(NX_RPC, "confirmed");
+// safe even if Babel re-evaluates the script
+window.NX_RPC = (typeof window.NX_RPC === "string" && window.NX_RPC.trim())
+  || (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC"))
+  || "https://api.mainnet-beta.solana.com";
     let kill=false, sub=null;
     const read = async()=>{ try{
       const lam = await conn.getBalance(pk);
