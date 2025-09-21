@@ -609,8 +609,149 @@ function formatSOL(x){
 
             
         /* Portfolio */
-function LivePortfolioCard({ solUsd }) { // get current address from NXWallet (or Phantom fallback) const pkObj = window.NXWallet?.getPublicKey?.() || window.solana?.publicKey || null; const address = typeof pkObj === "string" ? pkObj : pkObj?.toBase58?.() || pkObj?.toString?.() || null; const solBal = useSolBalance(address); // SOL (live) const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null; const addr = address || null; const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }); const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }); const formatSOL = (x) => x == null ? "—" : nf.format(x); const pnlUsd = 0; // placeholder until you compute it return ( <Card title={ <a href="portfolio_official_v_2_fixed.html" className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90" aria-label="Open Portfolio page" > Portfolio </a> } toolbar={ <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]"> Local </span> } > {/* address line */} <div className="text-xs text-zinc-400 break-all mb-2"> {addr ? ${addr.slice(0,4)}…${addr.slice(-4)} : "—"} </div> {/* summary tiles */} <div className="grid grid-cols-3 gap-2 text-xs mb-2"> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Total Value</div> <div className="text-lg font-semibold neon-text"> {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"} </div> </div> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Unrealized PnL</div> <div className="text-lg font-semibold text-emerald-400">+ $0</div> </div> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Available</div> <div className="text-lg font-semibold neon-text"> {addr ? ${formatSOL(solBal)} SOL : "— SOL"} <span className="text-zinc-400 text-xs"> &nbsp;• {totalUSD != null ? usdFmt.format(totalUSD) : "$0"} USDC</span> </div> </div> </div> {/* positions block */} <div className="text-sm neon-text"> <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div> <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2"> <div className="text-zinc-500 text-sm">No live positions (mock).</div> </div> </div> </Card> ); } // local formatters (don’t rely on globals) const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 }); const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }); // SOL-only total for now (we’ll add token prices later) const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null; return ( <Card title={ <a href="portfolio_official_v_2_fixed.html" className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90" aria-label="Open Portfolio page" > Portfolio </a> } toolbar={ <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]"> Local </span> } > {/* address line */} <div className="text-xs text-zinc-400 break-all mb-2"> {addr ? ${addr.slice(0,4)}…${addr.slice(-4)} : "—"} </div> {/* summary tiles – match look of the old panel */} <div className="grid grid-cols-3 gap-2 text-xs mb-2"> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Total Value</div> <div className="text-lg font-semibold neon-text"> {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"} </div> </div> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Unrealized PnL</div> <div className="text-lg font-semibold text-emerald-400">+ $0</div> </div> <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2"> <div className="text-xs text-zinc-400">Available</div> <div className="text-lg font-semibold neon-text"> {addr ? ${formatSOL(solBal)} SOL : "— SOL"} <span className="text-zinc-400 text-xs"> &nbsp;• $0 USDC</span> </div> </div> </div> {/* positions block – same copy as your old panel */} <div className="text-sm neon-text"> <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div> <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2"> <div className="text-zinc-500 text-sm">No live positions (mock).</div> </div> </div> </Card> ); }
-        /* Search */
+function LivePortfolioCard({ solUsd }) {
+  // get current address from NXWallet (or Phantom fallback)
+  const pkObj =
+    window.NXWallet?.getPublicKey?.() ||
+    window.solana?.publicKey ||
+    null;
+
+  const address =
+    typeof pkObj === "string" ? pkObj :
+    pkObj?.toBase58?.() || pkObj?.toString?.() || null;
+
+  const solBal = useSolBalance(address);                 // SOL (live)
+  const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
+
+  const addr = address || null;
+  const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const nf     = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
+  const formatSOL = (x) => x == null ? "—" : nf.format(x);
+
+  const pnlUsd = 0; // placeholder until you compute it
+
+  return (
+    <Card
+      title={
+        <a
+          href="portfolio_official_v_2_fixed.html"
+          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
+          aria-label="Open Portfolio page"
+        >
+          Portfolio
+        </a>
+      }
+      toolbar={
+        <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
+          Local
+        </span>
+      }
+    >
+      {/* address line */}
+      <div className="text-xs text-zinc-400 break-all mb-2">
+        {addr ? `${addr.slice(0,4)}…${addr.slice(-4)}` : "—"}
+      </div>
+
+      {/* summary tiles */}
+      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Total Value</div>
+          <div className="text-lg font-semibold neon-text">
+            {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Unrealized PnL</div>
+          <div className="text-lg font-semibold text-emerald-400">+ $0</div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Available</div>
+          <div className="text-lg font-semibold neon-text">
+            {addr ? `${formatSOL(solBal)} SOL` : "— SOL"}
+            <span className="text-zinc-400 text-xs"> &nbsp;• {totalUSD != null ? usdFmt.format(totalUSD) : "$0"} USDC</span>
+          </div>
+        </div>
+      </div>
+
+      {/* positions block */}
+      <div className="text-sm neon-text">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
+        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
+          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+
+
+  // local formatters (don’t rely on globals)
+  const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  const nf     = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
+
+  // SOL-only total for now (we’ll add token prices later)
+  const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
+
+  return (
+    <Card
+      title={
+        <a
+          href="portfolio_official_v_2_fixed.html"
+          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
+          aria-label="Open Portfolio page"
+        >
+          Portfolio
+        </a>
+      }
+      toolbar={
+        <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
+          Local
+        </span>
+      }
+    >
+      {/* address line */}
+      <div className="text-xs text-zinc-400 break-all mb-2">
+        {addr ? `${addr.slice(0,4)}…${addr.slice(-4)}` : "—"}
+      </div>
+
+      {/* summary tiles – match look of the old panel */}
+      <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Total Value</div>
+          <div className="text-lg font-semibold neon-text">
+            {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Unrealized PnL</div>
+          <div className="text-lg font-semibold text-emerald-400">+ $0</div>
+        </div>
+
+        <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
+          <div className="text-xs text-zinc-400">Available</div>
+         <div className="text-lg font-semibold neon-text">
+  {addr ? `${formatSOL(solBal)} SOL` : "— SOL"}
+  <span className="text-zinc-400 text-xs"> &nbsp;• $0 USDC</span>
+</div>
+
+        </div>
+      </div>
+
+      {/* positions block – same copy as your old panel */}
+      <div className="text-sm neon-text">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
+        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
+          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+        </div>
+      </div>
+    </Card>
+  );
+}        /* Search */
         const [query,setQuery]=useState(""); const [recentSymbols,setRecentSymbols]=useState([]);
         const universe=useMemo(()=>Array.from(new Set([...majors,...TRENDING_UNIVERSE,...Object.keys(candlesBySymbol)])),[candlesBySymbol]);
         function getMarketMeta(s){ const mc=`$${(5+Math.floor(Math.random()*300))}M`; const vol=`$${(Math.floor(Math.random()*300)+1)}K`; const liq=`$${(Math.floor(Math.random()*1800)+10)}K`; const icon=s.includes("BTC")?"₿":s.includes("ETH")?"◇":s.includes("SOL")?"◎":"◈"; return {icon,name:s,mc,vol,liq}; }
