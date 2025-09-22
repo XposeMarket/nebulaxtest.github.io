@@ -102,7 +102,6 @@ function UseWalletReadout(){
 React.useEffect(() => {
   let alive = true;
 
-  // set initial from wallet cache
   const setFromWallet = () => {
     const a = window.NXWallet?.getAddress?.() || null;
     const b = window.NXWallet?.getBalance?.();
@@ -110,6 +109,32 @@ React.useEffect(() => {
     setAddr(a);
     setBal(b == null ? null : b);
   };
+
+  const onSol = (e) => {
+    const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+    if (alive) setBal(b == null ? null : b);
+  };
+  window.addEventListener("nebula:sol:changed", onSol);
+
+  setFromWallet();
+  const id = setInterval(() => {
+    try { window.NXWallet?.refreshBalance?.(false); } catch {}
+  }, 60_000);
+
+  const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+  const onVis = () => { if (!document.hidden) onFocus(); };
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("visibilitychange", onVis);
+
+  return () => {
+    alive = false;
+    window.removeEventListener("nebula:sol:changed", onSol);
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("visibilitychange", onVis);
+    clearInterval(id);
+  };
+}, []);
+
 
   // 1) push updates: fired by nx-wallet when balance changes
   const onSol = (e) => {
