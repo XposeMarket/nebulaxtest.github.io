@@ -13,6 +13,9 @@ const DEX_EMBEDS = {
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
 
+// ---------- helpers near the top ----------
+const cx = (...xs) => xs.filter(Boolean).join(" ");
+
 // Put this near the top of inline-02.jsx
 function useSolBalance() {
   const get = () => window.NXWallet?.getBalance?.() ?? null;
@@ -21,7 +24,7 @@ function useSolBalance() {
   React.useEffect(() => {
     // 1) Live updates pushed from nx-wallet (event-driven)
     const onSol = (e) => setBal(e?.detail?.balance ?? get());
-    window.addEventListener('nebula:sol:changed', onSol);
+    window.addEventListener("nebula:sol:changed", onSol);
 
     // 2) Gentle 60s “tick” to keep in sync with your throttle
     const tick = setInterval(() => {
@@ -32,13 +35,13 @@ function useSolBalance() {
     // 3) Fast catch-up when tab regains focus (single forced fetch)
     const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
     const vis = () => { if (!document.hidden) onFocus(); };
-    window.addEventListener('visibilitychange', vis);
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("visibilitychange", vis);
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      window.removeEventListener('nebula:sol:changed', onSol);
-      window.removeEventListener('visibilitychange', vis);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("nebula:sol:changed", onSol);
+      window.removeEventListener("visibilitychange", vis);
+      window.removeEventListener("focus", onFocus);
       clearInterval(tick);
     };
   }, []);
@@ -46,31 +49,31 @@ function useSolBalance() {
   return bal;
 }
 
-        
-    
+// Stop per-icon re-DOMing (was causing flicker). We call createIcons once at the end.
+function Icon({ name, className }) {
+  return <i data-lucide={name} className={cx(className, "neon-text")} />;
+}
+const Pill = ({ children, className }) => (
+  <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-medium bg-[var(--cyberpunk-dark-secondary)] neon-text", className)}>
+    {children}
+  </span>
+);
 
-        
-
-
-
-
-      /* Stop per-icon re-DOMing (was causing flicker). We call createIcons once at the end. */
-      function Icon({name,className}){ return <i data-lucide={name} className={cx(className,"neon-text")} />; }
-      const Pill=({children,className})=><span className={cx("rounded-full px-2 py-0.5 text-[11px] font-medium bg-[var(--cyberpunk-dark-secondary)] neon-text",className)}>{children}</span>;
 // --- shim: Button (so all <Button> usages stop crashing) ---
 function Button({ children, variant, className, ...props }) {
   const base = "nx-btn";
-  const cls = [
-    base,
-    variant === "outline" ? "" : "nx-btn-cyan", // default cyan
-    className
-  ].filter(Boolean).join(" ");
-  return <button className={cls} {...props}>{children}</button>;
+  const cls = [base, variant === "outline" ? "" : "nx-btn-cyan", className]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <button className={cls} {...props}>
+      {children}
+    </button>
+  );
 }
 // -----------------------------------------------------------
 
-
-    // ↓ it goes right after Button(...) and before UseWalletReadout(...)
+// ↓ it goes right after Button(...) and before UseWalletReadout(...)
 function Input({ value, onChange, placeholder, right, ...rest }) {
   return (
     <div className="relative">
@@ -93,76 +96,98 @@ function Input({ value, onChange, placeholder, right, ...rest }) {
   );
 }
 
-
-function UseWalletReadout(){
+// ----------- Wallet readout (single effect, event-driven) -----------
+function UseWalletReadout() {
   const [addr, setAddr] = React.useState(null);
-  const [bal,  setBal]  = React.useState(null);
+  const [bal, setBal] = React.useState(null);
 
-// Replace the entire useEffect in UseWalletReadout with this:
-React.useEffect(() => {
-  let alive = true;
+  React.useEffect(() => {
+    let alive = true;
 
-  const setFromWallet = () => {
-    const a = window.NXWallet?.getAddress?.() || null;
-    const b = window.NXWallet?.getBalance?.();
-    if (!alive) return;
-    setAddr(a);
-    setBal(b == null ? null : b);
-  };
+    // set initial from wallet cache
+    const setFromWallet = () => {
+      const a = window.NXWallet?.getAddress?.() || null;
+      const b = window.NXWallet?.getBalance?.();
+      if (!alive) return;
+      setAddr(a);
+      setBal(b == null ? null : b);
+    };
 
-  const onSol = (e) => {
-    const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
-    if (alive) setBal(b == null ? null : b);
-  };
-  window.addEventListener("nebula:sol:changed", onSol);
+    // 1) push updates: fired by nx-wallet when balance changes
+    const onSol = (e) => {
+      const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+      if (alive) setBal(b == null ? null : b);
+    };
+    window.addEventListener("nebula:sol:changed", onSol);
 
-  setFromWallet();
-  const id = setInterval(() => {
-    try { window.NXWallet?.refreshBalance?.(false); } catch {}
-  }, 60_000);
+    // 2) gentle 60s tick (hits RPC at most once/min because of your throttle)
+    setFromWallet();
+    const id = setInterval(() => {
+      try { window.NXWallet?.refreshBalance?.(false); } catch {}
+    }, 60_000);
 
-  const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
-  const onVis = () => { if (!document.hidden) onFocus(); };
-  window.addEventListener("focus", onFocus);
-  window.addEventListener("visibilitychange", onVis);
+    // 3) fast catch-up when tab regains focus
+    const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+    const onVis = () => { if (!document.hidden) onFocus(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onVis);
 
-  return () => {
-    alive = false;
-    window.removeEventListener("nebula:sol:changed", onSol);
-    window.removeEventListener("focus", onFocus);
-    window.removeEventListener("visibilitychange", onVis);
-    clearInterval(id);
-  };
-}, []);
+    return () => {
+      alive = false;
+      window.removeEventListener("nebula:sol:changed", onSol);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onVis);
+      clearInterval(id);
+    };
+  }, []);
 
+  return (
+    <div className="text-xs">
+      Address: {addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : "—"} •{" "}
+      SOL: {bal == null ? "—" : Number(bal).toFixed(4)}
+    </div>
+  );
+}
 
-  // 1) push updates: fired by nx-wallet when balance changes
-  const onSol = (e) => {
-    const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
-    if (alive) setBal(b == null ? null : b);
-  };
-  window.addEventListener("nebula:sol:changed", onSol);
+// ----------- Card component -----------
+/* Card now accepts string OR node for title */
+function Card({ title, toolbar, children, className, onClick }) {
+  const titleNode =
+    typeof title === "string" ? (
+      <span className="text-sm font-semibold neon-text">{title}</span>
+    ) : (
+      title
+    );
 
-  // 2) gentle 60s tick (hits RPC at most once/min because of your throttle)
-  setFromWallet();
-  const id = setInterval(() => {
-    try { window.NXWallet?.refreshBalance?.(false); } catch {}
-  }, 60_000);
+  const clickable = typeof onClick === "function";
 
-  // 3) fast catch-up when tab regains focus
-  const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
-  const onVis = () => { if (!document.hidden) onFocus(); };
-  window.addEventListener("focus", onFocus);
-  window.addEventListener("visibilitychange", onVis);
-
-  return () => {
-    alive = false;
-    window.removeEventListener("nebula:sol:changed", onSol);
-    window.removeEventListener("focus", onFocus);
-    window.removeEventListener("visibilitychange", onVis);
-    clearInterval(id);
-  };
-}, []);
+  return (
+    <div
+      className={cx(
+        "h-full flex flex-col rounded-2xl p-3 shadow-[0_0_0_1px_var(--cyberpunk-border)_inset] overflow-hidden",
+        theme.panel,
+        clickable && "cursor-pointer",
+        className
+      )}
+      onClick={onClick}
+      role={clickable ? "link" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onClick();
+            }
+          : undefined
+      }
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">{titleNode}</div>
+        <div className="relative flex items-center gap-2">{toolbar}</div>
+      </div>
+      <div className="min-h-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 
       /* Card now accepts string OR node for title */
