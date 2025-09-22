@@ -13,8 +13,7 @@ const DEX_EMBEDS = {
   "SOL/USDC": "https://dexscreener.com/bsc/0xbFFEc96e8f3b5058B1817c14E4380758Fada01EF?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
 };
 
-// ---------- helpers near the top ----------
-const cx = (...xs) => xs.filter(Boolean).join(" ");
+
 
 // Put this near the top of inline-02.jsx
 function useSolBalance() {
