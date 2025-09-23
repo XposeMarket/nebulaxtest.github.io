@@ -15,6 +15,42 @@ const NX_RPC =
 const connection = new solanaWeb3.Connection(NX_RPC, "confirmed");
 // ...and anywhere else you do new Connection(...), use NX_RPC instead of a literal
 
+// ========= Mobile detection & deep-link builders =========
+function nxIsMobile(){
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  return /android|iphone|ipad|ipod|iemobile|opera mini|mobile/i.test(ua);
+}
+function nxIsInAppWebView(){
+  const ua = (navigator.userAgent||'').toLowerCase();
+  return /(instagram|fbav|fban|fbios|twitter|snapchat|line\/|wechat|telegram|discord)/.test(ua);
+}
+
+// Build either the app-scheme or the universal-link for Phantom
+function nxBuildPhantomConnectURL(kind /* 'scheme' | 'https' */){
+  const redirect = encodeURIComponent(location.origin + location.pathname + '#phantom-callback');
+  const appUrl   = encodeURIComponent(location.origin);
+
+  // Parameters are the same — only the prefix differs
+  const path = `/ul/v1/connect?app_url=${appUrl}&redirect_link=${redirect}&cluster=mainnet-beta`;
+
+  // 1) App scheme tries to open the app directly (best shot)
+  if (kind === 'scheme') return `phantom:${path}`;
+  // 2) Universal link opens the app if iOS/Android recognizes it; else lands on site/store
+  return `https://phantom.app${path}`;
+}
+
+// Optional: escape hatch for hostile webviews
+function nxOpenInRealBrowser(){
+  const url = location.href;
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isiOS){
+    window.location.href = url.replace(/^http:/,'https:'); // hand off to Safari
+  }else{
+    const intent = `intent://${location.host}${location.pathname}${location.search}${location.hash}#Intent;scheme=https;package=com.android.chrome;end`;
+    window.location.href = intent;
+    setTimeout(()=>{ window.location.href = url; }, 500);
+  }
+}
 
 // Simple dropdown for connect/disconnect
 (function(){
