@@ -356,9 +356,9 @@
   function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 
   // Runtime state
-  let POS=load(POS_KEY, {});     // { SYMBOL: { qty, avg, price, mint } }
-  let LOG=load(LOG_KEY, []);     // manual log remains (empty unless user adds)
-  let RLZ=load(RLZ_KEY, 0);      // realized stays 0 (no trade history source yet)
+ let POS = {};   // start clean; we'll overwrite with live SPL balances
+ let LOG = [];   // (optional) keep empty unless you add a real trade feed
+ let RLZ = 0;   // realized stays 0 (no trade history source yet)
   let META = new Map();          // mint -> token metadata from Jupiter
   let PRICES = {};               // mint -> price in USD
   let SOL_BAL = 0;               // SOL balance numeric
