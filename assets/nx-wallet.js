@@ -106,16 +106,26 @@ function save(pk){
   function load(){ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} }
   function clear(){ try{ localStorage.removeItem(LKEY); }catch{} }
 
+function resolveRpc(){
+  try{
+    const w = (typeof window!=='undefined' && window.NX_RPC) ? String(window.NX_RPC).trim() : '';
+    const s = (typeof localStorage!=='undefined' && localStorage.getItem('NX_RPC')) || '';
+    const cand = w || s || 'https://api.mainnet-beta.solana.com';
+    // guard against placeholder or malformed helius urls
+    if (/YOUR_KEY/i.test(cand)) return 'https://api.mainnet-beta.solana.com';
+    if (/helius/i.test(cand) && !/api-key=/.test(cand)) return 'https://api.mainnet-beta.solana.com';
+    return cand;
+  }catch{ return 'https://api.mainnet-beta.solana.com'; }
+}
+
 async function fetchBalance(pubkey){
   try{
-    // use the same NX_RPC that everything else uses
-    const connection = new solanaWeb3.Connection(NX_RPC, 'confirmed');
+    const url = resolveRpc();
+    const connection = new solanaWeb3.Connection(url, 'confirmed');
     STATE.conn = connection;
     const lam = await connection.getBalance(new solanaWeb3.PublicKey(pubkey));
     return lam / solanaWeb3.LAMPORTS_PER_SOL;
-  }catch{ 
-    return null; 
-  }
+  }catch{ return null; }
 }
 
 
