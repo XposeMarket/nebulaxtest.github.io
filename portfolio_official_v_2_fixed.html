@@ -321,196 +321,355 @@ sIn.addEventListener('keydown',(e)=>{
 
     </script>
 
-<script>
-      /* ===== Wallet dropdown + modals ===== */
-      const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
-      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
-      document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
-      document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
-      document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
-      document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
-      ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+<script type="module">
+  /* ===== Wallet dropdown + modals ===== */
+  const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
+  wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
+  document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
+  document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
+  document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
+  document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
+  ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
 
-      /* ===== Portfolio state ===== */
-      const POS_KEY='nebula_positions_v1';
-      const LOG_KEY='nebula_trades_v1';
-      const RLZ_KEY='nebula_realized_v1';
+  /* ===== LIVE Portfolio state (replaces mock) ===== */
+  import { Connection, PublicKey } from "https://esm.sh/@solana/web3.js@1.95.3";
 
-      function load(key, fb){ try{ return JSON.parse(localStorage.getItem(key)) ?? fb; }catch{return fb;} }
-      function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+  // Config
+  const NX_RPC = window.NX_RPC || "https://api.mainnet-beta.solana.com";
+  const connection = new Connection(NX_RPC, "confirmed");
+  const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
+  const JUP_TOKENS_URL = "https://tokens.jup.ag/tokens?tags=verified";
+  const JUP_PRICE_URL = "https://price.jup.ag/v6/price?ids="; // append comma-separated mints
 
-      let POS=load(POS_KEY, {});
-      let LOG=load(LOG_KEY, []);
-      let RLZ=load(RLZ_KEY, 0);
+  // UI handles (existing IDs)
+  const posBody=document.getElementById('pos-body');
+  const logBody=document.getElementById('log-body');
+  const pvTotal=document.getElementById('pv-total');
+  const pvUnrl=document.getElementById('pv-unrl');
+  const pvRlz=document.getElementById('pv-rlzd');
+  const pvCash=document.getElementById('pv-cash');
+  const priceBox=document.getElementById('price-box');
+  const snapBox=document.getElementById('snap-box');
 
-      function ensureDemo(){
-        if(Object.keys(POS).length===0 && LOG.length===0){
-          POS={ 'WIF':{qty:1200, avg:1.25, price:1.32}, 'BONK':{qty:800000, avg:0.000028, price:0.000031}, 'MEW':{qty:4500, avg:0.52, price:0.48} };
-          LOG=[
-            {ts:Date.now()-86400000*2, token:'WIF', side:'BUY', qty:800, price:1.20, fee:0.001, note:'preset 1'},
-            {ts:Date.now()-86400000, token:'WIF', side:'BUY', qty:400, price:1.35, fee:0.001, note:'dip add'},
-            {ts:Date.now()-3600000*5, token:'BONK', side:'BUY', qty:800000, price:0.000028, fee:0.001, note:''},
-            {ts:Date.now()-3600000*2, token:'MEW', side:'BUY', qty:4500, price:0.52, fee:0.001, note:''},
-          ];
-          RLZ=0;
-          persist();
-        }
-      }
-      ensureDemo();
+  // Persisted keys (kept for compatibility)
+  const POS_KEY='nebula_positions_v1';
+  const LOG_KEY='nebula_trades_v1';
+  const RLZ_KEY='nebula_realized_v1';
 
-      function persist(){ save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ); }
+  function load(key, fb){ try{ return JSON.parse(localStorage.getItem(key)) ?? fb; }catch{return fb;} }
+  function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 
-      const posBody=document.getElementById('pos-body');
-      const logBody=document.getElementById('log-body');
-      const pvTotal=document.getElementById('pv-total');
-      const pvUnrl=document.getElementById('pv-unrl');
-      const pvRlz=document.getElementById('pv-rlzd');
-      const pvCash=document.getElementById('pv-cash');
-      const priceBox=document.getElementById('price-box');
-      const snapBox=document.getElementById('snap-box');
+  // Runtime state
+  let POS=load(POS_KEY, {});     // { SYMBOL: { qty, avg, price, mint } }
+  let LOG=load(LOG_KEY, []);     // manual log remains (empty unless user adds)
+  let RLZ=load(RLZ_KEY, 0);      // realized stays 0 (no trade history source yet)
+  let META = new Map();          // mint -> token metadata from Jupiter
+  let PRICES = {};               // mint -> price in USD
+  let SOL_BAL = 0;               // SOL balance numeric
 
-      function fmtUSD(n){
-        if(!isFinite(n)) return '$0';
-        const sign=n<0?'-':''; n=Math.abs(n);
-        if(n>=1_000_000_000) return sign+'$'+(n/1_000_000_000).toFixed(2)+'B';
-        if(n>=1_000_000) return sign+'$'+(n/1_000_000).toFixed(2)+'M';
-        if(n>=1_000) return sign+'$'+(n/1_000).toFixed(2)+'K';
-        return sign+'$'+n.toFixed(2);
-      }
-
-      function recalc(){
-        let total=0, unrl=0;
-        for(const [t,p] of Object.entries(POS)){
-          const val=(p.qty||0)*(p.price||0);
-          total+=val; unrl += (p.price - p.avg)*(p.qty||0);
-        }
-        pvTotal.textContent=fmtUSD(total); pvTotal.classList.add('pos-yellow');
-        const pct = total>0 ? (unrl/Math.max(1,total - unrl))*100 : 0;
-        pvUnrl.textContent = `${fmtUSD(unrl)} (${(pct).toFixed(2)}%)`;
-        pvUnrl.classList.toggle('pos-green', unrl>=0); pvUnrl.classList.toggle('pos-red', unrl<0);
-        pvRlz.textContent = fmtUSD(RLZ);
-        pvRlz.classList.toggle('pos-green', RLZ>=0); pvRlz.classList.toggle('pos-red', RLZ<0);
-        pvCash.classList.add('pos-cyan');
-        drawPositions();
-        drawPrices();
-        drawSnapshot();
-      }
-
-      function drawPositions(){
-        posBody.innerHTML='';
-        Object.entries(POS).forEach(([t,p])=>{
-          const val=(p.qty||0)*(p.price||0);
-          const unrl=(p.price-p.avg)*(p.qty||0);
-          const pct = p.avg? ((p.price/p.avg-1)*100) : 0;
-          const tr=document.createElement('tr'); tr.innerHTML=`
-            <td class="nx-td"><strong>${t}</strong></td>
-            <td class="nx-td tabnums">${(p.qty||0).toLocaleString()}</td>
-            <td class="nx-td tabnums">$${(p.avg||0).toFixed(6)}</td>
-            <td class="nx-td tabnums">
-              <input data-tok="${t}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/>
-            </td>
-            <td class="nx-td tabnums">${fmtUSD(val)}</td>
-            <td class="nx-td tabnums ${unrl>=0?'pos-green':'pos-red'}">${fmtUSD(unrl)}</td>
-            <td class="nx-td tabnums ${pct>=0?'pos-green':'pos-red'}">${pct.toFixed(2)}%</td>
-            <td class="nx-td" style="display:flex; gap:6px;">
-              <button class="nx-btn" data-act="sell" data-tok="${t}">Sell</button>
-              <button class="nx-btn" data-act="del" data-tok="${t}">Remove</button>
-            </td>`;
-          posBody.appendChild(tr);
-        });
-      }
-
-      posBody.addEventListener('input',(e)=>{
-        const inp=e.target.closest('input[data-tok]'); if(!inp) return;
-        const t=inp.getAttribute('data-tok'); const k=inp.getAttribute('data-k');
-        const v=parseFloat(inp.value)||0; POS[t][k]=v; persist(); recalc();
-      });
-      posBody.addEventListener('click',(e)=>{
-        const btn=e.target.closest('button[data-act]'); if(!btn) return;
-        const t=btn.getAttribute('data-tok');
-        if(btn.getAttribute('data-act')==='del'){ delete POS[t]; persist(); recalc(); return; }
-        if(btn.getAttribute('data-act')==='sell'){
-          const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
-          const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
-          const fee=0.001; // mock
-          const p=POS[t]||{qty:0,avg:0,price};
-          const realized = (price - p.avg) * Math.min(qty, p.qty||0);
-          RLZ += realized - fee;
-          p.qty = Math.max(0, (p.qty||0) - qty);
-          if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
-          LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
-          persist(); recalc(); renderLog();
-        }
-      });
-
-      function drawPrices(){
-        priceBox.innerHTML='';
-        Object.entries(POS).forEach(([t,p])=>{
-          const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
-          row.innerHTML=`<div>${t}</div><input data-tok="${t}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/><div class="text-right tabnums">${fmtUSD((p.qty||0)*(p.price||0))}</div>`;
-          priceBox.appendChild(row);
-        });
-      }
-      priceBox.addEventListener('input',(e)=>{
-        const inp=e.target.closest('input[data-tok]'); if(!inp) return;
-        const t=inp.getAttribute('data-tok'); const v=parseFloat(inp.value)||0; if(!POS[t]) return; POS[t].price=v; persist(); recalc();
-      });
-      document.getElementById('price-rand').addEventListener('click',()=>{
-        Object.values(POS).forEach(p=>{ const f=1+((Math.random()*10-5)/100); p.price = Math.max(0, (p.price||0)*f); });
-        persist(); recalc();
-      });
-
-      function renderLog(){
-        logBody.innerHTML='';
-        LOG.slice().reverse().forEach((r,i)=>{
-          const tr=document.createElement('tr');
-          tr.innerHTML=`
-            <td class="nx-td">${new Date(r.ts).toLocaleString()}</td>
-            <td class="nx-td">${r.token}</td>
-            <td class="nx-td">${r.side}</td>
-            <td class="nx-td tabnums">${r.qty}</td>
-            <td class="nx-td tabnums">$${r.price}</td>
-            <td class="nx-td tabnums">${r.fee}</td>
-            <td class="nx-td">${r.note||''}</td>
-            <td class="nx-td"><button class="nx-btn" data-i="${LOG.length-1-i}">Delete</button></td>`;
-          logBody.appendChild(tr);
-        });
-      }
-      logBody.addEventListener('click',(e)=>{
-        const btn=e.target.closest('button[data-i]'); if(!btn) return;
-        const idx=parseInt(btn.getAttribute('data-i')); LOG.splice(idx,1); persist(); renderLog();
-      });
-
-      document.getElementById('log-clear').addEventListener('click',()=>{ if(!confirm('Clear trade log?')) return; LOG=[]; persist(); renderLog(); });
-
-      function drawSnapshot(){
-        const parts = Object.entries(POS).map(([t,p])=> ({t, v:(p.qty||0)*(p.price||0)}));
-        const total = parts.reduce((a,b)=>a+b.v,0);
-        if(total<=0){ snapBox.textContent='Add trades to see snapshot.'; return; }
-        parts.sort((a,b)=>b.v-a.v);
-        snapBox.innerHTML = parts.map(x=>`<div class='flex justify-between'><span>${x.t}</span><span class='tabnums'>${fmtUSD(x.v)}</span></div>`).join('') +
-          `<div class='mt-2 flex justify-between border-t border-[var(--nx-border)] pt-1'><strong>Total</strong><strong class='tabnums'>${fmtUSD(total)}</strong></div>`;
-      }
-
-// Click the token name in Positions to open the coin page
-document.getElementById('pos-body').addEventListener('click',(e)=>{
-  const cell = e.target.closest('td'); if(!cell) return;
-  // Only when clicking the first cell's token text (<strong>SYMBOL[/QUOTE]</strong>)
-  const strong = cell.querySelector('strong');
-  if(strong && cell.cellIndex === 0){
-    const txt = strong.textContent.trim();
-    const pair = txt.includes('/') ? txt : (txt + '/SOL');
-    NX.goToCoin({ pair });
+  /* ---------- Helpers ---------- */
+  function fmtUSD(n){
+    if(!isFinite(n)) return '$0';
+    const sign=n<0?'-':''; n=Math.abs(n);
+    if(n>=1_000_000_000) return sign+'$'+(n/1_000_000_000).toFixed(2)+'B';
+    if(n>=1_000_000) return sign+'$'+(n/1_000_000).toFixed(2)+'M';
+    if(n>=1_000) return sign+'$'+(n/1_000).toFixed(2)+'K';
+    return sign+'$'+n.toFixed(2);
   }
-});
 
-      // Auto-refresh PnL frequently
-      setInterval(recalc, 1500);
+  async function getTokenList(){
+    const CACHE_KEY = "nx_jup_tokens_cache_v1";
+    const TTL_MS = 24*60*60*1000;
+    try{
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY)||"null");
+      if (cached && Date.now()-cached.time < TTL_MS) return cached.data;
+    }catch{}
+    const res = await fetch(JUP_TOKENS_URL, { cache: "no-store" });
+    const data = await res.json();
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), data }));
+    return data;
+  }
 
-      // init
+  async function getPrices(mints){
+    if(!mints.length) return {};
+    const uniq=[...new Set(mints)];
+    const chunk=(arr,n)=>arr.reduce((a,_,i)=>i%n? a : [...a,arr.slice(i,i+n)],[]);
+    const out = {};
+    for (const group of chunk(uniq, 180)){
+      const url = JUP_PRICE_URL + encodeURIComponent(group.join(","));
+      const r = await fetch(url);
+      const j = await r.json();
+      for (const [mint, obj] of Object.entries(j?.data||{})){
+        out[mint] = Number(obj?.price || 0);
+      }
+    }
+    return out;
+  }
+
+  async function getSOLBalance(pubkey){
+    const lamports = await connection.getBalance(pubkey, "confirmed");
+    return lamports / 1_000_000_000;
+  }
+
+  async function getSPLAccounts(pubkey){
+    const resp = await connection.getParsedTokenAccountsByOwner(
+      pubkey,
+      { programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") },
+      "confirmed"
+    );
+    return resp.value
+      .map(v => v.account?.data?.parsed?.info)
+      .filter(Boolean)
+      .map(info => ({
+        mint: info.mint,
+        uiAmount: Number(info.tokenAmount?.uiAmount || 0),
+        decimals: Number(info.tokenAmount?.decimals || 0),
+      }))
+      .filter(t => t.uiAmount > 0);
+  }
+
+  function symbolForMint(mint){
+    const m = META.get(mint);
+    return m?.symbol || (mint.slice(0,6)+'…'+mint.slice(-4));
+  }
+  function nameForMint(mint){
+    const m = META.get(mint);
+    return m?.name || 'SPL Token';
+  }
+
+  /* ---------- UI renderers (keep your original structure) ---------- */
+  function recalc(){
+    // Compute totals from POS (which now mirrors live balances)
+    let total=0, unrl=0;
+    for(const [,p] of Object.entries(POS)){
+      const val=(p.qty||0)*(p.price||0);
+      total+=val;
+      // Unrealized requires avg cost; we’re defaulting avg to price (0 PnL). You can later swap for a real cost basis.
+      unrl += ((p.price||0) - (p.avg||0))*(p.qty||0);
+    }
+    pvTotal.textContent=fmtUSD(total);
+    pvTotal.classList.add('pos-yellow');
+
+    const base = Math.max(1, total - unrl); // avoid /0
+    const pct = (unrl / base) * 100;
+    pvUnrl.textContent = `${fmtUSD(unrl)} (${pct.toFixed(2)}%)`;
+    pvUnrl.classList.toggle('pos-green', unrl>=0); pvUnrl.classList.toggle('pos-red', unrl<0);
+
+    pvRlz.textContent = fmtUSD(RLZ);
+    pvRlz.classList.toggle('pos-green', RLZ>=0); pvRlz.classList.toggle('pos-red', RLZ<0);
+
+    // Cash (SOL)
+    pvCash.textContent = (SOL_BAL||0).toFixed(3);
+    pvCash.classList.add('pos-cyan');
+
+    drawPositions();
+    drawPrices();
+    drawSnapshot();
+  }
+
+  function drawPositions(){
+    posBody.innerHTML='';
+    Object.entries(POS).forEach(([sym,p])=>{
+      const val=(p.qty||0)*(p.price||0);
+      const unrl=(p.price - (p.avg||p.price))*(p.qty||0); // ~0 by default
+      const pct = (p.avg ? ((p.price/p.avg)-1)*100 : 0);
+      const tr=document.createElement('tr'); tr.id = `row-${sym}`;
+      tr.innerHTML=`
+        <td class="nx-td"><strong>${sym}</strong></td>
+        <td class="nx-td tabnums">${(p.qty||0).toLocaleString()}</td>
+        <td class="nx-td tabnums">$${(p.avg||0).toFixed(6)}</td>
+        <td class="nx-td tabnums">
+          <input data-tok="${sym}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/>
+        </td>
+        <td class="nx-td tabnums">${fmtUSD(val)}</td>
+        <td class="nx-td tabnums ${unrl>=0?'pos-green':'pos-red'}">${fmtUSD(unrl)}</td>
+        <td class="nx-td tabnums ${pct>=0?'pos-green':'pos-red'}">${pct.toFixed(2)}%</td>
+        <td class="nx-td" style="display:flex; gap:6px;">
+          <button class="nx-btn" data-act="sell" data-tok="${sym}">Sell</button>
+          <button class="nx-btn" data-act="del" data-tok="${sym}">Remove</button>
+        </td>`;
+      posBody.appendChild(tr);
+    });
+  }
+
+  posBody.addEventListener('input',(e)=>{
+    const inp=e.target.closest('input[data-tok]'); if(!inp) return;
+    const t=inp.getAttribute('data-tok'); const k=inp.getAttribute('data-k');
+    const v=parseFloat(inp.value)||0; if(!POS[t]) return;
+    POS[t][k]=v; save(POS_KEY, POS); recalc();
+  });
+
+  posBody.addEventListener('click',(e)=>{
+    const btn=e.target.closest('button[data-act]'); if(!btn) return;
+    const t=btn.getAttribute('data-tok');
+    if(btn.getAttribute('data-act')==='del'){ delete POS[t]; save(POS_KEY, POS); recalc(); return; }
+    if(btn.getAttribute('data-act')==='sell'){
+      const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
+      const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
+      const fee=0.001; // placeholder
+      const p=POS[t]||{qty:0,avg:POS[t]?.price||0,price};
+      const realized = (price - (p.avg||price)) * Math.min(qty, p.qty||0);
+      RLZ += realized - fee;
+      p.qty = Math.max(0, (p.qty||0) - qty);
+      if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
+      LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
+      save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ);
+      recalc(); renderLog();
+    }
+  });
+
+  function drawPrices(){
+    priceBox.innerHTML='';
+    Object.entries(POS).forEach(([t,p])=>{
+      const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+      row.innerHTML=`<div>${t}</div><input data-tok="${t}" data-k="price" type="number" step="0.000001" class="nx-input tabnums" value="${(p.price||0).toFixed(6)}"/><div class="text-right tabnums">${fmtUSD((p.qty||0)*(p.price||0))}</div>`;
+      priceBox.appendChild(row);
+    });
+  }
+  priceBox.addEventListener('input',(e)=>{
+    const inp=e.target.closest('input[data-tok]'); if(!inp) return;
+    const t=inp.getAttribute('data-tok'); const v=parseFloat(inp.value)||0; if(!POS[t]) return; POS[t].price=v; save(POS_KEY, POS); recalc();
+  });
+
+  // “Nudge Prices” -> refresh live prices
+  document.getElementById('price-rand')?.addEventListener('click', async ()=>{
+    await refreshLive(true);
+  });
+
+  function renderLog(){
+    logBody.innerHTML='';
+    if (!LOG.length){
+      logBody.innerHTML = `<tr><td class="nx-td text-zinc-400" colspan="8">No trades yet.</td></tr>`;
+      return;
+    }
+    LOG.slice().reverse().forEach((r,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td class="nx-td">${new Date(r.ts).toLocaleString()}</td>
+        <td class="nx-td">${r.token}</td>
+        <td class="nx-td">${r.side}</td>
+        <td class="nx-td tabnums">${r.qty}</td>
+        <td class="nx-td tabnums">$${r.price}</td>
+        <td class="nx-td tabnums">${r.fee}</td>
+        <td class="nx-td">${r.note||''}</td>
+        <td class="nx-td"><button class="nx-btn" data-i="${LOG.length-1-i}">Delete</button></td>`;
+      logBody.appendChild(tr);
+    });
+  }
+  logBody.addEventListener('click',(e)=>{
+    const btn=e.target.closest('button[data-i]'); if(!btn) return;
+    const idx=parseInt(btn.getAttribute('data-i')); LOG.splice(idx,1); save(LOG_KEY, LOG); renderLog();
+  });
+  document.getElementById('log-clear')?.addEventListener('click',()=>{ if(!confirm('Clear trade log?')) return; LOG=[]; save(LOG_KEY, LOG); renderLog(); });
+
+  function drawSnapshot(){
+    const parts = Object.entries(POS).map(([t,p])=> ({t, v:(p.qty||0)*(p.price||0)}));
+    const total = parts.reduce((a,b)=>a+b.v,0);
+    if(total<=0){ snapBox.textContent='Add trades to see snapshot.'; return; }
+    parts.sort((a,b)=>b.v-a.v);
+    snapBox.innerHTML = parts.map(x=>`<div class='flex justify-between'><span>${x.t}</span><span class='tabnums'>${fmtUSD(x.v)}</span></div>`).join('') +
+      `<div class='mt-2 flex justify-between border-t border-[var(--nx-border)] pt-1'><strong>Total</strong><strong class='tabnums'>${fmtUSD(total)}</strong></div>`;
+  }
+
+  // Click the token name in Positions to open the coin page (kept)
+  document.getElementById('pos-body').addEventListener('click',(e)=>{
+    const cell = e.target.closest('td'); if(!cell) return;
+    const strong = cell.querySelector('strong');
+    if(strong && cell.cellIndex === 0){
+      const txt = strong.textContent.trim();
+      const pair = txt.includes('/') ? txt : (txt + '/SOL');
+      NX.goToCoin({ pair });
+    }
+  });
+
+  /* ---------- Live loading pipeline ---------- */
+  async function refreshLive(onlyPrices=false){
+    try{
+      const w = window.NXWallet;
+      if (!w?.isConnected?.()) return;
+
+      const addr = w.getAddress?.();
+      if (!addr) return;
+
+      const pubkey = new PublicKey(addr);
+
+      // 1) Metadata cache
+      const tokens = await getTokenList();
+      META = new Map(tokens.map(t=>[t.address, t]));
+
+      // 2) Balances
+      SOL_BAL = await getSOLBalance(pubkey);
+      // write SOL balance on header button (existing text)
+      const solStr = (SOL_BAL||0).toFixed(3);
+      if (wBtn) wBtn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${solStr} SOL`;
+      try{ window.lucide?.createIcons?.(); }catch{}
+
+      let spl = [];
+      if (!onlyPrices){
+        spl = await getSPLAccounts(pubkey);
+      } else {
+        // Reuse existing POS mints to refresh prices
+        spl = Object.values(POS).map(p=>({ mint: p.mint, uiAmount: p.qty }));
+      }
+
+      // 3) Prices
+      const mints = [WRAPPED_SOL, ...spl.map(t=>t.mint)];
+      PRICES = await getPrices(mints);
+      const solPrice = PRICES[WRAPPED_SOL] || 0;
+
+      // 4) Map into your POS shape (symbol keyed)
+      if (!onlyPrices){
+        const nextPOS = {};
+        for (const a of spl){
+          const meta = META.get(a.mint);
+          const sym = (meta?.symbol || (a.mint.slice(0,6)+'…'+a.mint.slice(-4))).toUpperCase();
+          const price = PRICES[a.mint] || 0;
+          // avg := price for now (no PnL). Replace later with your cost basis if/when available.
+          nextPOS[sym] = { qty: a.uiAmount, avg: price, price, mint: a.mint };
+        }
+        POS = nextPOS;
+        save(POS_KEY, POS);
+      } else {
+        // Update prices only
+        for (const [sym,p] of Object.entries(POS)){
+          POS[sym].price = PRICES[p.mint] || p.price || 0;
+        }
+        save(POS_KEY, POS);
+      }
+
+      // 5) Recalc UI (SOL value included in totals via snapshot/positions sum—positions are SPL only; SOL shows in Cash)
       recalc();
-      renderLog();
-    </script>
+    }catch(e){
+      console.error("Live refresh failed", e);
+    }
+  }
+
+  // Boot: if already connected, load; otherwise wait for connect event
+  async function boot(){
+    renderLog();
+    if (window.NXWallet?.isConnected?.()){
+      await refreshLive(false);
+    }
+  }
+  boot();
+
+  // Integrate with your wallet flow (same events you use elsewhere)
+  window.addEventListener("nxwallet:connected", () => refreshLive(false));
+  window.addEventListener("nxwallet:disconnected", () => {
+    POS = {}; SOL_BAL = 0; PRICES = {}; save(POS_KEY, POS);
+    recalc(); // clears UI
+    if (wBtn) wBtn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.000 SOL`;
+    try{ window.lucide?.createIcons?.(); }catch{}
+  });
+
+  // Light periodic refresh of prices only (no Helius burn, just Jupiter price API)
+  // Feel free to remove if you want strictly manual refresh.
+  setInterval(()=>{ if (window.NXWallet?.isConnected?.()) refreshLive(true); }, 60_000);
+
+  // Initial draw (empty until wallet connects / loads)
+  recalc();
+</script>
+
 <script>
 /** ===== NebulaX Click-to-Coin Utilities ===== */
 window.NX = window.NX || {};
