@@ -106,15 +106,18 @@ function save(pk){
   function load(){ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} }
   function clear(){ try{ localStorage.removeItem(LKEY); }catch{} }
 
-  async function fetchBalance(pubkey){
-    try{
-const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
-      const connection = new solanaWeb3.Connection(url, 'confirmed');
-      STATE.conn = connection;
-      const lam = await connection.getBalance(new solanaWeb3.PublicKey(pubkey));
-      return lam / solanaWeb3.LAMPORTS_PER_SOL;
-    }catch{ return null; }
+async function fetchBalance(pubkey){
+  try{
+    // use the same NX_RPC that everything else uses
+    const connection = new solanaWeb3.Connection(NX_RPC, 'confirmed');
+    STATE.conn = connection;
+    const lam = await connection.getBalance(new solanaWeb3.PublicKey(pubkey));
+    return lam / solanaWeb3.LAMPORTS_PER_SOL;
+  }catch{ 
+    return null; 
   }
+}
+
 
 async function connect({ remember=true } = {}){
   const prov = getPhantomProvider();
