@@ -286,3 +286,27 @@ async function fetchBalanceThrottled(pubkey){
 
 })();
 
+// === expose a single, shared API ===
+window.NXWallet = {
+  connect,
+  disconnect,
+  isConnected,
+  isInstalled,
+  getAddress,
+  getBalance,
+  refreshBalance,
+};
+
+// === silent reconnect on page load (no prompt if already trusted) ===
+document.addEventListener('DOMContentLoaded', async () => {
+  try { ui(); } catch {}
+  const prov = (window.phantom?.solana) || window.solana;
+  const hasSaved = !!localStorage.getItem('nebula:wallet');
+
+  // If Phantom is present and user trusted this site before, reattach silently
+  if (prov && hasSaved) {
+    try { await prov.connect({ onlyIfTrusted: true }); } catch {}
+    try { await refreshBalance(true); } catch {}
+  }
+});
+
