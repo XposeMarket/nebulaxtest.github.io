@@ -360,6 +360,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     </script>
 
 <script type="module">
+
+  function resolveRpc(){
+  try{
+    const s = String(window.NX_RPC || '').trim();
+    // If it’s a Helius URL without a real key, or a placeholder, fall back
+    if (/YOUR_KEY/i.test(s)) return 'https://api.mainnet-beta.solana.com';
+    if (/helius/i.test(s) && !/api-key=/.test(s)) return 'https://api.mainnet-beta.solana.com';
+    return s || 'https://api.mainnet-beta.solana.com';
+  }catch{
+    return 'https://api.mainnet-beta.solana.com';
+  }
+}
+
   /* ===== Wallet dropdown + modals ===== */
   const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
   wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
@@ -879,19 +892,24 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from "https://esm.sh/@solana/
 // drop-in guard copied from nx-wallet
 function resolveRpc(){
   try{
-    const w = (typeof window!=='undefined' && window.NX_RPC) ? String(window.NX_RPC).trim() : '';
-    const cand = w || 'https://api.mainnet-beta.solana.com';
-    if (/YOUR_KEY/i.test(cand)) return 'https://api.mainnet-beta.solana.com';
-    if (/helius/i.test(cand) && !/api-key=/.test(cand)) return 'https://api.mainnet-beta.solana.com';
-    return cand;
-  }catch{ return 'https://api.mainnet-beta.solana.com'; }
+    const s = String(window.NX_RPC || '').trim();
+    // If it’s a Helius URL without a real key, or a placeholder, fall back
+    if (/YOUR_KEY/i.test(s)) return 'https://api.mainnet-beta.solana.com';
+    if (/helius/i.test(s) && !/api-key=/.test(s)) return 'https://api.mainnet-beta.solana.com';
+    return s || 'https://api.mainnet-beta.solana.com';
+  }catch{
+    return 'https://api.mainnet-beta.solana.com';
+  }
 }
+
 
 const btn  = document.getElementById("wallet-btn");
 const cash = document.getElementById("pv-cash");
 const rpc  = resolveRpc(); // <- use guard here
 
 function paint(sol){ /* ...unchanged... */ }
+
+  
 
 (async () => {
   if (window.NXWallet?.isConnected?.()) {
