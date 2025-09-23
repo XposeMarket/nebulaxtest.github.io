@@ -189,35 +189,6 @@ function Card({ title, toolbar, children, className, onClick }) {
 }
 
 
-      /* Card now accepts string OR node for title */
-function Card({title,toolbar,children,className,onClick}){
-  const titleNode = (typeof title === "string")
-    ? <span className="text-sm font-semibold neon-text">{title}</span>
-    : title;
-
-  const clickable = typeof onClick === "function";
-
-  return (
-    <div
-      className={cx(
-        "h-full flex flex-col rounded-2xl p-3 shadow-[0_0_0_1px_var(--cyberpunk-border)_inset] overflow-hidden",
-        theme.panel,
-        clickable && "cursor-pointer",
-        className
-      )}
-      onClick={onClick}
-      role={clickable ? "link" : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onKeyDown={clickable ? (e)=>{ if(e.key==='Enter' || e.key===' ') onClick(); } : undefined}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">{titleNode}</div>
-        <div className="relative flex items-center gap-2">{toolbar}</div>
-      </div>
-      <div className="min-h-0 flex-1">{children}</div>
-    </div>
-  );
-}
 
 
       /* ===== Mock data ===== */
