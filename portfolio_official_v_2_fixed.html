@@ -351,10 +351,7 @@ sIn.addEventListener('keydown',(e)=>{
   const priceBox=document.getElementById('price-box');
   const snapBox=document.getElementById('snap-box');
 
-  // Persisted keys (kept for compatibility)
-  const POS_KEY='nebula_positions_v1';
-  const LOG_KEY='nebula_trades_v1';
-  const RLZ_KEY='nebula_realized_v1';
+
 
   function load(key, fb){ try{ return JSON.parse(localStorage.getItem(key)) ?? fb; }catch{return fb;} }
   function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
