@@ -32,6 +32,34 @@ const connection = new solanaWeb3.Connection(NX_RPC, "confirmed");
     }
     return null;
   }
+// ===== Mobile helpers & Phantom deep link =====
+function nxIsMobile(){
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  return /android|iphone|ipad|ipod|iemobile|opera mini|mobile/i.test(ua);
+}
+
+// Minimal Phantom *connect* deeplink (you can harden with state/signatures later)
+function nxBuildPhantomConnectLink(){
+  // Send user back to same page after approval
+  const redirect = encodeURIComponent(location.origin + location.pathname + '#phantom-callback');
+  const appUrl  = encodeURIComponent(location.origin);
+  // Phantom UL connect spec (cluster optional if you’re strictly mainnet)
+  return `https://phantom.app/ul/v1/connect?app_url=${appUrl}&redirect_link=${redirect}&cluster=mainnet-beta`;
+}
+
+// Optional: if user is inside a webview that blocks deeplinks, let them jump to real browser
+function nxOpenInRealBrowser(){
+  const url = location.href;
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isiOS){
+    // iOS always uses Safari (you can’t force Chrome)
+    window.location.href = url.replace(/^http:/, 'https:');
+  }else{
+    const intent = `intent://${location.host}${location.pathname}${location.search}${location.hash}#Intent;scheme=https;package=com.android.chrome;end`;
+    window.location.href = intent;
+    setTimeout(()=>{ window.location.href = url; }, 500); // fallback
+  }
+}
 
   function shorten(pk){ if(!pk) return ''; return pk.slice(0,4)+'…'+pk.slice(-4); }
 function save(pk){
@@ -52,9 +80,20 @@ const url = "https://rpc.helius.xyz/?api-key=YOUR_KEY";
     }catch{ return null; }
   }
 
-  async function connect({ remember=true } = {}){
-    const prov = getPhantomProvider();
-    if(!prov) throw new Error('Phantom not injected. Use HTTPS/localhost or enable access for file URLs.');
+async function connect({ remember=true } = {}){
+  const prov = getPhantomProvider();
+
+  // If no injected provider and we’re on mobile → open the Phantom APP via deep link
+  if (!prov) {
+    if (nxIsMobile()){
+      const url = nxBuildPhantomConnectLink();
+      window.location.href = url;        // opens Phantom app (if installed) instead of phantom.com
+      return;                            // stop here; user returns via redirect_link/hash
+    }
+    // Desktop without provider: keep your current error
+    throw new Error('Phantom not detected. Install Phantom or open in a wallet-enabled browser.');
+  }
+
 
     // nice-to-have listeners
     prov.on?.('disconnect', ()=>{ STATE.pubkey=null; STATE.balance=null; clear(); ui(); });
@@ -273,6 +312,20 @@ async function fetchBalanceThrottled(pubkey){
     ui();
   })();
 
+// ===== Handle return from Phantom deep link (MVP) =====
+(function nxHandleCallback(){
+  const h = location.hash || '';
+  if (h.includes('phantom-callback')){
+    // For a hardened flow you’d parse/verify state or session here.
+    // MVP: just show a hint & clear the hash so refreshes don’t loop.
+    console.log('Returned from Phantom connect.');
+    history.replaceState(null, '', location.pathname + location.search);
+    // If the wallet injected after return (in-app browser cases), you can try a trusted connect:
+    try{ getPhantomProvider()?.connect?.({ onlyIfTrusted:true }); }catch{}
+  }
+})();
+
+  
   // Public API
   window.NX = window.NX || {};
  window.NXWallet = {
