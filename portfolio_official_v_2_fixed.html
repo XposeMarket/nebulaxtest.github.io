@@ -386,8 +386,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   import { Connection, PublicKey } from "https://esm.sh/@solana/web3.js@1.95.3";
 
   // Config
-  const NX_RPC = window.NX_RPC || "https://api.mainnet-beta.solana.com";
-  const connection = new Connection(NX_RPC, "confirmed");
+const NX_RPC = resolveRpc();
+const connection = new Connection(NX_RPC, "confirmed");
   const WRAPPED_SOL = "So11111111111111111111111111111111111111112";
   const JUP_TOKENS_URL = "https://tokens.jup.ag/tokens?tags=verified";
   const JUP_PRICE_URL = "https://price.jup.ag/v6/price?ids="; // append comma-separated mints
