@@ -120,16 +120,28 @@ async function connect({ remember=true } = {}){
   const prov = getPhantomProvider();
 
   // If no injected provider and we’re on mobile → open the Phantom APP via deep link
-  if (!prov) {
+   if (!prov) {
+    // Mobile: try to open the Phantom APP first, then fall back to universal link
     if (nxIsMobile()){
-      const url = nxBuildPhantomConnectLink();
-      window.location.href = url;        // opens Phantom app (if installed) instead of phantom.com
-      return;                            // stop here; user returns via redirect_link/hash
-    }
-    // Desktop without provider: keep your current error
-    throw new Error('Phantom not detected. Install Phantom or open in a wallet-enabled browser.');
-  }
+      // Must run in a direct click handler context (no awaits before this!)
+      const appURL   = nxBuildPhantomConnectURL('scheme'); // phantom:...
+      const httpsURL = nxBuildPhantomConnectURL('https');  // https://phantom.app/ul/...
 
+      let opened = false;
+      const timer = setTimeout(()=>{
+        if (!document.hidden && !opened){
+          // Scheme didn’t take — try universal link
+         window.location.href = httpsURL;
+        }
+      }, 350);
+
+      // Try the app-scheme first
+      try { opened = true; window.location.href = appURL; } catch(e){}
+      return; // user will bounce to the app; we handle return via hash below
+    }
+    // Desktop with no provider: keep your existing message
+    throw new Error('Phantom not detected. Install the wallet or open in a wallet-enabled browser.');
+  }
 
     // nice-to-have listeners
     prov.on?.('disconnect', ()=>{ STATE.pubkey=null; STATE.balance=null; clear(); ui(); });
