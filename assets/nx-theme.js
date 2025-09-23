@@ -1,6 +1,7 @@
 /* ===== NebulaX Theme Engine ===== */
 ;(() => {
   const LKEY = 'nebula_theme_v1';
+  
 
   // CSS variables each page already uses (see --nx-*)
   const THEMES = {
@@ -92,3 +93,4 @@
 
   init();
 })();
+
