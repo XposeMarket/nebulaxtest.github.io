@@ -152,12 +152,23 @@ window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: S
   function getAddress(){ return STATE.pubkey; }
   function getBalance(){ return STATE.balance; }
 
-async function refreshBalance(){
+let lastBalanceFetch = 0;
+const MIN_REFRESH_INTERVAL = 60_000; // 1 minute
+
+async function refreshBalance(force=false){
   if (!STATE.pubkey) return null;
+  const now = Date.now();
+  if (!force && (now - lastBalanceFetch) < MIN_REFRESH_INTERVAL) {
+    return STATE.balance; // reuse cached value
+  }
+  lastBalanceFetch = now;
+
   STATE.balance = await fetchBalance(STATE.pubkey);
-  ui(); // update button/menu
+  ui();
+  window.dispatchEvent(new CustomEvent('nebula:sol:changed', { detail:{ balance: STATE.balance }}));
   return STATE.balance;
 }
+
 
 
   // Simple popover menu
