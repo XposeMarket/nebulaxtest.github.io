@@ -405,6 +405,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let META = new Map();          // mint -> token metadata from Jupiter
   let PRICES = {};               // mint -> price in USD
   let SOL_BAL = 0;               // SOL balance numeric
+let SOL_PRICE = 0; // <-- new: current SOL/USD
 
   /* ---------- Helpers ---------- */
   function fmtUSD(n){
@@ -476,35 +477,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     return m?.name || 'SPL Token';
   }
 
-  /* ---------- UI renderers (keep your original structure) ---------- */
-  function recalc(){
-    // Compute totals from POS (which now mirrors live balances)
-    let total=0, unrl=0;
-    for(const [,p] of Object.entries(POS)){
-      const val=(p.qty||0)*(p.price||0);
-      total+=val;
-      // Unrealized requires avg cost; we’re defaulting avg to price (0 PnL). You can later swap for a real cost basis.
-      unrl += ((p.price||0) - (p.avg||0))*(p.qty||0);
-    }
-    pvTotal.textContent=fmtUSD(total);
-    pvTotal.classList.add('pos-yellow');
+function recalc(){
+  // Total is SOL only for now (no SPL holdings in total until on-platform trades exist)
+  const totalUSD = (SOL_BAL || 0) * (SOL_PRICE || 0);
 
-    const base = Math.max(1, total - unrl); // avoid /0
-    const pct = (unrl / base) * 100;
-    pvUnrl.textContent = `${fmtUSD(unrl)} (${pct.toFixed(2)}%)`;
-    pvUnrl.classList.toggle('pos-green', unrl>=0); pvUnrl.classList.toggle('pos-red', unrl<0);
+  // Portfolio Value (USD)
+  pvTotal.textContent = fmtUSD(totalUSD);
+  pvTotal.classList.add('pos-yellow');
 
-    pvRlz.textContent = fmtUSD(RLZ);
-    pvRlz.classList.toggle('pos-green', RLZ>=0); pvRlz.classList.toggle('pos-red', RLZ<0);
+  // Unrealized/Realized PnL remain neutral until the platform creates trades
+  pvUnrl.textContent = `$0 (0%)`;
+  pvUnrl.classList.remove('pos-green','pos-red');
 
-    // Cash (SOL)
-    pvCash.textContent = (SOL_BAL||0).toFixed(3);
-    pvCash.classList.add('pos-cyan');
+  pvRlz.textContent = `$0`;
+  pvRlz.classList.remove('pos-green','pos-red');
 
-    drawPositions();
-    drawPrices();
-    drawSnapshot();
-  }
+  // Cash (SOL)
+  pvCash.textContent = (SOL_BAL||0).toFixed(3);
+  pvCash.classList.add('pos-cyan');
+
+  // Do NOT render positions/prices/snapshot yet (they’ll be driven by trade logs later)
+  posBody.innerHTML = '';
+  priceBox.innerHTML = '';
+  snapBox.textContent = 'Add trades to see snapshot.';
+}
+
 
   function drawPositions(){
     posBody.innerHTML='';
@@ -657,7 +654,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // 3) Prices
       const mints = [WRAPPED_SOL, ...spl.map(t=>t.mint)];
       PRICES = await getPrices(mints);
-      const solPrice = PRICES[WRAPPED_SOL] || 0;
+      SOL_PRICE = PRICES[WRAPPED_SOL] || 0; 
 
       // 4) Map into your POS shape (symbol keyed)
       if (!onlyPrices){
