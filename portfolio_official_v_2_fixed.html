@@ -1145,7 +1145,7 @@ async function recompute(){
   SOL_BAL = +window.NXWallet?.getBalance?.() || 0;
 
   // 2) Load open positions from any known key(s)
-  const positions = readActivePositions(); // [{mint, qty}]
+  const positions = await getAllPositions(); // [{mint, qty}]
   // 3) Fetch prices for SOL + all position mints
   const mints = Array.from(new Set([SOL_MINT, ...positions.map(p => p.mint)]));
   const prices = await getPrices(mints);
@@ -1186,6 +1186,46 @@ window.addEventListener('nebula:sol:changed', (e)=>{
   await recompute();
   setInterval(recompute, 30000);
 })();
+</script>
+<script>
+// --- Add these helpers next to your portfolio script ---
+
+/** Read SPL token holdings from the connected wallet (excludes native SOL) */
+async function readHoldingsFromWallet() {
+  const prov = (window.phantom?.solana) || window.solana;
+  if (!prov?.publicKey) return [];
+  const pubkey = new solanaWeb3.PublicKey(prov.publicKey.toString());
+  const conn = new solanaWeb3.Connection((window.NX_RPC||'https://api.mainnet-beta.solana.com'),'confirmed');
+
+  const resp = await conn.getParsedTokenAccountsByOwner(pubkey, { programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') });
+  const out = [];
+  for (const { account } of resp.value) {
+    const info = account?.data?.parsed?.info;
+    const mint = info?.mint;
+    const amt = info?.tokenAmount;
+    const ui = Number(amt?.uiAmount);
+    // filter dust; adjust threshold to taste
+    if (mint && isFinite(ui) && ui > 0) {
+      out.push({ mint, qty: ui });
+    }
+  }
+  return out;
+}
+
+/** Combine: (localStorage positions) + (wallet holdings) and de-dup by mint summing qty */
+async function getAllPositions() {
+  const fromLocal = readActivePositions();      // existing function we added earlier
+  const fromWallet = await readHoldingsFromWallet();
+  const map = new Map();
+  for (const p of [...fromLocal, ...fromWallet]) {
+    const prev = map.get(p.mint) || 0;
+    map.set(p.mint, prev + Number(p.qty || 0));
+  }
+  // Return [{mint, qty}] but exclude native SOL mint (we handle SOL cash separately)
+  return Array.from(map.entries())
+    .filter(([mint]) => mint !== 'So11111111111111111111111111111111111111112')
+    .map(([mint, qty]) => ({ mint, qty }));
+}
 </script>
 
 
