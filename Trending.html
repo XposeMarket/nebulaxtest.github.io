@@ -760,7 +760,7 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
 (function(){
   const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || '267367afba5b44f2b7398e53aba49f5f';
   const CHAIN = 'solana';
-  const LIMIT = 30;            // how many rows to show
+  const LIMIT = 20;            // how many rows to show
   const CACHE_MS = 60_000;     // cache Birdeye list for 90s
   const PAIR_CACHE_MS = 6*60*60*1000; // mint→pair cache for 6h
 
@@ -933,6 +933,7 @@ url.searchParams.set('limit', String(Math.min(20, (limit|0) || 20)));
    
   </body>
 </html>
+
 
 
 
