@@ -822,7 +822,19 @@ url.searchParams.set('limit', String(Math.min(20, (limit|0) || 20)));
 
   const j = await res.json();
   // Some responses use data.items; others data.markets — handle both
-  const items = j?.data?.items || j?.data?.markets || j?.data || [];
+// --- Robust extraction: ensure we end up with an ARRAY ---
+const data = j?.data ?? [];
+let items =
+  (Array.isArray(data) && data) ||
+  (Array.isArray(data.items) && data.items) ||
+  (Array.isArray(data.markets) && data.markets) ||
+  (Array.isArray(data.tokens) && data.tokens) ||
+  (Array.isArray(data.list) && data.list) ||
+  (Array.isArray(data.result) && data.result) ||
+  (data && typeof data === 'object' ? Object.values(data) : []);
+
+// Final guard
+if (!Array.isArray(items)) items = [];
 
   // normalize into our row model
   const rows = items.map(it => ({
@@ -933,6 +945,7 @@ url.searchParams.set('limit', String(Math.min(20, (limit|0) || 20)));
    
   </body>
 </html>
+
 
 
 
