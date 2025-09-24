@@ -802,8 +802,10 @@ async function birdeyeTrending(limit){
   if (cached) return cached;
 
   // ✅ correct endpoint + headers
-  const url = new URL('https://public-api.birdeye.so/defi/token_trending');
-  url.searchParams.set('limit', String(limit));
+// inside birdeyeTrending(limit)
+const url = new URL('https://public-api.birdeye.so/defi/token_trending');
+url.searchParams.set('limit', String(Math.min(20, (limit|0) || 20)));
+
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -931,6 +933,7 @@ async function birdeyeTrending(limit){
    
   </body>
 </html>
+
 
 
 
