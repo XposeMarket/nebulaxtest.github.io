@@ -796,36 +796,48 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
     set(k,data){ try{ sessionStorage.setItem(k, JSON.stringify({ts:Date.now(),data})); }catch{} }
   };
 
-  // --- data providers ---
-  async function birdeyeTrending(limit){
-    const key = `nx_trend_list_${limit}`;
-    const cached = cache.get(key, CACHE_MS);
-    if(cached) return cached;
+async function birdeyeTrending(limit){
+  const key = `nx_trend_list_${limit}`;
+  const cached = cache.get(key, CACHE_MS);
+  if (cached) return cached;
 
-    const url = new URL('https://public-api.birdeye.so/defi/markets/trending');
-    url.searchParams.set('chain', CHAIN);
-    url.searchParams.set('limit', String(limit));
-    const res = await fetch(url.toString(), { headers: { 'X-API-KEY': BIRDEYE_KEY, 'accept':'application/json' }});
-    if(!res.ok) throw new Error('Birdeye '+res.status);
-    const j = await res.json();
-    const items = j?.data?.markets || [];
+  // ✅ correct endpoint + headers
+  const url = new URL('https://public-api.birdeye.so/defi/token_trending');
+  url.searchParams.set('limit', String(limit));
 
-    // normalize into our row model
-    const rows = items.map(it => ({
-      mint: it?.address || it?.token_address || it?.mintAddress || it?.mint,
-      symbol: (it?.symbol || it?.baseSymbol || it?.token_symbol || '').toUpperCase(),
-      name: it?.name || it?.token_name || '',
-      priceUsd: it?.price || 0,
-      change24h: it?.change24h ?? it?.priceChange24h ?? 0,
-      volume24h: it?.v24hUsd ?? it?.volume24hUsd ?? it?.v24h ?? 0,
-      mcap: it?.marketCap ?? it?.market_cap ?? 0,   // may be undefined on some items
-      // pairAddress may or may not be present; we’ll resolve if missing
-      pairAddress: it?.pairAddress || it?.poolAddress || null
-    })).filter(r => r.mint);
+  const res = await fetch(url.toString(), {
+    headers: {
+      'X-API-KEY': BIRDEYE_KEY,
+      'accept': 'application/json',
+      'x-chain': 'solana'   // <— important
+    }
+  });
 
-    cache.set(key, rows);
-    return rows;
+  if (!res.ok) {
+    const txt = await res.text().catch(()=> '');
+    throw new Error(`Birdeye ${res.status} ${txt}`);
   }
+
+  const j = await res.json();
+  // Some responses use data.items; others data.markets — handle both
+  const items = j?.data?.items || j?.data?.markets || j?.data || [];
+
+  // normalize into our row model
+  const rows = items.map(it => ({
+    mint: it?.address || it?.token_address || it?.mintAddress || it?.mint,
+    symbol: (it?.symbol || it?.baseSymbol || it?.token_symbol || '').toUpperCase(),
+    name: it?.name || it?.token_name || '',
+    priceUsd: it?.price || it?.value || 0,
+    change24h: it?.change24h ?? it?.priceChange24h ?? it?.price_change_24h ?? 0,
+    volume24h: it?.v24hUsd ?? it?.volume24hUsd ?? it?.v24h ?? it?.volume_24h ?? 0,
+    mcap: it?.marketCap ?? it?.market_cap ?? 0,
+    pairAddress: it?.pairAddress || it?.poolAddress || null
+  })).filter(r => r.mint);
+
+  cache.set(key, rows);
+  return rows;
+}
+
 
   async function dexscreenerBestPairByMint(mint){
     const ck = `nx_pair_${mint}`;
@@ -919,5 +931,6 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
    
   </body>
 </html>
+
 
 
