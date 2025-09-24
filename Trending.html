@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
+<script> window.NX_BIRDEYE_KEY = '267367afba5b44f2b7398e53aba49f5f'; </script>
 
     <style>
       :root{
@@ -757,7 +758,7 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
 <script>
 /* ===== NebulaX Trending: live data fill (non-destructive) ===== */
 (function(){
-  const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || 'REPLACE_WITH_YOUR_BIRDEYE_KEY';
+  const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || '267367afba5b44f2b7398e53aba49f5f';
   const CHAIN = 'solana';
   const LIMIT = 30;            // how many rows to show
   const CACHE_MS = 90_000;     // cache Birdeye list for 90s
@@ -918,4 +919,5 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
    
   </body>
 </html>
+
 
