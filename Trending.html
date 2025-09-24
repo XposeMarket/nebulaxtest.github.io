@@ -761,7 +761,7 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
   const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || '267367afba5b44f2b7398e53aba49f5f';
   const CHAIN = 'solana';
   const LIMIT = 30;            // how many rows to show
-  const CACHE_MS = 90_000;     // cache Birdeye list for 90s
+  const CACHE_MS = 60_000;     // cache Birdeye list for 90s
   const PAIR_CACHE_MS = 6*60*60*1000; // mint→pair cache for 6h
 
   const $ = (sel,root=document)=>root.querySelector(sel);
@@ -931,6 +931,7 @@ async function birdeyeTrending(limit){
    
   </body>
 </html>
+
 
 
 
