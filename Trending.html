@@ -783,7 +783,6 @@ async function fetchCandidates(limit = CANDIDATE_SIZE) {
   return [];
 }
 
-  } else {
     try {
       const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
       const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
@@ -1054,20 +1053,6 @@ await sleep(1100);
     }
   }
 
-  async function sequenceHydrate(need) {
-    if (!need.length) return [{}, {}, {}, {}, {}];
-    const md = await hydrateMarketData(need);
-    await sleep(100);
-    const ps = await hydratePriceStats(need);
-    await sleep(100);
-    const o5 = await hydrateOhlcv5m(need);
-    await sleep(100);
-    const tr15 = await hydrateTrades15m(need);
-    await sleep(100);
-    const hh = await hydrateHolders(need);
-    return [md, ps, o5, tr15, hh];
-  }
-
   // 5) Minimal rowHTML fallback (use your own if present) ---------------------
   function rowHTML(r) {
     const n = (x, d=0) => (x||x===0) ? Number(x).toLocaleString(undefined,{maximumFractionDigits:d}) : '—';
@@ -1135,6 +1120,7 @@ await sleep(1100);
    
   </body>
 </html>
+
 
 
 
