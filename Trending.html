@@ -699,9 +699,9 @@ const BIRDEYE_KEY =
   const CHAIN = 'solana';
  // ------------- put near the top of Pro-Degen block -------------
 const STARTER_MODE = true;
-const CANDIDATE_SIZE = 12;       // <= shrink for Starter to avoid 429
-const REFRESH_PRICES_MS = 45000; // <= slower loop on Starter
-const REFRESH_SLOW_MS   = 18000;
+const CANDIDATE_SIZE = 6;       // <= shrink for Starter to avoid 429
+const REFRESH_PRICES_MS = 60000; // <= slower loop on Starter
+const REFRESH_SLOW_MS   = 300000;
 
 // Global throttle (≈1 req/sec) + gentle 429 backoff
 let lastReqTs = 0;
@@ -758,30 +758,31 @@ const tableBody =
   function minutesAgo(m) { return new Date(Date.now() - m*60000).toISOString(); }
 
   // --- Fetch helpers ---------------------------------------------------------
-  async function jget(url, opts={}) {
-    const r = await fetch(url, {headers: HEADERS, ...opts});
-    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-    const j = await r.json();
-    return j?.data ?? j;
-  }
 
+async function jget(url, opts = {}) {
+  const r = await throttled(url, opts);   // <-- use the throttle!
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  const j = await r.json();
+  return j?.data ?? j;
+}
   // 1) Candidate pool: Birdeye trending (cheap) OR markets page
 let lastCandidatesFallback = false;
 
-async function fetchCandidates(limit=CANDIDATE_SIZE) {
-  if (!lastCandidatesFallback) {
-    try {
-      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
-      const rows = (Array.isArray(d)? d : (d?.tokens || d?.items || [])).slice(0,limit);
-      const mints = rows.map(x => x.address || x.mint).filter(Boolean);
-      if (mints.length) return [...new Set(mints)];
-      // no data → fall through to markets on next tick
-      lastCandidatesFallback = true;
-      return [];
-    } catch {
-      lastCandidatesFallback = true;
-      return [];
-    }
+async function fetchCandidates(limit = CANDIDATE_SIZE) {
+  try {
+    const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
+    const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit);
+    const mints = rows.map(x => x.address || x.mint).filter(Boolean);
+    if (mints.length) return [...new Set(mints)];
+  } catch(e) { console.warn('Trending failed:', e.message || e); }
+  try {
+    const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
+    const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
+    if (mints.length) return [...new Set(mints)].slice(0, limit);
+  } catch(e) { console.warn('Markets failed:', e.message || e); }
+  return [];
+}
+
   } else {
     try {
       const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
@@ -795,11 +796,26 @@ async function fetchCandidates(limit=CANDIDATE_SIZE) {
   }
 }
 
+async function sequenceHydrate(need) {
+  if (!need.length) return [{}, {}, {}, {}, {}];
+
+  // Phase 1: cheap-ish essentials
+  const md = await hydrateMarketData(need);
+  await sleep(200); // tiny spacing between families
+  const ps = await hydratePriceStats(need);
+
+  // Phase 2: skip on Starter to avoid 429s
+  const o5 = {};   // await hydrateOhlcv5m(need)
+  const tr15 = {}; // await hydrateTrades15m(need)
+  const hh = {};   // await hydrateHolders(need)
+
+  return [md, ps, o5, tr15, hh];
+}
 
   // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
   async function hydrateMarketData(mints) {
     const out = {};
-    await sleep(1100);
+await sleep(1100);
 
     if (!STARTER_MODE) {
       try {
@@ -926,10 +942,10 @@ async function fetchCandidates(limit=CANDIDATE_SIZE) {
   // 3) Score, gates, and compose --------------------------------------------
   const DEFAULT_GATES = {
     minLiq: 25000,
-    minTrades15m: 40,
-    minBuyers15m: 20,
+    minTrades15m: 0,
+    minBuyers15m: 0,
     maxImpact1k: 0.15, // not used in v1 (needs exit-liquidity), left for future
-    minAgeMin: 30
+    minAgeMin: 0
   };
 
   function computeScore(rows) {
@@ -1119,6 +1135,7 @@ async function fetchCandidates(limit=CANDIDATE_SIZE) {
    
   </body>
 </html>
+
 
 
 
