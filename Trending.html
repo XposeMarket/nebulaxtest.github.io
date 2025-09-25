@@ -421,8 +421,7 @@ function selectHit(i){
             </td>
           </tr>`;
       }
-const body = document.getElementById('trend-body');
-if (!body || body.dataset.liveFilled === '1') return;  // don’t overwrite live rows
+
 
       function renderTable(){
         const body=document.getElementById('trend-body');
@@ -949,6 +948,7 @@ body.setAttribute('data-live-filled', '1');
    
   </body>
 </html>
+
 
 
 
