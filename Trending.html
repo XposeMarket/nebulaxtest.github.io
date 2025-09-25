@@ -551,6 +551,8 @@ sIn.addEventListener('keydown',(e)=>{
     sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
   }
 });
+const body = document.getElementById('trend-body');
+if (!body || body.dataset.liveFilled === '1') return;  // don’t overwrite live rows
 
       // Initial render
       renderTable();
@@ -914,6 +916,7 @@ if (!Array.isArray(items)) items = [];
     body.innerHTML = rows.map(rowHTML).join('');
     try{ window.lucide?.createIcons?.(); }catch{}
   }
+body.setAttribute('data-live-filled', '1');
 
   // --- high-priority click handler (runs BEFORE the old mock handler) ---
   body.addEventListener('click', (e)=>{
@@ -945,6 +948,7 @@ if (!Array.isArray(items)) items = [];
    
   </body>
 </html>
+
 
 
 
