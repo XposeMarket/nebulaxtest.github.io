@@ -868,7 +868,11 @@ body.setAttribute('data-live-filled', '1');
 <script>
 (() => {
   // ========= NebulaX Pro-Degen v1 (Starter-friendly) =========
-  const BIRDEYE_KEY = window.NX?.BIRDEYE_KEY || localStorage.getItem('BIRDEYE_KEY') || '<PUT_YOUR_KEY>';
+const BIRDEYE_KEY =
+  window.NX_BIRDEYE_KEY ||
+  window.NX?.BIRDEYE_KEY ||
+  localStorage.getItem('BIRDEYE_KEY') ||
+  '';
   const CHAIN = 'solana';
   const STARTER_MODE = true; // true = prefer single endpoints; set false to try batch everywhere.
   const CANDIDATE_SIZE = 60; // keep small for Starter. Increase when you upgrade.
@@ -1252,6 +1256,7 @@ const tableBody =
    
   </body>
 </html>
+
 
 
 
