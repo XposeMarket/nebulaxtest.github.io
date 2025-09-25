@@ -865,10 +865,392 @@ body.setAttribute('data-live-filled', '1');
   setInterval(renderTrending, CACHE_MS);
 })();
 </script>
+<script>
+(() => {
+  // ========= NebulaX Pro-Degen v1 (Starter-friendly) =========
+  const BIRDEYE_KEY = window.NX?.BIRDEYE_KEY || localStorage.getItem('BIRDEYE_KEY') || '<PUT_YOUR_KEY>';
+  const CHAIN = 'solana';
+  const STARTER_MODE = true; // true = prefer single endpoints; set false to try batch everywhere.
+  const CANDIDATE_SIZE = 60; // keep small for Starter. Increase when you upgrade.
+  const REFRESH_PRICES_MS = 15000; // prices/trades refresh
+  const REFRESH_SLOW_MS = 60000;   // MC/liq/holders refresh
+  const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
+
+  // --- DOM targets (adjust if your IDs differ)
+  const tableBody = document.querySelector('#trending-tbody') || document.querySelector('tbody');
+  const statusEl = ensureStatus();
+
+  // --- Simple cache (sessionStorage) ----------------------------------------
+  const SS_KEY = 'nx_trending_cache_v1';
+  const cache = JSON.parse(sessionStorage.getItem(SS_KEY) || '{}');
+  function saveCache() { sessionStorage.setItem(SS_KEY, JSON.stringify(cache)); }
+  function getCached(mint) { return cache[mint]; }
+  function setCached(mint, data) { cache[mint] = {...(cache[mint]||{}), ...data, _ts: Date.now()}; }
+
+  // --- Utils ----------------------------------------------------------------
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  function zscores(arr, key) {
+    const vals = arr.map(o => Number(o[key] ?? 0));
+    const mean = vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length);
+    const sd = Math.sqrt(vals.reduce((a,b)=>a + Math.pow(b-mean,2),0)/Math.max(1,vals.length));
+    const denom = sd || 1;
+    const map = new Map(arr.map((o,i)=>[o.mint, clamp((vals[i]-mean)/denom, -3, 3)]));
+    return (mint) => map.get(mint) || 0;
+  }
+  function ewma(values, lambda=0.7) {
+    // most recent last
+    let prev = values[0] || 0;
+    for (let i=1;i<values.length;i++) prev = lambda*values[i] + (1-lambda)*prev;
+    return prev;
+  }
+  function nowIso() { return new Date().toISOString(); }
+  function minutesAgo(m) { return new Date(Date.now() - m*60000).toISOString(); }
+
+  // --- Fetch helpers ---------------------------------------------------------
+  async function jget(url, opts={}) {
+    const r = await fetch(url, {headers: HEADERS, ...opts});
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const j = await r.json();
+    return j?.data ?? j;
+  }
+
+  // 1) Candidate pool: Birdeye trending (cheap) OR markets page
+  async function fetchCandidates(limit=CANDIDATE_SIZE) {
+    // Try Birdeye "token_trending"
+    try {
+      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
+      // normalize: expect d = array of tokens with .address or .mint
+      const rows = (Array.isArray(d)? d : (d?.tokens || d?.items || [])).slice(0,limit);
+      const mints = rows.map(x => x.address || x.mint).filter(Boolean);
+      if (mints.length) return [...new Set(mints)];
+    } catch(e) {
+      console.warn('trending fallback->markets', e);
+    }
+    // Fallback: top markets (page 1)
+    const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
+    const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
+    return [...new Set(mints)].slice(0, limit);
+  }
+
+  // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
+  async function hydrateMarketData(mints) {
+    const out = {};
+    if (!STARTER_MODE) {
+      try {
+        const chunk = mints.join(',');
+        const md = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data/multiple?addresses=${chunk}`);
+        Object.entries(md||{}).forEach(([mint, v]) => out[mint] = {
+          mcapUsd: v.market_cap ?? null,
+          liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
+          vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
+          price: v.price ?? null,
+          verified: !!v.verified
+        });
+        return out;
+      } catch(e) { console.warn('market-data multiple not available, single fallback', e); }
+    }
+    // Single fallback (respect Starter limits: stagger)
+    for (const mint of mints) {
+      try {
+        const v = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data?address=${mint}`);
+        out[mint] = {
+          mcapUsd: v.market_cap ?? null,
+          liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
+          vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
+          price: v.price ?? null,
+          verified: !!v.verified
+        };
+        await sleep(120); // be gentle on 1 rps
+      } catch(e) { console.warn('md single fail', mint, e); }
+    }
+    return out;
+  }
+
+  async function hydratePriceStats(mints) {
+    const out = {};
+    if (!STARTER_MODE) {
+      try {
+        const ps = await jget(`https://public-api.birdeye.so/defi/v3/price/stats/multiple?addresses=${mints.join(',')}`);
+        Object.entries(ps||{}).forEach(([mint, v]) => out[mint] = {
+          pct24h: v.price_change_24h ?? null
+        });
+        return out;
+      } catch(e) { console.warn('price-stats multiple not available, single fallback', e); }
+    }
+    for (const mint of mints) {
+      try {
+        const v = await jget(`https://public-api.birdeye.so/defi/v3/price/stats?address=${mint}`);
+        out[mint] = { pct24h: v.price_change_24h ?? null };
+        await sleep(80);
+      } catch(e) { console.warn('ps single fail', mint, e); }
+    }
+    return out;
+  }
+
+  // Light OHLCV to derive 5m change + EWMA burst
+  async function hydrateOhlcv5m(mints) {
+    const out = {};
+    // Starter: we’ll request a small window per token (e.g., 30m of 1m candles)
+    for (const mint of mints) {
+      try {
+        const to = nowIso();
+        const from = minutesAgo(30);
+        const o = await jget(`https://public-api.birdeye.so/defi/ohlcv?address=${mint}&type=1m&time_from=${from}&time_to=${to}`);
+        const candles = Array.isArray(o) ? o : (o.items || []);
+        // last 6 candles ~ 5-6m
+        const last6 = candles.slice(-6);
+        const closes = last6.map(c => Number(c.close || c.c || 0));
+        const vols = last6.map(c => Number(c.volume || c.v || 0));
+        const open5m = last6[0]?.open ?? last6[0]?.o ?? closes[0];
+        const last = closes[closes.length-1] || 0;
+        const pct5m = (open5m && last) ? ((last-open5m)/open5m)*100 : 0;
+        const vol5mEWMA = ewma(vols, 0.7);
+        out[mint] = { pct5m, vol5mEWMA };
+        await sleep(60);
+      } catch(e) { console.warn('ohlcv fail', mint, e); }
+    }
+    return out;
+  }
+
+  // Recent trades snapshot to approximate trades/buyers imbalance
+  async function hydrateTrades15m(mints) {
+    const out = {};
+    for (const mint of mints) {
+      try {
+        const to = Date.now();
+        const from = to - 15*60*1000;
+        const tr = await jget(`https://public-api.birdeye.so/defi/txs/token?address=${mint}&time_from=${Math.floor(from/1000)}&time_to=${Math.floor(to/1000)}&page=1&page_size=100`);
+        const items = tr?.items || tr || [];
+        const buyers = new Set();
+        let buys=0, sells=0;
+        items.forEach(tx => {
+          const side = (tx.side || tx.trade || '').toLowerCase();
+          if (side.includes('buy')) { buys++; buyers.add(tx.trader || tx.user || tx.source || ''); }
+          else if (side.includes('sell')) { sells++; }
+        });
+        const trades15m = items.length;
+        const uniqBuyers15m = buyers.has('') ? buyers.size-1 : buyers.size;
+        const imbalance15m = (buys + sells) ? buys / (buys + sells) : 0.5;
+        out[mint] = { trades15m, uniqBuyers15m, imbalance15m };
+        await sleep(60);
+      } catch(e) { console.warn('trades15m fail', mint, e); }
+    }
+    return out;
+  }
+
+  // Holders (free on Standard Solana). Peek first page and read total.
+  async function hydrateHolders(mints) {
+    const out = {};
+    for (const mint of mints) {
+      try {
+        const d = await jget(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`);
+        // Try several possible shapes:
+        const total = d?.total ?? d?.count ?? d?.pagination?.total ?? null;
+        out[mint] = { holders: Number(total || 0) };
+        await sleep(80);
+      } catch(e) { console.warn('holders fail', mint, e); }
+    }
+    return out;
+  }
+
+  // 3) Score, gates, and compose --------------------------------------------
+  const DEFAULT_GATES = {
+    minLiq: 25000,
+    minTrades15m: 40,
+    minBuyers15m: 20,
+    maxImpact1k: 0.15, // not used in v1 (needs exit-liquidity), left for future
+    minAgeMin: 30
+  };
+
+  function computeScore(rows) {
+    // Build zscore getters for each metric we have
+    const zVol5 = zscores(rows, 'vol5mEWMA');
+    const zBuyers = zscores(rows, 'uniqBuyers15m');
+    const zImbal = zscores(rows, 'imbalance15m');
+    const zPct5 = zscores(rows, 'pct5m');
+    const zVol60 = zscores(rows, 'vol24h'); // proxy if no 60m
+    const zLiq = zscores(rows, 'liqUsd');
+    const zMC = zscores(rows, 'mcapUsd');
+    const zH = zscores(rows, 'holders');
+    const zT = zscores(rows, 'trades15m');
+    const zVolty = zscores(rows, 'volatilityScore'); // optional
+
+    for (const r of rows) {
+      const rugRisk = Number(r.rugRiskScore || 0);
+      r.score =
+        0.28 * zVol5(r.mint) +
+        0.16 * zBuyers(r.mint) +
+        0.14 * zImbal(r.mint) +
+        0.12 * zPct5(r.mint) +
+        0.10 * zVol60(r.mint) +
+        0.08 * zLiq(r.mint) +
+        0.06 * zH(r.mint) +
+        0.04 * zT(r.mint) +
+        0.02 * zVolty(r.mint) -
+        0.06 * rugRisk;
+    }
+    return rows.sort((a,b)=>b.score - a.score);
+  }
+
+  function hardGate(r, gates=DEFAULT_GATES) {
+    if ((r.liqUsd ?? 0) < gates.minLiq) return false;
+    if ((r.trades15m ?? 0) < gates.minTrades15m) return false;
+    if ((r.uniqBuyers15m ?? 0) < gates.minBuyers15m) return false;
+    if ((r.ageMin ?? 9999) < gates.minAgeMin) return false;
+    if (r.paused) return false;
+    if (r.blocked) return false;
+    return true;
+  }
+
+  // 4) Orchestrator -----------------------------------------------------------
+  async function renderProDegen() {
+    try {
+      status('Loading candidates…');
+      const mints = await fetchCandidates(CANDIDATE_SIZE);
+
+      // reuse cache to avoid slow calls
+      const need = mints.filter(m => {
+        const c = getCached(m);
+        return !c || (Date.now() - (c._ts||0) > REFRESH_SLOW_MS);
+      });
+
+      // Hydrate slow-changing fields
+      const [md, ps, o5, tr15, hh] = await sequenceHydrate(need);
+
+      // Merge into cache
+      for (const mint of mints) {
+        const c = getCached(mint) || {};
+        const merged = {
+          mint,
+          symbol: c.symbol || md?.[mint]?.symbol || c.name || '',
+          name: c.name || '',
+          price: md?.[mint]?.price ?? c.price ?? null,
+          mcapUsd: md?.[mint]?.mcapUsd ?? c.mcapUsd ?? null,
+          liqUsd: md?.[mint]?.liqUsd ?? c.liqUsd ?? null,
+          vol24h: md?.[mint]?.vol24h ?? c.vol24h ?? null,
+
+          pct24h: ps?.[mint]?.pct24h ?? c.pct24h ?? null,
+          pct5m: o5?.[mint]?.pct5m ?? c.pct5m ?? 0,
+          vol5mEWMA: o5?.[mint]?.vol5mEWMA ?? c.vol5mEWMA ?? 0,
+
+          trades15m: tr15?.[mint]?.trades15m ?? c.trades15m ?? 0,
+          uniqBuyers15m: tr15?.[mint]?.uniqBuyers15m ?? c.uniqBuyers15m ?? 0,
+          imbalance15m: clamp(tr15?.[mint]?.imbalance15m ?? c.imbalance15m ?? 0.5, 0.35, 0.75),
+
+          holders: hh?.[mint]?.holders ?? c.holders ?? 0,
+
+          // placeholders for future flags/age (can be hydrated from metadata/RPC)
+          ageMin: c.ageMin ?? 60,
+          paused: !!c.paused,
+          blocked: !!c.blocked,
+          verified: md?.[mint]?.verified ?? c.verified ?? false,
+        };
+        setCached(mint, merged);
+      }
+      saveCache();
+
+      // Compose rows in table order
+      let rows = mints.map(m => getCached(m)).filter(Boolean);
+
+      // Apply hard gates
+      rows = rows.filter(r => hardGate(r));
+
+      // Compute (and apply) score
+      rows = computeScore(rows);
+
+      // Render
+      status(`Showing ${rows.length} tokens · updated ${new Date().toLocaleTimeString()}`);
+      if (!tableBody) return;
+      tableBody.innerHTML = rows.map(rowHTML).join('');
+    } catch (e) {
+      console.error(e);
+      status('Failed to load trending.');
+    }
+  }
+
+  async function sequenceHydrate(need) {
+    if (!need.length) return [{}, {}, {}, {}, {}];
+    const md = await hydrateMarketData(need);
+    await sleep(100);
+    const ps = await hydratePriceStats(need);
+    await sleep(100);
+    const o5 = await hydrateOhlcv5m(need);
+    await sleep(100);
+    const tr15 = await hydrateTrades15m(need);
+    await sleep(100);
+    const hh = await hydrateHolders(need);
+    return [md, ps, o5, tr15, hh];
+  }
+
+  // 5) Minimal rowHTML fallback (use your own if present) ---------------------
+  function rowHTML(r) {
+    const n = (x, d=0) => (x||x===0) ? Number(x).toLocaleString(undefined,{maximumFractionDigits:d}) : '—';
+    const pc = (x) => (x||x===0) ? `${(x>0?'+':'')}${x.toFixed(2)}%` : '—';
+    const liq = n(r.liqUsd, 0);
+    const mc = n(r.mcapUsd, 0);
+    const vol = n(r.vol24h, 0);
+    const h = n(r.holders, 0);
+    const p5 = pc(r.pct5m||0);
+    const p24 = pc(r.pct24h);
+    const score = (r.score ?? 0).toFixed(2);
+    const cls5 = (r.pct5m||0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    const cls24 = (r.pct24h||0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    return `
+      <tr class="border-b border-white/5 hover:bg-white/5 transition">
+        <td class="py-2 px-3">
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full ${r.verified?'bg-cyan-400':'bg-zinc-500'}"></div>
+            <div class="font-semibold">${r.symbol || r.name || r.mint.slice(0,4)+'…'}</div>
+            <div class="text-xs opacity-60">${r.mint.slice(0,4)}…${r.mint.slice(-4)}</div>
+          </div>
+        </td>
+        <td class="py-2 px-3 text-right">${n(r.price, 6)}</td>
+        <td class="py-2 px-3 text-right ${cls5}">${p5}</td>
+        <td class="py-2 px-3 text-right ${cls24}">${p24}</td>
+        <td class="py-2 px-3 text-right">${liq}</td>
+        <td class="py-2 px-3 text-right">${mc}</td>
+        <td class="py-2 px-3 text-right">${vol}</td>
+        <td class="py-2 px-3 text-right">${h}</td>
+        <td class="py-2 px-3 text-right text-cyan-300 font-bold">${score}</td>
+      </tr>
+    `;
+  }
+
+  // 6) Status helper ----------------------------------------------------------
+  function ensureStatus() {
+    let el = document.getElementById('trending-status');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'trending-status';
+      el.className = 'text-xs text-white/60 px-3 py-1';
+      (document.querySelector('#trending-head') || document.body).prepend(el);
+    }
+    return el;
+  }
+  function status(msg){ try{ statusEl.textContent = msg; }catch{} }
+
+  // 7) Boot + refresh loops ---------------------------------------------------
+  let running = false;
+  async function tick() {
+    if (running) return;
+    running = true;
+    try { await renderProDegen(); }
+    finally { running = false; }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+  tick(); // initial
+  setInterval(tick, REFRESH_PRICES_MS); // light refresh
+  // slow refresh to refresh MC/liq/holders cache naturally
+  setInterval(() => { /* marker to let cache expire naturally */ }, REFRESH_SLOW_MS);
+
+})();
+</script>
 
    
   </body>
 </html>
+
 
 
 
