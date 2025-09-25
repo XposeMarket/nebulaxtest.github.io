@@ -953,22 +953,35 @@ const tableBody =
   }
 
   // 1) Candidate pool: Birdeye trending (cheap) OR markets page
-  async function fetchCandidates(limit=CANDIDATE_SIZE) {
-    // Try Birdeye "token_trending"
+let lastCandidatesFallback = false;
+
+async function fetchCandidates(limit=CANDIDATE_SIZE) {
+  if (!lastCandidatesFallback) {
     try {
       const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
-      // normalize: expect d = array of tokens with .address or .mint
       const rows = (Array.isArray(d)? d : (d?.tokens || d?.items || [])).slice(0,limit);
       const mints = rows.map(x => x.address || x.mint).filter(Boolean);
       if (mints.length) return [...new Set(mints)];
-    } catch(e) {
-      console.warn('trending fallback->markets', e);
+      // no data → fall through to markets on next tick
+      lastCandidatesFallback = true;
+      return [];
+    } catch {
+      lastCandidatesFallback = true;
+      return [];
     }
-    // Fallback: top markets (page 1)
-    const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
-    const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
-    return [...new Set(mints)].slice(0, limit);
+  } else {
+    try {
+      const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
+      const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
+      lastCandidatesFallback = false; // reset after a successful fallback
+      return [...new Set(mints)].slice(0, limit);
+    } catch {
+      // stick with fallback mode; return empty to skip this tick gracefully
+      return [];
+    }
   }
+}
+
 
   // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
   async function hydrateMarketData(mints) {
@@ -1293,6 +1306,7 @@ const tableBody =
    
   </body>
 </html>
+
 
 
 
