@@ -387,173 +387,6 @@ function selectHit(i){
       document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
       ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
 
-      /* ===== Trending static dataset (mock) ===== */
-      const TRENDING = [
-        'WIF/SOL','BONK/SOL','MEW/SOL','POPCAT/SOL','BOME/SOL','GME/SOL','PENGU/SOL','CAT/SOL','MOG/SOL'
-      ];
-      function rnd(a,b){return Math.random()*(b-a)+a;}
-      function fmtUSD(n){
-        if(n>=1_000_000_000) return '$'+(n/1_000_000_000).toFixed(2)+'B';
-        if(n>=1_000_000) return '$'+(n/1_000_000).toFixed(2)+'M';
-        if(n>=1_000) return '$'+(n/1_000).toFixed(2)+'K';
-        return '$'+n.toString();
-      }
-
-      // State: per-coin alerts & watchlist
-      const alertsForPair = {}; // { 'BONK/SOL': Set([...]) }
-      const watchlistSet = new Set();
-
-      function rowHTML(sym){
-        const chg=(rnd(-15,25)).toFixed(2);
-        const mc=Math.floor(rnd(5e6,5e8));
-        const vol=Math.floor(rnd(1e6,9e7));
-        const holders=Math.floor(rnd(100,15000));
-        const pill=chg>=0?`<span class="pill green">+${chg}%</span>`:`<span class="pill red">${chg}%</span>`;
-        const starred = watchlistSet.has(sym) ? 'active' : '';
-        return `
-          <tr data-pair="${sym}" data-mc="${mc}">
-            <td class="nx-td font-semibold">${sym}</td>
-            <td class="nx-td">${pill}</td>
-            <td class="nx-td">${fmtUSD(mc)}</td>
-            <td class="nx-td">${fmtUSD(vol)}</td>
-            <td class="nx-td tabnums">${holders.toLocaleString()}</td>
-            <td class="nx-td" style="display:flex; gap:6px;">
-              <button class="mini-btn alert" data-act="alert">Alert</button>
-              <button class="star-btn ${starred}" data-act="star">★</button>
-            </td>
-          </tr>`;
-      }
-
-
-      function renderTable(){
-        const body=document.getElementById('trend-body');
-        body.innerHTML = TRENDING.map(rowHTML).join('');
-      }
-document.getElementById('trend-body').addEventListener('click', (e)=>{
-  const tr = e.target.closest('tr[data-pair]');
-  if(!tr) return;
-  const pair = tr.getAttribute('data-pair');
-  const btn = e.target.closest('button');
-  if(btn){
-    // existing alert/star logic stays
-    const act = btn.getAttribute('data-act');
-    if(act === 'alert'){ openAlertModal(pair); return; }
-    if(act === 'star'){ /* existing toggle */ return; }
-    if(act === 'copy'){ /* existing copy */ return; }
-    return; // buttons handled
-  }
-  // Row click → coin page
-  NX.goToCoin({ pair });
-});
-
-      // Watchlist rendering
-      function redrawWatchlist(){
-        const box = document.getElementById('watchlist');
-        box.innerHTML = '';
-        if(watchlistSet.size===0){
-          const empty = document.createElement('div');
-          empty.className='text-zinc-400 text-xs';
-          empty.textContent = 'No pairs saved yet.';
-          box.appendChild(empty);
-          return;
-        }
-        Array.from(watchlistSet).slice(0,20).forEach(p=>{
-          const tr = document.querySelector(`tr[data-pair="${CSS.escape(p)}"]`);
-          const mc = tr ? tr.getAttribute('data-mc') : null;
-          const line = document.createElement('div');
-          line.className='text-sm py-1 border-b border-[var(--nx-border)] cursor-pointer hover:bg-[rgba(0,230,255,.08)]';
-          line.setAttribute('data-pair', p);
-          line.innerHTML = `<strong>${p}</strong> • ${mc ? fmtUSD(+mc) : '—'} MC`;
-          box.appendChild(line);
-        });
-      }
-
-      // Alerts preview add
-      function pushAlertPreview(pair, rules){
-        const mini = document.getElementById('alerts-mini');
-        const row = document.createElement('div');
-        row.className='text-sm py-1 border-b border-[var(--nx-border)] cursor-pointer hover:bg-[rgba(0,230,255,.08)]';
-        row.setAttribute('data-pair', pair);
-        row.textContent = `${pair}: ${rules.length?rules.join(', '):'No rules selected'} (saved mock)`;
-        mini.prepend(row);
-        while(mini.children.length>12) mini.removeChild(mini.lastChild);
-      }
-
-      // Table action handlers
-      document.getElementById('trend-body').addEventListener('click', (e)=>{
-        const tr = e.target.closest('tr[data-pair]');
-        if(!tr) return;
-        const pair = tr.getAttribute('data-pair');
-        const btn = e.target.closest('button');
-
-        if(btn){
-          const act = btn.getAttribute('data-act');
-          if(act === 'alert'){ openAlertModal(pair); return; }
-          if(act === 'star'){
-            if(watchlistSet.has(pair)){ watchlistSet.delete(pair); } else { watchlistSet.add(pair); }
-            btn.classList.toggle('active', watchlistSet.has(pair));
-            redrawWatchlist();
-            return;
-          }
-        }
-        // Row click (navigate mock)
-      });
-
-      document.getElementById('watchlist').addEventListener('click', (e)=>{
-        const el = e.target.closest('[data-pair]'); if(!el) return;
-        alert(`Navigate to ${el.getAttribute('data-pair')} (mock)`);
-      });
-
-      document.getElementById('btn-clear-watchlist').addEventListener('click', ()=>{
-        if(watchlistSet.size===0) return;
-        const watched = new Set(watchlistSet);
-        watchlistSet.clear();
-        watched.forEach(pair=>{
-          const rowBtn = document.querySelector(`tr[data-pair="${CSS.escape(pair)}"] [data-act="star"]`);
-          rowBtn?.classList.remove('active');
-        });
-        redrawWatchlist();
-      });
-
-      // Alerts modal (same as NewPairs)
-      let currentAlertPair = null;
-      const modal = document.getElementById('alertsModal');
-      function openAlertModal(pair){
-        currentAlertPair = pair;
-        modal.classList.remove('hidden');
-        modal.querySelectorAll('input[type="checkbox"]').forEach(c => {
-          const saved = alertsForPair[pair] || new Set();
-          c.checked = saved.has(c.value);
-        });
-      }
-      document.getElementById('alert-cancel').onclick = ()=>{ modal.classList.add('hidden'); };
-      document.getElementById('alert-save').onclick = ()=>{
-        const checks = [...modal.querySelectorAll('input[type="checkbox"]')].filter(c=>c.checked).map(c=>c.value);
-        alertsForPair[currentAlertPair] = new Set(checks);
-        modal.classList.add('hidden');
-        pushAlertPreview(currentAlertPair, checks);
-      };
-      document.getElementById('alerts-mini').addEventListener('click', (e)=>{
-        const el = e.target.closest('[data-pair]'); if(!el) return;
-        alert(`Navigate to ${el.getAttribute('data-pair')} (mock)`);
-      });
-      document.getElementById('btn-clear-alerts').addEventListener('click', ()=>{
-        for (const k in alertsForPair) delete alertsForPair[k];
-        const mini = document.getElementById('alerts-mini');
-        mini.innerHTML = '<div class="text-zinc-400 text-xs">No triggers yet.</div>';
-      });
-document.addEventListener('click',(e)=>{
-  if(!sWrap.contains(e.target)){
-    sDD.classList.add('hidden');
-    sDD.innerHTML='';
-    activeIndex=-1; currentHits=[];
-  }
-});
-sIn.addEventListener('keydown',(e)=>{
-  if(e.key==='Escape'){
-    sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
-  }
-});
 
 
       // Initial render
@@ -768,28 +601,29 @@ async function jget(url, opts = {}) {
   // 1) Candidate pool: Birdeye trending (cheap) OR markets page
 let lastCandidatesFallback = false;
 
+// 1) Candidate pool: Birdeye trending (cheap) → fallback to markets
 async function fetchCandidates(limit = CANDIDATE_SIZE) {
-  try {
-    const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
-    const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit);
-    const mints = rows.map(x => x.address || x.mint).filter(Boolean);
-    if (mints.length) return [...new Set(mints)];
-  } catch(e) { console.warn('Trending failed:', e.message || e); }
-  try {
-    const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
-    const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
-    if (mints.length) return [...new Set(mints)].slice(0, limit);
-  } catch(e) { console.warn('Markets failed:', e.message || e); }
-  return [];
-}
-
+  if (!lastCandidatesFallback) {
+    try {
+      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
+      const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit);
+      const mints = rows.map(x => x.address || x.mint).filter(Boolean);
+      if (mints.length) return [...new Set(mints)];
+      // fall through to markets on next tick
+      lastCandidatesFallback = true;
+      return [];
+    } catch {
+      lastCandidatesFallback = true;
+      return [];
+    }
+  } else {
     try {
       const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
       const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
-      lastCandidatesFallback = false; // reset after a successful fallback
+      lastCandidatesFallback = false;
       return [...new Set(mints)].slice(0, limit);
     } catch {
-      // stick with fallback mode; return empty to skip this tick gracefully
+      // remain in fallback mode; skip this tick gracefully
       return [];
     }
   }
@@ -1120,6 +954,7 @@ await sleep(1100);
    
   </body>
 </html>
+
 
 
 
