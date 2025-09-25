@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
 <script> window.NX_BIRDEYE_KEY = '267367afba5b44f2b7398e53aba49f5f'; </script>
+<script>window.NX_USE_BIRDEYE_ONLY = true;</script>
 
     <style>
       :root{
@@ -182,7 +183,7 @@
           <div class="flex items-center justify-between mb-2">
             <div>
               <div class="text-xl nx-title">Trending Coins</div>
-              <div class="text-xs text-zinc-400">Currently most active tokens by volume & hype (mock).</div>
+              <div class="text-xs text-zinc-400">Currently most active tokens by volume & hype.</div>
             </div>
           </div>
 
@@ -590,87 +591,7 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
   });
 });
 </script>
-<script>
-/** NebulaX Trending (Solana) — free Dexscreener search aggregation */
-(function nxTrendingSol(){
-  if (window.__nxTrendingSol) return; window.__nxTrendingSol = true;
 
-  const tbody = document.getElementById('trend-body'); if(!tbody) return;
-
-  const QUERIES = ['solana','raydium solana','orca solana','meteora solana','dlmm solana'];
-
-  const fmtUSD = (n)=>{ const v=+n||0;
-    if(v>=1e9) return '$'+(v/1e9).toFixed(2)+'B';
-    if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
-    if(v>=1e3) return '$'+(v/1e3).toFixed(2)+'K';
-    return v ? '$'+v.toFixed(2) : '—';
-  };
-  const pill = (v)=>{ const n=+v||0, up=n>=0; return `<span class="pill ${up?'green':'red'}">${up?'+':''}${n.toFixed(2)}%</span>`; };
-
-  async function fetchBatch(){
-    const tasks = QUERIES.map(q =>
-      fetch('https://api.dexscreener.com/latest/dex/search?q='+encodeURIComponent(q), { cache:'no-store' })
-        .then(r=>r.ok?r.json():{pairs:[]}).catch(()=>({pairs:[]}))
-    );
-    const settled = await Promise.allSettled(tasks);
-    const out = [], seen = new Set();
-    for (const s of settled){
-      const list = s.value?.pairs || [];
-      for (const p of list){
-        if (p.chainId !== 'solana') continue;
-        const id = p.pairAddress || `${p.baseToken?.address}|${p.quoteToken?.address}`;
-        if (!id || seen.has(id)) continue;
-        seen.add(id); out.push(p);
-      }
-    }
-    return out;
-  }
-
-  function mapRows(pairs){
-    return pairs.map(p=>{
-      const pair = `${(p.baseToken?.symbol||'BASE').toUpperCase()}/${(p.quoteToken?.symbol||'QUOTE').toUpperCase()}`;
-      return {
-        pair, addr: p.pairAddress||'', mint: p.baseToken?.address||'',
-        mc: Math.floor(+(p.marketCap ?? p.fdv ?? 0)),
-        vol: Math.floor(+(p.volume?.h24 ?? 0)),
-        chg: typeof p.priceChange?.h24==='number' ? p.priceChange.h24 : 0,
-        holders: 0, // placeholder
-        verified: !!(p.labels?.includes('verified') || (p.info?.websites?.length>0))
-      };
-    })
-    .sort((a,b)=> (b.vol - a.vol) || (Math.abs(b.chg) - Math.abs(a.chg)))
-    .slice(0,50);
-  }
-
-  function render(rows){
-    tbody.innerHTML = rows.map(r=>`
-      <tr data-addr="${r.addr}" data-mint="${r.mint}">
-        <td class="nx-td font-semibold">${r.pair} ${r.verified?'<span class="pill cyan">Verified</span>':''}</td>
-        <td class="nx-td">${pill(r.chg)}</td>
-        <td class="nx-td">${fmtUSD(r.mc)}</td>
-        <td class="nx-td">${fmtUSD(r.vol)}</td>
-        <td class="nx-td tabnums">${r.holders}</td>
-        <td class="nx-td" style="display:flex; gap:6px;">
-          <button class="mini-btn alert" data-act="alert">Alert</button>
-          <button class="star-btn" data-act="star">★</button>
-        </td>
-      </tr>`).join('') || `<tr><td class="nx-td" colspan="6"><div class="text-center text-zinc-400 py-3">No results.</div></td></tr>`;
-  }
-
-  async function run(){ const pairs = await fetchBatch(); render(mapRows(pairs)); }
-  run(); setInterval(run, 15000);
-
-  // Row click → coin page
-  tbody.addEventListener('click', (e)=>{
-    const tr = e.target.closest('tr[data-addr]'); if(!tr || e.target.closest('button')) return;
-    const addr = tr.getAttribute('data-addr')||''; const mint = tr.getAttribute('data-mint')||'';
-    const name = tr.querySelector('td')?.textContent.split('Verified')[0].trim() || '';
-    const coin = { pair: name, pairAddress: addr, mint };
-    if (window.NX?.goToCoin) NX.goToCoin(coin);
-    else location.href = `Coinpage-Official.html?pair=${encodeURIComponent(name)}&pairAddr=${encodeURIComponent(addr)}&mint=${encodeURIComponent(mint)}`;
-  });
-})();
-</script>
 <script>
 /* === NebulaX Core (themes, header hydrate, routing hooks) === */
 (function(){
@@ -948,6 +869,7 @@ body.setAttribute('data-live-filled', '1');
    
   </body>
 </html>
+
 
 
 
