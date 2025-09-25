@@ -10,6 +10,7 @@
 <script src="nx-theme.js"></script>
 <script> window.NX_BIRDEYE_KEY = '267367afba5b44f2b7398e53aba49f5f'; </script>
 <script>window.NX_USE_BIRDEYE_ONLY = true;</script>
+<script>window.NX_MODE = 'prodegen';</script>
 
     <style>
       :root{
@@ -680,7 +681,11 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
 
 <script>
 /* ===== NebulaX Trending: live data fill (non-destructive) ===== */
+/* ===== NebulaX Trending: live data fill (non-destructive) ===== */
 (function(){
+  if (window.NX_MODE === 'prodegen') return; // <-- add this line
+  // ...rest of the old block...
+})();
   const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || '267367afba5b44f2b7398e53aba49f5f';
   const CHAIN = 'solana';
   const LIMIT = 20;            // how many rows to show
@@ -1256,6 +1261,7 @@ const tableBody =
    
   </body>
 </html>
+
 
 
 
