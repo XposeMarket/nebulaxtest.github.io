@@ -877,8 +877,10 @@ body.setAttribute('data-live-filled', '1');
   const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
 
   // --- DOM targets (adjust if your IDs differ)
-  const tableBody = document.querySelector('#trending-tbody') || document.querySelector('tbody');
-  const statusEl = ensureStatus();
+const tableBody =
+  document.querySelector('#trend-body') ||
+  document.querySelector('#trending-tbody') ||
+  document.querySelector('tbody');  const statusEl = ensureStatus();
 
   // --- Simple cache (sessionStorage) ----------------------------------------
   const SS_KEY = 'nx_trending_cache_v1';
@@ -1250,6 +1252,7 @@ body.setAttribute('data-live-filled', '1');
    
   </body>
 </html>
+
 
 
 
