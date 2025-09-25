@@ -879,10 +879,36 @@ const BIRDEYE_KEY =
   localStorage.getItem('BIRDEYE_KEY') ||
   '';
   const CHAIN = 'solana';
-  const STARTER_MODE = true; // true = prefer single endpoints; set false to try batch everywhere.
-  const CANDIDATE_SIZE = 60; // keep small for Starter. Increase when you upgrade.
-  const REFRESH_PRICES_MS = 15000; // prices/trades refresh
-  const REFRESH_SLOW_MS = 60000;   // MC/liq/holders refresh
+ // ------------- put near the top of Pro-Degen block -------------
+const STARTER_MODE = true;
+const CANDIDATE_SIZE = 20;       // <= shrink for Starter to avoid 429
+const REFRESH_PRICES_MS = 30000; // <= slower loop on Starter
+const REFRESH_SLOW_MS   = 120000;
+
+// Global throttle (≈1 req/sec) + gentle 429 backoff
+let lastReqTs = 0;
+async function throttled(url, opts={}) {
+  const elapsed = Date.now() - lastReqTs;
+  const wait = Math.max(0, 1100 - elapsed);
+  if (wait) await new Promise(r=>setTimeout(r, wait));
+  const r = await fetch(url, { ...opts, headers: { ...HEADERS, ...(opts.headers||{}) }});
+  lastReqTs = Date.now();
+
+  if (r.status === 429) {
+    // simple backoff + retry
+    await new Promise(r=>setTimeout(r, 2000));
+    return throttled(url, opts);
+  }
+  return r;
+}
+
+async function jget(url, opts={}){
+  const r = await throttled(url, opts);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  const j = await r.json();
+  return j?.data ?? j;
+}
+
   const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
 
   // --- DOM targets (adjust if your IDs differ)
@@ -947,6 +973,8 @@ const tableBody =
   // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
   async function hydrateMarketData(mints) {
     const out = {};
+    await sleep(1100);
+
     if (!STARTER_MODE) {
       try {
         const chunk = mints.join(',');
@@ -980,6 +1008,7 @@ const tableBody =
 
   async function hydratePriceStats(mints) {
     const out = {};
+    await sleep(1100);
     if (!STARTER_MODE) {
       try {
         const ps = await jget(`https://public-api.birdeye.so/defi/v3/price/stats/multiple?addresses=${mints.join(',')}`);
@@ -1002,6 +1031,7 @@ const tableBody =
   // Light OHLCV to derive 5m change + EWMA burst
   async function hydrateOhlcv5m(mints) {
     const out = {};
+    await sleep(1100);
     // Starter: we’ll request a small window per token (e.g., 30m of 1m candles)
     for (const mint of mints) {
       try {
@@ -1027,6 +1057,7 @@ const tableBody =
   // Recent trades snapshot to approximate trades/buyers imbalance
   async function hydrateTrades15m(mints) {
     const out = {};
+    await sleep(1100);
     for (const mint of mints) {
       try {
         const to = Date.now();
@@ -1053,6 +1084,7 @@ const tableBody =
   // Holders (free on Standard Solana). Peek first page and read total.
   async function hydrateHolders(mints) {
     const out = {};
+    await sleep(1100);
     for (const mint of mints) {
       try {
         const d = await jget(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`);
@@ -1261,6 +1293,7 @@ const tableBody =
    
   </body>
 </html>
+
 
 
 
