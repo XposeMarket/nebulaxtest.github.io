@@ -680,196 +680,14 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
 </script>
 
 <script>
-/* ===== NebulaX Trending: live data fill (non-destructive) ===== */
-/* ===== NebulaX Trending: live data fill (non-destructive) ===== */
-(function(){
-  if (window.NX_MODE === 'prodegen') return; // <-- add this line
-  // ...rest of the old block...
-})();
-  const BIRDEYE_KEY = window.NX_BIRDEYE_KEY || '267367afba5b44f2b7398e53aba49f5f';
-  const CHAIN = 'solana';
-  const LIMIT = 20;            // how many rows to show
-  const CACHE_MS = 60_000;     // cache Birdeye list for 90s
-  const PAIR_CACHE_MS = 6*60*60*1000; // mint→pair cache for 6h
-
-  const $ = (sel,root=document)=>root.querySelector(sel);
-  const body = document.getElementById('trend-body');
-  if(!body) return;
-
-  // simple number formatting to match your UI
-  const fmtUSD = (n)=>{
-    n = Number(n||0);
-    if(n>=1e9) return '$'+(n/1e9).toFixed(2)+'B';
-    if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
-    if(n>=1e3) return '$'+(n/1e3).toFixed(2)+'K';
-    return '$'+(n||0).toFixed?.(2)?.replace(/\.00$/,'') ?? ('$'+n);
-  };
-  const pill = (pct)=>{
-    const v = Number(pct||0);
-    const cls = v>=0 ? 'pill green' : 'pill red';
-    const sign = v>0 ? '+' : '';
-    return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
-  };
-
-  // --- caching helpers ---
-  const cache = {
-    get(k,maxAge){
-      try{
-        const raw = sessionStorage.getItem(k); if(!raw) return null;
-        const {ts,data} = JSON.parse(raw);
-        if(Date.now()-ts>maxAge) return null;
-        return data;
-      }catch{ return null; }
-    },
-    set(k,data){ try{ sessionStorage.setItem(k, JSON.stringify({ts:Date.now(),data})); }catch{} }
-  };
-
-async function birdeyeTrending(limit){
-  const key = `nx_trend_list_${limit}`;
-  const cached = cache.get(key, CACHE_MS);
-  if (cached) return cached;
-
-  // ✅ correct endpoint + headers
-// inside birdeyeTrending(limit)
-const url = new URL('https://public-api.birdeye.so/defi/token_trending');
-url.searchParams.set('limit', String(Math.min(20, (limit|0) || 20)));
-
-
-  const res = await fetch(url.toString(), {
-    headers: {
-      'X-API-KEY': BIRDEYE_KEY,
-      'accept': 'application/json',
-      'x-chain': 'solana'   // <— important
-    }
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(()=> '');
-    throw new Error(`Birdeye ${res.status} ${txt}`);
-  }
-
-  const j = await res.json();
-  // Some responses use data.items; others data.markets — handle both
-// --- Robust extraction: ensure we end up with an ARRAY ---
-const data = j?.data ?? [];
-let items =
-  (Array.isArray(data) && data) ||
-  (Array.isArray(data.items) && data.items) ||
-  (Array.isArray(data.markets) && data.markets) ||
-  (Array.isArray(data.tokens) && data.tokens) ||
-  (Array.isArray(data.list) && data.list) ||
-  (Array.isArray(data.result) && data.result) ||
-  (data && typeof data === 'object' ? Object.values(data) : []);
-
-// Final guard
-if (!Array.isArray(items)) items = [];
-
-  // normalize into our row model
-  const rows = items.map(it => ({
-    mint: it?.address || it?.token_address || it?.mintAddress || it?.mint,
-    symbol: (it?.symbol || it?.baseSymbol || it?.token_symbol || '').toUpperCase(),
-    name: it?.name || it?.token_name || '',
-    priceUsd: it?.price || it?.value || 0,
-    change24h: it?.change24h ?? it?.priceChange24h ?? it?.price_change_24h ?? 0,
-    volume24h: it?.v24hUsd ?? it?.volume24hUsd ?? it?.v24h ?? it?.volume_24h ?? 0,
-    mcap: it?.marketCap ?? it?.market_cap ?? 0,
-    pairAddress: it?.pairAddress || it?.poolAddress || null
-  })).filter(r => r.mint);
-
-  cache.set(key, rows);
-  return rows;
-}
-
-
-  async function dexscreenerBestPairByMint(mint){
-    const ck = `nx_pair_${mint}`;
-    const c = cache.get(ck, PAIR_CACHE_MS);
-    if(c) return c;
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
-    if(!res.ok) return null;
-    const j = await res.json();
-    const pairs = Array.isArray(j?.pairs) ? j.pairs : [];
-    if(!pairs.length) return null;
-    pairs.sort((a,b)=> (b?.liquidity?.usd||0) - (a?.liquidity?.usd||0));
-    const best = pairs[0]?.pairAddress || null;
-    if(best) cache.set(ck, best);
-    return best;
-  }
-
-  // --- row rendering (matches your existing table classes) ---
-  function rowHTML(model){
-    const holders = '—'; // (optional) later we can add a holders lookup; keeping UI intact
-    const mcap = model.mcap ? fmtUSD(model.mcap) : '—';
-    const vol  = fmtUSD(model.volume24h||0);
-    const chg  = pill(model.change24h||0);
-    // we include mint & pair addr on the row for routing
-    const data = [
-      `data-pair="${(model.symbol||'')+'/SOL'}"`,
-      model.pairAddress ? `data-addr="${model.pairAddress}"` : '',
-      `data-mint="${model.mint}"`
-    ].filter(Boolean).join(' ');
-
-    return `
-      <tr ${data}>
-        <td class="nx-td font-semibold">${model.symbol||'—'}/SOL</td>
-        <td class="nx-td">${chg}</td>
-        <td class="nx-td">${mcap}</td>
-        <td class="nx-td">${vol}</td>
-        <td class="nx-td tabnums">${holders}</td>
-        <td class="nx-td" style="display:flex; gap:6px;">
-          <button class="mini-btn alert" data-act="alert">Alert</button>
-          <button class="star-btn" data-act="star">★</button>
-        </td>
-      </tr>`;
-  }
-
-  // --- fill the table, resolving missing pairs on the fly ---
-  async function renderTrending(){
-    body.innerHTML = `<tr><td class="nx-td" colspan="6"><span class="text-cyan-300/70 text-sm">Loading trending…</span></td></tr>`;
-
-    let rows = await birdeyeTrending(LIMIT);
-
-    // Resolve missing pairAddress concurrently (best-effort)
-    const tasks = rows.map(async r=>{
-      if(!r.pairAddress){
-        try{ r.pairAddress = await dexscreenerBestPairByMint(r.mint); }catch{}
-      }
-      return r;
-    });
-    rows = await Promise.all(tasks);
-
-    // Render
-    body.innerHTML = rows.map(rowHTML).join('');
-    try{ window.lucide?.createIcons?.(); }catch{}
-  }
-body.setAttribute('data-live-filled', '1');
-
-  // --- high-priority click handler (runs BEFORE the old mock handler) ---
-  body.addEventListener('click', (e)=>{
-    const tr = e.target.closest('tr[data-mint]'); if(!tr) return;
-    // ignore clicks on buttons (alert/star); let your existing handlers run
-    if(e.target.closest('button')) return;
-
-    const addr = tr.getAttribute('data-addr')||'';
-    const mint = tr.getAttribute('data-mint')||'';
-    const pairSym = tr.getAttribute('data-pair')||'';
-
-    // Prefer actual pair address for DexScreener; fall back to symbol if needed
-    const params = new URLSearchParams({ chain: CHAIN, mint });
-    if(addr) params.set('pair', addr);
-    else if(pairSym) params.set('pair', pairSym);
-
-    // Stop any older click handler from hijacking the route
-    e.stopImmediatePropagation();
-    location.href = `Coinpage-Official.html?${params.toString()}`;
-  }, true /* capture */);
-
-  // Go live
-  renderTrending();
-  // Optional light refresh:
-  setInterval(renderTrending, CACHE_MS);
+/* Legacy Trending temporarily disabled while Pro-Degen is active. */
+(function () {
+  if (window.NX_MODE === 'prodegen') return;
+  // (If you want to re-enable the legacy list later, paste it back here
+  //  *inside* this IIFE so there’s no top-level `return`.)
 })();
 </script>
+
 <script>
 (() => {
   // ========= NebulaX Pro-Degen v1 (Starter-friendly) =========
@@ -881,9 +699,9 @@ const BIRDEYE_KEY =
   const CHAIN = 'solana';
  // ------------- put near the top of Pro-Degen block -------------
 const STARTER_MODE = true;
-const CANDIDATE_SIZE = 20;       // <= shrink for Starter to avoid 429
-const REFRESH_PRICES_MS = 30000; // <= slower loop on Starter
-const REFRESH_SLOW_MS   = 120000;
+const CANDIDATE_SIZE = 12;       // <= shrink for Starter to avoid 429
+const REFRESH_PRICES_MS = 45000; // <= slower loop on Starter
+const REFRESH_SLOW_MS   = 18000;
 
 // Global throttle (≈1 req/sec) + gentle 429 backoff
 let lastReqTs = 0;
@@ -902,12 +720,7 @@ async function throttled(url, opts={}) {
   return r;
 }
 
-async function jget(url, opts={}){
-  const r = await throttled(url, opts);
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  const j = await r.json();
-  return j?.data ?? j;
-}
+
 
   const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
 
@@ -1306,6 +1119,7 @@ async function fetchCandidates(limit=CANDIDATE_SIZE) {
    
   </body>
 </html>
+
 
 
 
