@@ -1,4 +1,5 @@
 // Good: file should begin like this (example)
+// Force cache refresh: 2025-12-03
 (function(){
   const LKEY = 'nebula:wallet';
   const STATE = { provider:null, pubkey:null, balance:null, conn:null };
