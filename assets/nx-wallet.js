@@ -1,7 +1,9 @@
 // Good: file should begin like this (example)
 // Force cache refresh: 2025-12-03
+// Session-based wallet state (survives page navigations but clears on browser close)
 (function(){
-  const LKEY = 'nebula:wallet';
+  // Use sessionStorage instead of localStorage for session-only persistence
+  const SKEY = 'nebula:wallet:session';
   const STATE = { provider:null, pubkey:null, balance:null, conn:null };
   // … rest of the wallet code …
 })();
@@ -101,11 +103,12 @@ function nxOpenInRealBrowser(){
   function shorten(pk){ if(!pk) return ''; return pk.slice(0,4)+'…'+pk.slice(-4); }
 function save(pk){
   try {
-    localStorage.setItem("nebula:wallet", JSON.stringify({ pk }));
+    // Use sessionStorage for session-only persistence (not across browser close)
+    sessionStorage.setItem("nebula:wallet:session", JSON.stringify({ pk }));
   } catch {}
 }
-  function load(){ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} }
-  function clear(){ try{ localStorage.removeItem(LKEY); }catch{} }
+  function load(){ try{ return JSON.parse(sessionStorage.getItem(SKEY)||'{}').pk||null; }catch{return null} }
+  function clear(){ try{ sessionStorage.removeItem(SKEY); }catch{} }
 
 function resolveRpc(){
   try{

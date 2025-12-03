@@ -141,6 +141,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         --nx-text:#e0e7ff;
         --page-max: 1400px; /* match other pages */
       }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+      
       /* Themed scrollbar */
       .themed-scroll {
         scrollbar-width: thin;

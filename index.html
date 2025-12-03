@@ -71,7 +71,7 @@
   <script>
     // Utilities
     const $ = (id)=>document.getElementById(id);
-    const LKEY = "nebula:wallet";
+    const SKEY = "nebula:wallet:session";
     const remember = $("remember");
     const connectBtn = $("connect-btn");
     const disconnectBtn = $("disconnect-btn");
@@ -79,8 +79,9 @@
     $("yr").textContent = new Date().getFullYear();
 
     const short = (s)=> s ? (s.slice(0,4)+"…"+s.slice(-4)) : "";
-    const save = (pk)=>{ try{ localStorage.setItem(LKEY, pk); }catch{} };
-    const clear = ()=>{ try{ localStorage.removeItem(LKEY); }catch{} };
+    // Use sessionStorage for session-only persistence
+    const save = (pk)=>{ try{ sessionStorage.setItem(SKEY, pk); }catch{} };
+    const clear = ()=>{ try{ sessionStorage.removeItem(SKEY); }catch{} };
 
     function setConnected(pubkey){
       connectBtn.classList.add("hidden");
@@ -111,9 +112,15 @@
 
     // Auto-reconnect on load if trusted previously
     window.addEventListener("load", async () => {
-      // TESTING: Disable auto-reconnect and clear storage for fresh start every time
-      clear();
-      setDisconnected("Fresh start — click Connect to login");
+      // Check if already connected in this session
+      const savedPk = sessionStorage.getItem(SKEY);
+      if (savedPk) {
+        setConnected(savedPk);
+        const sp = new URLSearchParams(location.search);
+        const next = sp.get("next") || "NebulaX.html";
+        setTimeout(() => { location.href = next; }, 500);
+        return;
+      }
       
       const provider = getPhantomProvider();
       if (!provider){
