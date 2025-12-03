@@ -52,7 +52,7 @@
       </header>
 
       <div class="mt-5 grid gap-3">
-        <label class="flex items-center gap-2 text-xs text-zinc-400">
+        <label class="flex items-center gap-2 text-xs text-zinc-400 hidden">
           <input id="remember" type="checkbox" class="accent-cyan-500" checked>
           Remember this wallet on this device
         </label>
@@ -111,24 +111,16 @@
 
     // Auto-reconnect on load if trusted previously
     window.addEventListener("load", async () => {
+      // TESTING: Disable auto-reconnect and clear storage for fresh start every time
+      clear();
+      setDisconnected("Fresh start — click Connect to login");
+      
       const provider = getPhantomProvider();
       if (!provider){
         statusEl.textContent = "Phantom not found — install it to continue";
         return;
       }
       statusEl.textContent = "Phantom detected — click Connect";
-
-      try{
-        const resp = await provider.connect({ onlyIfTrusted: true });
-        const pk = resp?.publicKey?.toString?.() || provider?.publicKey?.toString?.();
-        if (pk){
-          if (remember.checked) save(pk);
-          setConnected(pk);
-          const sp = new URLSearchParams(location.search);
-          const next = sp.get("next");
-          if (next) location.href = next;
-        }
-      }catch{ /* not yet trusted */ }
     });
 
     // Manual connect
@@ -143,12 +135,11 @@
         provider.on?.("disconnect", () => { clear(); setDisconnected("Disconnected"); });
         provider.on?.("accountChanged", (pk) => {
           if (!pk){ clear(); setDisconnected("Wallet switched/disconnected"); }
-          else { const s = pk.toString?.() || String(pk); if (remember.checked) save(s); setConnected(s); }
+          else { const s = pk.toString?.() || String(pk); setConnected(s); }
         });
 
         const resp = await provider.connect({ onlyIfTrusted: false });
         const pk = resp?.publicKey?.toString?.() || provider?.publicKey?.toString?.() || "";
-        if (remember.checked) save(pk);
         setConnected(pk);
 
         const sp = new URLSearchParams(location.search);

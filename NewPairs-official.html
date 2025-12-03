@@ -141,8 +141,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         --nx-text:#e0e7ff;
         --page-max: 1400px; /* match other pages */
       }
-      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
-      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+      /* Themed scrollbar */
+      .themed-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 230, 255, 0.4) rgba(0, 230, 255, 0.05);
+      }
+      .themed-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .themed-scroll::-webkit-scrollbar-track {
+        background: rgba(0, 230, 255, 0.05);
+        border-radius: 4px;
+      }
+      .themed-scroll::-webkit-scrollbar-thumb {
+        background: rgba(0, 230, 255, 0.4);
+        border-radius: 4px;
+      }
+      .themed-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 230, 255, 0.6);
+      }
+
+      html[data-theme="amber"] .themed-scroll {
+        scrollbar-color: rgba(255, 176, 32, 0.4) rgba(255, 176, 32, 0.05);
+      }
+      html[data-theme="amber"] .themed-scroll::-webkit-scrollbar-track {
+        background: rgba(255, 176, 32, 0.05);
+      }
+      html[data-theme="amber"] .themed-scroll::-webkit-scrollbar-thumb {
+        background: rgba(255, 176, 32, 0.4);
+      }
+      html[data-theme="amber"] .themed-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 176, 32, 0.6);
+      }
 
       /* Panels */
       .nx-panel{
@@ -368,21 +399,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           <!-- Table -->
           <div class="nx-panel p-2">
-            <div class="overflow-auto max-h-[60vh]">
-              <table>
+            <div class="themed-scroll overflow-auto max-h-[60vh] rounded-lg">
+              <table style="width:100%;">
               <thead>
                 <tr>
-                  <th class="nx-th" style="width:220px;">Pair</th>
+                  <th class="nx-th">Pair</th>
                   <th class="nx-th text-right">Price/MC</th>
                   <th class="nx-th text-right">24h Change</th>
                   <th class="nx-th text-right">Volume</th>
                   <th class="nx-th text-right">Liquidity</th>
                   <th class="nx-th text-right">Age</th>
-                  <th class="nx-th" style="width:100px;">Actions</th>
+                  <th class="nx-th">Actions</th>
                 </tr>
               </thead>
               <tbody id="pairs-body"></tbody>
             </table>
+            </div>
           </div>
         </section>
 
