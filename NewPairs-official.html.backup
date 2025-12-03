@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • New Pairs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+<!-- in <head>, before your React app runs -->
+<script src="nx-theme.js"></script>
+<!-- Tiny pre-paint boot so there's no flash -->
+<script>
+  try {
+    const t = JSON.parse(localStorage.getItem('nebula_theme_v1'))?.name;
+    if (t) document.documentElement.setAttribute('data-theme', t);
+  } catch {}
+</script>
+
+<style>
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+/* Put this AFTER your existing :root defaults on NebulaX.html */
+:root{
+  --cyberpunk-neon-blue:    var(--nx-cyan);
+  --cyberpunk-dark:         var(--nx-dark);
+  --cyberpunk-dark-secondary: var(--nx-dark-2);
+  --cyberpunk-border:       var(--nx-border);
+  --cyberpunk-text:         var(--nx-text);
+}
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
+</style>
+    <style>
+      :root{
+        --nx-cyan:#00e6ff;
+        --nx-dark:#0a0d1b;
+        --nx-dark-2:#12152a;
+        --nx-border:#1e2747;
+        --nx-text:#e0e7ff;
+        --page-max: 1400px; /* match coin page width */
+      }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      /* Panels */
+      .nx-panel{
+        background:rgba(16,20,40,.92);
+        border:1px solid var(--nx-border);
+        box-shadow:0 0 0 1px rgba(0,230,255,.05), 0 10px 30px rgba(0,0,0,.35), inset 0 0 30px rgba(0,230,255,.03);
+        border-radius:14px;
+      }
+
+      /* Header buttons */
+      .nx-btn{
+        background:rgba(25,30,55,.8);
+        border:1px solid var(--nx-border);
+        border-radius:10px; color:var(--nx-text);
+        transition:all .15s ease; white-space:nowrap;
+      }
+      .nx-btn:hover{ background:rgba(30,36,65,.95); border-color:#2a345f; box-shadow:0 0 10px rgba(0,230,255,.12); }
+      .nx-btn-cyan{ color:#001018; background:linear-gradient(180deg,#00e6ff,#00d1ff); border:0; text-shadow:0 0 8px rgba(0,0,0,.35);}
+      .nx-btn-cyan:hover{ filter:brightness(1.08); }
+
+      /* Inputs */
+      .nx-input{
+        width:100%; background:rgba(20,24,45,.75); border:1px solid var(--nx-border); border-radius:10px; padding:8px 10px;
+        outline:none; color:var(--nx-text);
+      }
+      .nx-input:focus{ border-color:#2a345f; box-shadow:0 0 0 3px rgba(0,230,255,.12); }
+
+      /* Table */
+      table{ width:100%; border-collapse:separate; border-spacing:0; }
+      thead .nx-th{
+        position:sticky; top:0; z-index:20; user-select:none;
+        background:rgba(32,36,64,.95); color:#ffeb3b; text-shadow:0 0 3px #ffeb3b; border-bottom:1px solid var(--nx-border);
+      }
+      tbody tr{ position:relative; }
+      tbody tr::after{
+        content:""; position:absolute; inset:0; border-radius:10px; pointer-events:none;
+        box-shadow: inset 0 0 0 1px rgba(0,230,255,.04), inset 0 -1px 0 0 rgba(255,255,255,.04);
+      }
+      .nx-th, .nx-td{ padding:9px 10px; font-size:12px; text-align:left; }
+      .nx-td{ border-bottom:1px solid rgba(255,255,255,.05); }
+      .tabnums{ font-variant-numeric: tabular-nums; }
+      .sortable{ cursor:pointer; }
+      .sortable.asc::after{ content:" ▲"; color:#00e6ff; }
+      .sortable.desc::after{ content:" ▼"; color:#00e6ff; }
+
+      .pill{ display:inline-block; padding:2px 6px; border-radius:20px; font-size:11px; margin-left:6px; }
+      .pill.green{ background:rgba(16,120,32,.25); border:1px solid rgba(16,200,60,.35); color:#5cff91; }
+      .pill.red{ background:rgba(140,16,16,.2); border:1px solid rgba(220,40,40,.35); color:#ff7a7a; }
+      .pill.cyan{ background:rgba(0,230,255,.15); border:1px solid rgba(0,230,255,.35); color:#9af6ff; }
+      .pill.pink{ background:rgba(255,60,160,.12); border:1px solid rgba(255,60,160,.35); color:#ffb8e2; }
+
+      /* Watchlist star */
+      .star-btn{ width:28px; height:28px; border-radius:8px; border:1px solid var(--nx-border); background:rgba(25,30,55,.7); }
+      .star-btn.active{ background:rgba(255,215,0,.12); border-color:#ffeb3b; color:#ffeb3b; text-shadow:0 0 8px rgba(255,235,59,.35); }
+
+      /* Alerts modal */
+      .popover{ background:rgba(16,20,40,.98); border:1px solid var(--nx-border); border-radius:12px; box-shadow:0 16px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(0,230,255,.08); }
+      .hidden{ display:none; }
+
+      /* Row flash on add */
+      @keyframes flashNew{ 0%{ background:rgba(0,230,255,.10);} 100%{ background:transparent;} }
+      .flash-new{ animation:flashNew 2s ease 1; }
+
+      /* Footer */
+      footer .nx-link{ color:#a1b5ff; text-decoration:underline dotted; text-underline-offset:3px; }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+          </nav>
+        </div>
+
+  <!-- Right: search + wallet + alerts -->
+  <div class="flex items-center gap-2">
+    <!-- Search box (same style as other pages) -->
+    <div class="relative">
+      <input id="search" class="nx-input w-56" placeholder="Search tokens..." />
+      <div id="search-dd" class="absolute w-full top-[105%] left-0 nx-panel p-2 hidden">
+        <div class="text-xs text-zinc-400 mb-2">Search Results</div>
+        <div id="search-results" class="space-y-1"></div>
+      </div>
+    </div>
+
+    <button id="watch-btn" class="nx-btn px-2 py-1 text-xs">Watchlist</button>
+    <button id="alerts-btn" class="nx-btn px-2 py-1 text-xs">Alerts</button>
+    <button id="wallet-btn" class="nx-btn nx-btn-cyan px-2 py-1 text-xs">Connect</button>
+  </div>
+</div>
+
+    </header>
+
+    <!-- Main -->
+    <div class="page-wrap">
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+        <!-- LEFT PANEL -->
+        <section class="nx-panel p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-xl nx-title">New Pairs</div>
+              <div class="text-xs text-zinc-400">Freshly-detected token pairs (mock). Auto-refreshing list.</div>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+            <div>
+              <label class="text-xs text-zinc-400 block mb-1">Min Liquidity ($)</label>
+              <input class="nx-input tabnums" id="f-liq" type="number" min="0" placeholder="0" value="0"/>
+            </div>
+
+            <div>
+              <label class="text-xs text-zinc-400 block mb-1">Max Age</label>
+              <select id="f-age" class="nx-input">
+                <option value="any">Any</option>
+                <option value="10m">≤ 10 min</option>
+                <option value="5m">≤ 5 min</option>
+                <option value="2m">≤ 2 min</option>
+                <option value="1m">≤ 1 min</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs text-zinc-400 block mb-1">Verified?</label>
+              <select id="f-verified" class="nx-input">
+                <option value="any">Any</option>
+                <option value="yes">Verified</option>
+                <option value="no">Unverified</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="nx-panel p-2">
+            <div class="overflow-auto max-h-[60vh]">
+              <table>
+              <thead>
+                <tr>
+                  <th class="nx-th sortable" data-sort="pair" style="width:220px;">Pair</th>
+                  <th class="nx-th sortable" data-sort="age">Age</th>
+                  <th class="nx-th sortable" data-sort="mc">MC</th>
+                  <th class="nx-th sortable" data-sort="liq">Liq</th>
+                  <th class="nx-th sortable" data-sort="vol">24h Vol</th>
+                  <th class="nx-th sortable" data-sort="holders">Holders</th>
+                  <th class="nx-th" style="width:190px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pairs-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- RIGHT PANEL (widgets) -->
+        <aside class="nx-panel p-3">
+          <!-- Watchlist -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">Watchlist</div>
+              <button id="watch-clear" class="nx-btn px-2 py-1 text-xs">Clear</button>
+            </div>
+            <div id="watchlist"><div class="text-zinc-400 text-xs">No pairs saved yet.</div></div>
+          </div>
+
+          <!-- Alerts Preview -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Alerts Preview</div>
+            <div class="flex gap-2 mb-2">
+              <button id="btn-clear-alerts" class="nx-btn">Clear All Alerts</button>
+            </div>
+            <div id="alerts-mini"><div class="text-zinc-400 text-xs">No triggers yet.</div></div>
+          </div>
+
+          <!-- Feed Status -->
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Feed Status</div>
+            <div class="text-xs text-zinc-400">Connected to mock feed.</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-3">
+      <div class="page-wrap">
+        <div class="nx-panel p-3 text-xs text-zinc-400">
+          <div class="mb-1">
+            <span class="nx-title">NOTE:</span> This New Pairs page is purely a front-end mock for layout, styling and interactions. API wiring (pairs feed, holders, alerts, watchlist persistence) can be swapped in later without changing UI.
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • New Pairs • Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Alerts Modal (per-coin rules) -->
+    <div id="alertsModal" class="popover hidden fixed right-4 top-16 w-80 p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-semibold">ENABLE ALERTS</div>
+        <button id="alert-cancel" class="nx-btn nx-btn-cyan px-2 py-1 text-xs">Close</button>
+      </div>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Whale buy</span><input type="checkbox" value="whale_buy">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Price change</span><input type="checkbox" value="price_change">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Volume spike</span><input type="checkbox" value="volume_spike">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Buys &gt; Sells</span><input type="checkbox" value="buys_sells_ratio">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Holders change</span><input type="checkbox" value="holders_delta">
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 mt-2">
+        <button id="alert-save" class="nx-btn nx-btn-cyan px-2 py-1 text-xs">Save</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      /* Icons + Year */
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* Back */
+      document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
+
+      /* ===== SEARCH (same style/behavior as current pages) ===== */
+      (function(){
+        const input = document.getElementById('search');
+        const dd = document.getElementById('search-dd');
+        const results = document.getElementById('search-results');
+        function show(){ dd.classList.remove('hidden'); }
+        function hide(){ dd.classList.add('hidden'); }
+        function render(items){
+          results.innerHTML = items.map(it=>{
+            const p = it;
+            const pair = `${(p.baseToken?.symbol||'BASE').toUpperCase()}/${(p.quoteToken?.symbol||'QUOTE').toUpperCase()}`;
+            const addr = p.pairAddress||'';
+            const mint = p.baseToken?.address||'';
+            return `<div class="flex items-center justify-between nx-btn p-2 cursor-pointer" data-pair="${pair}" data-addr="${addr}" data-mint="${mint}">
+              <div class="text-sm"><strong>${pair}</strong></div>
+              <div class="text-xs text-zinc-400">${addr ? addr.slice(0,4)+'…'+addr.slice(-4) : ''}</div>
+            </div>`;
+          }).join('') || `<div class="text-xs text-zinc-400 p-2">No results.</div>`;
+        }
+        input.addEventListener('focus', show);
+        input.addEventListener('blur', ()=> setTimeout(hide, 150));
+        input.addEventListener('input', async ()=>{
+          const q = input.value.trim();
+          if(!q){ results.innerHTML=''; return; }
+          try{
+            const url = `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q+' solana')}`;
+            const r = await fetch(url); const j = await r.json();
+            render(j.pairs||[]);
+          }catch(e){ console.error(e); }
+        });
+        results.addEventListener('click', (e)=>{
+          const el = e.target.closest('[data-pair]'); if(!el) return;
+          const pair = el.getAttribute('data-pair')||'';
+          const addr = el.getAttribute('data-addr')||'';
+          const mint = el.getAttribute('data-mint')||'';
+          NX.goToCoin({ pair, mint, pairAddress: addr });
+        });
+      })();
+
+      /* ===== New Pairs engine (same logic, themed UI) ===== */
+      const pairsBody = document.getElementById('pairs-body');
+      const fLiq = document.getElementById('f-liq');
+      const fAge = document.getElementById('f-age');
+      const fVer = document.getElementById('f-verified');
+
+      function rnd(a,b){ return Math.random()*(b-a)+a; }
+      function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+      const NAMES=['WIF','BONK','MEW','POPCAT','GME','BOME','PENGU','DOG','CAT','MOON','STAR','NEB','ZAP','FLOOF','FOOM'];
+
+      let ROWS = [];
+
+      // State: per-coin alerts & watchlist
+      const alertsForPair = {}; // { 'BONK/SOL': Set([...]) }
+      const watchlistSet = new Set();
+
+      // Sorting state
+      let sortKey = 'age'; // default
+      let sortDir = 'asc'; // 'asc' | 'desc'
+      const sorters = {
+        pair: (a,b)=> a.pair.localeCompare(b.pair),
+        age:  (a,b)=> a.ageMin - b.ageMin,
+        mc:   (a,b)=> a.mc - b.mc,
+        liq:  (a,b)=> a.liq - b.liq,
+        vol:  (a,b)=> a.vol - b.vol,
+        holders:(a,b)=> a.holders - b.holders
+      };
+
+      // Newly-added flash tracker
+      const newFlashSet = new Set(); // pair strings
+      function markFlash(pair){
+        newFlashSet.add(pair);
+        setTimeout(()=> newFlashSet.delete(pair), 2000);
+      }
+
+      
+
+      function fmtUSD(n){
+        if(n>=1_000_000_000) return '$'+(n/1_000_000_000).toFixed(2)+'B';
+        if(n>=1_000_000) return '$'+(n/1_000_000).toFixed(2)+'M';
+        if(n>=1_000) return '$'+(n/1_000).toFixed(2)+'K';
+        return '$'+n.toString();
+      }
+
+      function rowHTML(r){
+        const age = prettyAge(r.ageMin);
+        const chgPill = r.chg>=0 ? `<span class="pill green">+${r.chg}%</span>` : `<span class="pill red">${r.chg}%</span>`;
+        const ver = r.verified ? `<span class="pill cyan">Verified</span>` : `<span class="pill pink">Unverified</span>`;
+        const starred = watchlistSet.has(r.pair) ? 'active' : '';
+        const flashCls = newFlashSet.has(r.pair) ? 'flash-new' : '';
+        return `
+          <tr class="${flashCls}" data-id="${r.id}">
+            <td class="nx-td"><strong>${r.pair}</strong> ${chgPill} ${ver}</td>
+            <td class="nx-td">${age}</td>
+            <td class="nx-td">${fmtUSD(r.mc)}</td>
+            <td class="nx-td">${fmtUSD(r.liq)}</td>
+            <td class="nx-td">${fmtUSD(r.vol)}</td>
+            <td class="nx-td tabnums">${r.holders.toLocaleString()}</td>
+            <td class="nx-td" style="display:flex; gap:6px;">
+              <button class="mini-btn alert" data-act="alert">Alert</button>
+              <button class="star-btn ${starred}" data-act="star">★</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      function passFilters(r){
+        const minL = Math.max(0, parseFloat(fLiq.value||'0'));
+        if(r.liq < minL) return false;
+
+        const ageSel = fAge.value;
+        if(ageSel==='10m' && r.ageMin>10) return false;
+        if(ageSel==='5m'  && r.ageMin>5)  return false;
+        if(ageSel==='2m'  && r.ageMin>2)  return false;
+        if(ageSel==='1m'  && r.ageMin>1)  return false;
+
+        const vSel = fVer.value;
+        if(vSel==='yes' && !r.verified) return false;
+        if(vSel==='no'  &&  r.verified) return false;
+
+        return true;
+      }
+
+      function applySort(arr){
+        const cmp = sorters[sortKey] || sorters.age;
+        const sorted = arr.slice().sort(cmp);
+        return sortDir==='asc' ? sorted : sorted.reverse();
+      }
+
+      function updateSortHeaders(){
+        document.querySelectorAll('th.sortable').forEach(th=>{
+          th.classList.remove('asc','desc');
+          if(th.dataset.sort === sortKey){
+            th.classList.add(sortDir);
+          }
+        });
+      }
+
+      function prettyAge(mins){
+        if(mins<1) return '&lt;1m';
+        if(mins<60) return `${mins}m`;
+        const h=Math.floor(mins/60), m=mins%60;
+        return `${h}h ${m}m`;
+      }
+
+      function render(){
+        const filtered = ROWS.filter(passFilters);
+        const sorted = applySort(filtered);
+        const limited = sorted.slice(0,50);
+        const html = limited.map(rowHTML).join('');
+        pairsBody.innerHTML = html || `<tr><td class="nx-td" colspan="7"><div class="text-center text-zinc-400 py-3">No results.</div></td></tr>`;
+        updateSortHeaders();
+      }
+
+      [fLiq,fAge,fVer].forEach(el=> el.addEventListener('input', render));
+
+      // Sorting events
+      document.querySelectorAll('th.sortable').forEach(th=>{
+        th.addEventListener('click', ()=>{
+          const key = th.dataset.sort;
+          if(key===sortKey){
+            sortDir = sortDir==='asc' ? 'desc' : 'asc';
+          }else{
+            sortKey = key;
+            sortDir = 'asc';
+          }
+          render();
+        });
+      });
+
+pairsBody.addEventListener('click', (e)=>{
+  const tr = e.target.closest('tr[data-id]'); if(!tr) return;
+
+  // buttons inside the row should NOT route
+  const btn = e.target.closest('button');
+  if(btn){
+    const act = btn.getAttribute('data-act');
+    if(act === 'alert'){ openAlertModal(tr.querySelector('td strong')?.textContent.trim()); }
+    if(act === 'star'){ toggleWatch(tr.querySelector('td strong')?.textContent.trim(), btn); }
+    return;
+  }
+
+  const id = tr.getAttribute('data-id');
+  const row = ROWS.find(r => String(r.id) === String(id));
+  if(!row) return;
+
+  NX.goToCoin({ pair: row.pair, mint: row.mint || '', pairAddress: row.pairAddress || '' });
+});
+
+
+      // Watchlist
+      function toggleWatch(pair, btn){
+        if(watchlistSet.has(pair)){ watchlistSet.delete(pair); } else { watchlistSet.add(pair); }
+        btn.classList.toggle('active', watchlistSet.has(pair));
+        redrawWatchlist();
+      }
+      function redrawWatchlist(){
+        const box = document.getElementById('watchlist');
+        const arr = Array.from(watchlistSet);
+        if(!arr.length){ box.innerHTML='<div class="text-zinc-400 text-xs">No pairs saved yet.</div>'; return; }
+        box.innerHTML = arr.map(p=>`<div class="flex items-center justify-between text-sm py-1 border-b border-[var(--nx-border)]">
+          <span>${p}</span>
+          <div class="flex gap-1">
+            <button class="nx-btn h-6 px-2 text-xs" onclick="goToPair('${p.replace(/'/g,\"\\'\")}')">Open</button>
+            <button class="nx-btn h-6 px-2 text-xs" onclick="toggleWatch('${p.replace(/'/g,\"\\'\")}', this)">Remove</button>
+          </div>
+        </div>`).join('');
+      }
+      document.getElementById('watch-clear').addEventListener('click', ()=>{ watchlistSet.clear(); redrawWatchlist(); });
+
+      // Alerts modal logic (lightweight mock)
+      const modal = document.getElementById('alertsModal');
+      document.getElementById('alerts-btn').addEventListener('click', ()=> modal.classList.remove('hidden'));
+      document.getElementById('alert-cancel').addEventListener('click', ()=> modal.classList.add('hidden'));
+      document.getElementById('alert-save').addEventListener('click', ()=>{
+        modal.classList.add('hidden');
+        const rules = Array.from(modal.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+        const pair = ROWS[0]?.pair || 'WIF/SOL';
+        alertsForPair[pair] = new Set(rules);
+        pushAlertPreview(pair, rules);
+      });
+      function openAlertModal(pair){ modal.classList.remove('hidden'); }
+      function pushAlertPreview(pair, rules){
+        const mini = document.getElementById('alerts-mini');
+        const row = document.createElement('div');
+        row.className='text-sm py-1 border-b border-[var(--nx-border)] cursor-pointer hover:bg-[rgba(0,230,255,.08)]';
+        row.setAttribute('data-pair', pair);
+        row.textContent = `${pair}: ${rules.length?rules.join(', '):'No rules selected'} (saved mock)`;
+        mini.prepend(row);
+        while(mini.children.length>12) mini.removeChild(mini.lastChild);
+      }
+      document.getElementById('alerts-mini').addEventListener('click', (e)=>{
+        const el = e.target.closest('[data-pair]');
+        if (!el) return;
+        goToPair(el.getAttribute('data-pair'));
+      });
+      document.getElementById('btn-clear-alerts').addEventListener('click', ()=>{
+        for (const k in alertsForPair) delete alertsForPair[k];
+        const mini = document.getElementById('alerts-mini');
+        mini.innerHTML = '<div class="text-zinc-400 text-xs">No triggers yet.</div>';
+      });
+
+      // Central nav helper (replace with router later)
+      function goToPair(pair){
+        const row = ROWS.find(r=> r.pair===pair);
+        if(row){ NX.goToCoin({ pair: row.pair, mint: row.mint || '', pairAddress: row.pairAddress||'' }); }
+      }
+    </script>
+
+
+<script>
+/** ===== NebulaX Click-to-Coin Utilities ===== */
+window.NX = window.NX || {};
+NX.saveSelectedCoin = function(coin){
+  try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
+};
+NX.goToCoin = function(coin){
+  NX.saveSelectedCoin(coin);
+  const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
+  const mint = encodeURIComponent(coin.mint || '');
+  const pairAddr = coin.pairAddress || coin.pairAddr || '';
+  const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}${pairAddr ? `&pairAddr=${encodeURIComponent(pairAddr)}` : ''}`;
+  location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+};
+</script>
+
+<script>
+function nxOpenCoin({ pair, mint = '', pairAddr = '' }) {
+  const url = `Coinpage-Official.html?pair=${encodeURIComponent(pair)}&mint=${encodeURIComponent(mint)}${pairAddr?`&pairAddr=${encodeURIComponent(pairAddr)}`:''}`;
+  location.href = url;
+}
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', nxNewPairsSol5m);
+
+function nxNewPairsSol5m(){
+  if (window.__nxSol5m) return; window.__nxSol5m = true;
+
+  const tbody = document.getElementById('pairs-body'); if (!tbody) return;
+  const scrollBox = tbody.closest('.overflow-auto') || tbody.parentElement;
+
+  const QUERIES = ['solana','raydium solana','orca solana','meteora solana','dlmm solana'];
+ const PRIMARY_WINDOW_MIN = 5;
+const FALLBACK_WINDOW_MIN = 15;
+
+function gtIndexIncludedById(j){
+  const byId = new Map();
+  (j.included||[]).forEach(x => byId.set(`${x.type}:${x.id}`, x));
+  return byId;
+}
+
+function gtGetAttr(node, key, def=null){
+  return node?.attributes?.[key] ?? def;
+}
+
+function toMinutesSince(tsIso){
+  const t = Date.parse(tsIso||'');
+  if (Number.isNaN(t)) return 1e9;
+  return Math.max(0, Math.floor((Date.now() - t)/60000));
+}
+
+async function fetchNewPools(windowMin){
+  // Pull first page; add more if you want deeper coverage
+  const j = await gtFetchNewPoolsSolana(1);
+  const index = gtIndexIncludedById(j);
+
+  const rows = (j.data||[]).map(pool => {
+    const base = index.get(`token-${gtGetAttr(pool, 'base_token_id')}:${gtGetAttr(pool, 'base_token_id')}`) || null;
+    const quote = index.get(`token-${gtGetAttr(pool, 'quote_token_id')}:${gtGetAttr(pool, 'quote_token_id')}`) || null;
+
+    // Safer: the API also returns the base/quote under relationships; fall back to attributes on "included"
+    const baseSym = gtGetAttr(base, 'symbol', gtGetAttr(pool, 'base_token_symbol', 'BASE')).toUpperCase();
+    const quoteSym = gtGetAttr(quote, 'symbol', gtGetAttr(pool, 'quote_token_symbol', 'QUOTE')).toUpperCase();
+
+    const createdAt = gtGetAttr(pool, 'pool_created_at'); // ISO datetime
+    const ageMin = toMinutesSince(createdAt);
+
+    return {
+      pair: `${baseSym}/${quoteSym}`,
+      addr: gtGetAttr(pool, 'address', ''),              // pool address
+      mint: gtGetAttr(base, 'address', ''),              // base mint (best-effort)
+      ageMin,
+      mc: Number(gtGetAttr(pool, 'market_cap_usd', 0)) || 0,
+      liq: Number(gtGetAttr(pool, 'reserve_in_usd', 0)) || 0,
+      vol: Number(gtGetAttr(pool, 'volume_usd', {})?.h24 || 0) || 0,
+      chg: Number(gtGetAttr(pool, 'price_change_percentage', {})?.h1 || 0) || 0,
+      verified: false  // GT doesn't have Dexscreener's "labels"; tweak if you add a verifier
+    };
+  })
+  .filter(r => r.ageMin <= windowMin)
+  .sort((a,b)=> (a.ageMin - b.ageMin) || (b.vol - a.vol))
+  .slice(0, 50);
+
+  return rows;
+}
+<script>
+async function gtFetchNewPoolsSolana(page=1) {
+  // New pools for Solana; include token info to build the pair label
+  const url = `https://api.geckoterminal.com/api/v2/networks/solana/new_pools?include=base_token,quote_token&page=${page}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) return { data:[], included:[] };
+  return r.json();
+}
+</script>
+<script>
+// --- Fetch SOL new pools (free) ---
+async function gtFetchNewPoolsSolana(page=1){
+  const url = `https://api.geckoterminal.com/api/v2/networks/solana/new_pools?include=base_token,quote_token,dex&page=${page}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if(!r.ok) return { data:[], included:[] };
+  return r.json();
+}
+
+function toMinutesSinceISO(iso){
+  const t = Date.parse(iso||''); if (Number.isNaN(t)) return 1e9;
+  return Math.max(0, Math.floor((Date.now()-t)/60000));
+}
+
+function gtIndexIncluded(included){
+  const byTypeId = new Map();
+  (included||[]).forEach(x => byTypeId.set(`${x.type}:${x.id}`, x));
+  return byTypeId;
+}
+
+async function getSolNewPools(windowMin=5){
+  const j = await gtFetchNewPoolsSolana(1);
+  const idx = gtIndexIncluded(j.included);
+
+  const rows = (j.data||[]).map(pool=>{
+    const attr = pool.attributes||{};
+    const baseTok = idx.get(`tokens:${attr.base_token_id}`) || {};
+    const quoteTok = idx.get(`tokens:${attr.quote_token_id}`) || {};
+    const baseSym = (baseTok.attributes?.symbol || attr.base_token_symbol || 'BASE').toUpperCase();
+    const quoteSym = (quoteTok.attributes?.symbol || attr.quote_token_symbol || 'QUOTE').toUpperCase();
+    const createdISO = attr.pool_created_at || attr.created_at || null;
+    const ageMin = toMinutesSinceISO(createdISO);
+
+    return {
+      id: attr.address || pool.id,
+      pair: `${baseSym}/${quoteSym}`,
+      pairAddress: attr.address || '',
+      mint: baseTok.attributes?.address || '',
+      ageMin,
+      mc: Math.floor(Number(attr.fdv_usd || attr.market_cap_usd || 0)),
+      liq: Math.floor(Number(attr.reserve_in_usd || 0)),
+      vol: Math.floor(Number(attr.volume_usd?.h24 || 0)),
+      holders: 0,
+      chg: Number(attr.price_change_percentage?.h1 ?? 0),
+      verified: !!attr.is_verified
+    };
+  })
+  // keep SOL “meme‑ish”: exclude majors as *base* symbol
+  .filter(r=>{
+    const base = r.pair.split('/')[0];
+    return !['SOL','USDC','USDT','ETH','BTC','WIF','BONK','JUP','PYTH','ORCA','RAY'].includes(base);
+  })
+  .filter(r => r.ageMin <= windowMin)
+  .sort((a,b)=> (a.ageMin - b.ageMin) || (b.vol - a.vol))
+  .slice(0,50);
+
+  return rows;
+}
+</script>
+
+<script>
+async function runNewPairs(){
+  try{
+    let rows = await getSolNewPools(5);         // ≤ 5 min
+    if(rows.length === 0) rows = await getSolNewPools(15); // widen briefly
+    if(rows.length){
+      ROWS = rows;
+      render();                                 // uses your existing renderer
+      return;
+    }
+  }catch(e){ console.warn('gecko new_pools error', e); }
+
+  // If nothing comes back, show a friendly "No results" row (or your old iframe fallback if you want)
+  ROWS = [];
+  render();
+}
+
+// Kick off on load and refresh every 15s
+document.addEventListener('DOMContentLoaded', ()=>{
+  runNewPairs();
+  setInterval(runNewPairs, 15000);
+});
+</script>
+<script>
+/* === NebulaX Core (themes, header hydrate, routing hooks) === */
+(function(){
+  const UserStore={
+    key:'nx_user',
+    state:{ wallet:null, theme:'default', pfp:{type:'builtin',url:'/pfp/default.png'} },
+    load(){ try{ Object.assign(this.state, JSON.parse(localStorage.getItem(this.key)||'{}')); }catch{} },
+    save(){ localStorage.setItem(this.key, JSON.stringify(this.state)); }
+  };
+  UserStore.load();
+
+  const Theme={
+    init(){
+      const t = UserStore.state.theme || 'default';
+      document.documentElement.setAttribute('data-theme', t);
+      const sel = document.getElementById('nx-theme');
+      if (sel) sel.value = t;
+      sel?.addEventListener('change', (e)=>{
+        const v=e.target.value;
+        document.documentElement.setAttribute('data-theme', v);
+        UserStore.state.theme=v; UserStore.save();
+      });
+    }
+  };
+
+  const Header={
+    initActiveTab(){
+      const here = location.pathname.replace(/\/+$/,'') || '/NebulaX.html';
+      document.querySelectorAll('.nx-tab').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        if (!route) return;
+        if (route===here) a.classList.add('active');
+        else a.classList.remove('active');
+        a.addEventListener('click',(e)=>{
+          // allow normal navigation
+        });
+      });
+    },
+    initSearch(){
+      const input = document.getElementById('nx-search');
+      const btn   = document.getElementById('nx-search-btn');
+      if(!input||!btn) return;
+      const go = ()=>{
+        const q = (input.value||'').trim();
+        if(!q) return;
+        // Route to coin page convention: /Coinpage-Official.html?query=...
+        location.href = `/Coinpage-Official.html?query=${encodeURIComponent(q)}`;
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+    },
+    initPfp(){
+      const img = document.getElementById('nx-pfp');
+      if(img) img.src = (UserStore.state.pfp?.url)||'/pfp/default.png';
+      const btn = document.getElementById('nx-profile');
+      btn?.addEventListener('click',()=>{
+        // simple MVP: cycle built-ins; later open profile modal
+        const choices=['/pfp/default.png','/pfp/nx01.png','/pfp/nx02.png'];
+        const idx = Math.max(0, choices.indexOf(UserStore.state.pfp?.url));
+        const next = choices[(idx+1)%choices.length];
+        UserStore.state.pfp={type:'builtin',url:next}; UserStore.save();
+        if(img) img.src=next;
+      });
+    },
+    initStore(){
+      const a = document.getElementById('nx-store');
+      if(!a) return;
+      // keep as a link; if you make a modal later, hydrate here
+    },
+    initWallet(){
+      const w = document.getElementById('nx-wallet');
+      w?.addEventListener('click', ()=>{
+        // hook your wallet adapter here
+        alert('Connect wallet (hook your adapter)');
+      });
+    },
+    mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    Theme.init();
+    Header.mount();
+  });
+})();
+</script>
+
+
+
+  </body>
+</html>

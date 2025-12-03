@@ -91,16 +91,25 @@ async function onConnected(pk){
 // … keep everything you already have above …
 
 // Gentle polling (optional). Remove if you want TX-only updates.
-setInterval(async () => {
-  try {
-    const p = phantom();
-    if (!p || !p.isConnected) return;
-    const pk = p.publicKey?.toString?.();
-    if (pk) await fetchBalance(pk);
-  } catch (e) {
-    // swallow
-  }
-}, 15000);
+// DISABLED - was causing portfolio panel flicker every second
+// let lastBalanceUpdate = 0;
+// setInterval(async () => {
+//   try {
+//     const p = phantom();
+//     if (!p || !p.isConnected) return;
+//     const pk = p.publicKey?.toString?.();
+//     if (pk) {
+//       const now = Date.now();
+//       // Only update if 30+ seconds have passed since last update
+//       if (now - lastBalanceUpdate >= 30000) {
+//         lastBalanceUpdate = now;
+//         await fetchBalance(pk);
+//       }
+//     }
+//   } catch (e) {
+//     // swallow
+//   }
+// }, 15000);
 
 // close the IIFE you opened at the top
 })();

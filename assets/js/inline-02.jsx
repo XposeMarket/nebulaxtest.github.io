@@ -22,7 +22,14 @@ function useSolBalance() {
 
   React.useEffect(() => {
     // 1) Live updates pushed from nx-wallet (event-driven)
-    const onSol = (e) => setBal(e?.detail?.balance ?? get());
+    const onSol = (e) => {
+      const newBal = e?.detail?.balance ?? get();
+      // Only update if balance actually changed
+      setBal(prev => {
+        if (prev === newBal) return prev;
+        return newBal;
+      });
+    };
     window.addEventListener("nebula:sol:changed", onSol);
 
     // 2) Gentle 60s “tick” to keep in sync with your throttle
@@ -115,7 +122,11 @@ function UseWalletReadout() {
     // 1) push updates: fired by nx-wallet when balance changes
     const onSol = (e) => {
       const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
-      if (alive) setBal(b == null ? null : b);
+      // Only update if balance actually changed
+      if (alive) setBal(prev => {
+        if (prev === b) return prev;
+        return b == null ? null : b;
+      });
     };
     window.addEventListener("nebula:sol:changed", onSol);
 
@@ -204,7 +215,7 @@ function Card({ title, toolbar, children, className, onClick }) {
         }
         return out;
       }
-      const TRENDING_UNIVERSE=["WIF/SOL","BONK/SOL","MEW/SOL","POPCAT/SOL","BOME/SOL","GME/SOL","PENGU/SOL","CAT/SOL","MOG/SOL"];
+      const TRENDING_UNIVERSE=[];  // REMOVED MOCK DATA
       const ALERT_TYPES=[
         {id:"whale_buy",label:"Whale buy"},
         {id:"whale_sell",label:"Whale sell"},
@@ -245,13 +256,14 @@ function ChartPanel2({ symbol }) {
       /* ===== Layout model ===== */
       const DEFAULT_LAYOUT={
         wide:["ticker"],                      // top row shows a single panel (replace on drop)
-        left:["chart","data-feed"],
+        left:["trending","chart","data-feed"],
         right:["portfolio","alerts","referrals","docs","selftest"],
         heights:{
           "ticker":130,
+          "trending":320,
           "chart":420,
           "data-feed":240,
-          "portfolio":280,
+          "portfolio":320,
           "alerts":200,
           "referrals":140,"docs":140,"selftest":140,"signal":220,"explore":180
         },
@@ -450,7 +462,38 @@ function ChartPanel2({ symbol }) {
         /* Markets */
         const majors=["BTC/USDC","ETH/USDC","SOL/USDC"];
         const [symbol,setSymbol]=useState("SOL/USDC");
-        const [trending,setTrending]=useState(TRENDING_UNIVERSE.slice(0,5));
+        const [trending,setTrending]=useState([]);
+        const trendingRef = React.useRef([]);
+        
+        // Fetch trending from trending-engine - with smart comparison to avoid unnecessary re-renders
+        useEffect(() => {
+          const updateTrending = () => {
+            const tokens = window.NX?.getTrendingTokens?.() || [];
+            if (tokens.length > 0) {
+              const newTokens = tokens.slice(0, 5);
+              // Only update if tokens actually changed
+              const changed = newTokens.length !== trendingRef.current.length ||
+                newTokens.some((t, i) => {
+                  const prev = trendingRef.current[i];
+                  return !prev || t.mint !== prev.mint || t.symbol !== prev.symbol;
+                });
+              if (changed) {
+                trendingRef.current = newTokens;
+                setTrending(newTokens);
+              }
+            }
+          };
+          
+          updateTrending();
+          const handleUpdate = () => updateTrending();
+          window.addEventListener('nebula:trending:updated', handleUpdate);
+          const interval = setInterval(updateTrending, 5000);
+          
+          return () => {
+            window.removeEventListener('nebula:trending:updated', handleUpdate);
+            clearInterval(interval);
+          };
+        }, []);
 
         /* Candles */
         const [candlesBySymbol,setCandlesBySymbol]=useState({
@@ -478,7 +521,7 @@ function ChartPanel2({ symbol }) {
 
         const [editMode,setEditMode]=useState(false);
 
-        /* Price ticks (paused in edit mode) */
+        /* Price ticks - DISABLED (was causing constant re-renders and flickering)
         usePausableInterval(()=>{
           setCandlesBySymbol(prev=>{
             const next={...prev};
@@ -497,16 +540,21 @@ function ChartPanel2({ symbol }) {
                 const h=Math.max(lb.high,c), l=Math.min(lb.low,c), v=lb.volume*(0.98+Math.random()*0.05);
                 next[sym]=[...series.slice(0,-1),{...lb,high:h,low:l,close:c,volume:v}];
               }
-            }); return next;
+            });
+            // Update global SOL/USD so portfolio doesn't need parent prop
+            window.NX_SOL_USD = (last(next["SOL/USDC"]) || {close:170}).close;
+            return next;
           });
         }, 1500, [], editMode);
+        */
 
-        /* Trending shuffle (paused in edit mode) */
+        /* Trending shuffle - DISABLED (removed mock data)
         usePausableInterval(()=>{
           const shuffled=TRENDING_UNIVERSE.map(t=>({t,k:Math.random()}))
             .sort((a,b)=>a.k-b.k).slice(0,5).map(x=>x.t);
           setTrending(shuffled);
         }, 10000, [], editMode);
+        */
 
         const candles=candlesBySymbol[symbol]||[];
         const mid=(last(candles)||{close:0}).close;
@@ -519,6 +567,7 @@ function ChartPanel2({ symbol }) {
         const [tradesBySymbol,setTradesBySymbol]=useState({});
         useEffect(()=>{ if(!tradesBySymbol[symbol]) setTradesBySymbol(p=>({...p,[symbol]:[]})); },[symbol,tradesBySymbol]);
 
+        /* DISABLED: Mock trades feed
         usePausableInterval(()=>{
           setTradesBySymbol(prev=>{
             const list=prev[symbol]||[];
@@ -534,6 +583,7 @@ function ChartPanel2({ symbol }) {
             return {...prev,[symbol]:[t,...list].slice(0,120)};
           });
         }, 6500, [symbol,mid,quote,solUsd], editMode);
+        */
 
         const [lastFill,setLastFill]=useState(null);
         useEffect(()=>{
@@ -589,6 +639,7 @@ function ChartPanel2({ symbol }) {
           });
           setRecentTriggers(prev=>[{symbol:sym,...trig},...prev].slice(0,8));
         }
+        /* DISABLED: Mock alert triggers
         usePausableInterval(()=>{
           const pool=enabledSymbols.filter(s=>(alertsConditions[s]?.size||0)>0);
           if(!pool.length) return;
@@ -604,10 +655,12 @@ function ChartPanel2({ symbol }) {
             : "$"+Math.round(rand(5,120))+"k";
           pushTrigger(sym,{type,ts:t,meta:{magnitude}});
         }, 12000, [enabledSymbols.join(","), JSON.stringify([...Object.entries(alertsConditions)])], editMode);
+        */
 
         /* Signal Hub & Explore (undockable) */
         const [signalTab,setSignalTab]=useState("whales");
         const [whaleFeed,setWhaleFeed]=useState([]); const [xFeed,setXFeed]=useState([]);
+        /* DISABLED: Mock whale feed
         usePausableInterval(()=>{
           setWhaleFeed(prev=>{
             const item={id:Date.now(),wallet:["WhaleA","WhaleB","WhaleC"][Math.floor(Math.random()*3)],
@@ -616,7 +669,9 @@ function ChartPanel2({ symbol }) {
             return [item,...prev].slice(0,24);
           });
         }, 11000, [trending.join(",")], editMode);
+        */
 
+        /* DISABLED: Mock X feed
         usePausableInterval(()=>{
           setXFeed(prev=>{
             const item={id:Date.now(),user:["@alpha","@onchain","@dexwatch"][Math.floor(Math.random()*3)],
@@ -625,6 +680,7 @@ function ChartPanel2({ symbol }) {
             return [item,...prev].slice(0,24);
           });
         }, 13000, [trending.join(",")], editMode);
+        */
 
 
             // Keep the existing <AlertsPanel/> JSX working:
@@ -665,49 +721,538 @@ const AlertsPanel = React.useCallback(() => (
 
 
 
+// Use nx-wallet's existing balance instead of creating new RPC connections
 function useSolBalance(addressOrPk){
-  const [sol, setSol] = React.useState(null);
+  const [sol, setSol] = React.useState(() => window.NXWallet?.getBalance?.() ?? null);
+  const lastValue = React.useRef(sol);
+  
   React.useEffect(()=>{
-    if (!addressOrPk) { setSol(null); return; }
-    const pk = typeof addressOrPk === "string" ? new solanaWeb3.PublicKey(addressOrPk) : addressOrPk;
-const rpc = (typeof window.NX_RPC === "string" && window.NX_RPC.trim())
-  || (typeof localStorage !== "undefined" && localStorage.getItem("NX_RPC"))
-  || "https://api.mainnet-beta.solana.com";
-const conn = new solanaWeb3.Connection(rpc, "confirmed");
-
-    let kill=false, sub=null;
-    const read = async()=>{ try{
-      const lam = await conn.getBalance(pk);
-      if(!kill) setSol(lam/solanaWeb3.LAMPORTS_PER_SOL);
-    }catch(e){ console.warn("[NX] getBalance", e); } };
-    read();
-    (async()=>{ try{ sub = await conn.onAccountChange(pk, read, "confirmed"); }catch{} })();
-    return ()=>{ kill=true; if(sub!=null) try{ conn.removeAccountChangeListener(sub);}catch{} };
+    if (!addressOrPk) { setSol(null); lastValue.current = null; return; }
+    
+    let alive = true;
+    
+    // Listen to nx-wallet's balance events (already throttled)
+    const onSolChanged = (e) => {
+      const newBal = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+      if (!alive || newBal == null) return;
+      // Only update if changed by more than 0.0001 SOL
+      if (lastValue.current === null || Math.abs(newBal - lastValue.current) > 0.0001) {
+        lastValue.current = newBal;
+        setSol(newBal);
+      }
+    };
+    
+    window.addEventListener('nebula:sol:changed', onSolChanged);
+    
+    // Get initial value from nx-wallet
+    const initial = window.NXWallet?.getBalance?.();
+    if (initial != null && initial !== lastValue.current) {
+      lastValue.current = initial;
+      setSol(initial);
+    }
+    
+    return () => {
+      alive = false;
+      window.removeEventListener('nebula:sol:changed', onSolChanged);
+    };
   }, [addressOrPk && (typeof addressOrPk==="string"?addressOrPk:addressOrPk?.toBase58?.())]);
   return sol;
 }
 
-       /* Portfolio */
-function LivePortfolioCard({ solUsd }) {
-  // get current address from NXWallet (or Phantom fallback)
-  const pkObj =
-    window.NXWallet?.getPublicKey?.() ||
-    window.solana?.publicKey ||
-    null;
+       /* Trending Panel - Shows top 5 trending tokens */
+function TrendingPanel() {
+  const [trending, setTrending] = React.useState([]);
+  const initialLoadDone = React.useRef(false);
 
-  const address =
-    typeof pkObj === "string" ? pkObj :
-    pkObj?.toBase58?.() || pkObj?.toString?.() || null;
+  React.useEffect(() => {
+    // Fetch trending tokens from window.NX (populated by trending-engine.js)
+    const updateTrending = () => {
+      const tokens = window.NX?.getTrendingTokens?.() || [];
+      if (tokens.length > 0) {
+        const newTokens = tokens.slice(0, 5);
+        setTrending(prev => {
+          // On first load, just set the data
+          if (!initialLoadDone.current) {
+            initialLoadDone.current = true;
+            return newTokens;
+          }
+          // Smooth update: only replace if data actually changed
+          if (prev.length === newTokens.length) {
+            const changed = newTokens.some((t, i) => 
+              t.mint !== prev[i]?.mint || 
+              t.jupiterPrice !== prev[i]?.jupiterPrice ||
+              t.dsPriceChange_5m !== prev[i]?.dsPriceChange_5m
+            );
+            if (!changed) return prev;
+          }
+          return newTokens;
+        });
+      }
+    };
 
-  const solBal = useSolBalance(address);                 // SOL (live)
-  const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
+    // Listen for trending updates
+    const handleTrendingUpdate = () => updateTrending();
+    window.addEventListener('nebula:trending:updated', handleTrendingUpdate);
+    
+    // Initial update
+    updateTrending();
+    
+    // Fallback polling every 5 seconds
+    const interval = setInterval(updateTrending, 5000);
+    
+    return () => {
+      window.removeEventListener('nebula:trending:updated', handleTrendingUpdate);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const formatPrice = (p) => {
+    if (!p || isNaN(p)) return '$0';
+    if (p < 0.001) return '$' + p.toExponential(2);
+    if (p < 0.01) return '$' + p.toFixed(6);
+    return '$' + p.toFixed(4);
+  };
+
+  const formatMarketCap = (mc) => {
+    if (!mc || mc === 0) return '$0';
+    if (mc >= 1e9) return '$' + (mc / 1e9).toFixed(2) + 'B';
+    if (mc >= 1e6) return '$' + (mc / 1e6).toFixed(2) + 'M';
+    if (mc >= 1e3) return '$' + (mc / 1e3).toFixed(2) + 'K';
+    return '$' + mc.toFixed(0);
+  };
+
+  return (
+    <Card
+      title={
+        <a
+          href="Trending.html"
+          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
+        >
+          🔥 Trending
+        </a>
+      }
+      toolbar={<Pill>Live</Pill>}
+    >
+      <div className="h-full flex flex-col min-h-0">
+        <div className="flex-1 min-h-0 overflow-auto space-y-2">
+          {trending.length > 0 ? (
+            trending.map((token, idx) => {
+              const price = token.jupiterPrice || token.dsPrice || token.gtPrice || 0;
+              const mc = token.dsMarketCap || token.dsFdv || 0;
+              const change5m = token.dsPriceChange_5m || 0;
+              const tierColor = token.tier === 'S' ? '#34d399' : token.tier === 'A' ? '#fbbf24' : '#f87171';
+
+              return (
+                <div
+                  key={token.mint || idx}
+                  className="rounded-lg bg-[var(--cyberpunk-dark-secondary)] p-2 hover:bg-[rgba(18,21,42,.85)] cursor-pointer transition-colors"
+                  onClick={() => {
+                    if (window.NX?.goToCoin) {
+                      window.NX.goToCoin({ mint: token.mint, symbol: token.symbol, pair: `${token.symbol}/SOL` });
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold neon-text text-sm truncate">{token.symbol || '???'}</span>
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: tierColor + '20', color: tierColor }}
+                        >
+                          {token.tier || 'B'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-400 truncate">{token.name || 'Unknown'}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold neon-text">{formatPrice(price)}</div>
+                      <div className={cx("text-xs", change5m >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        {change5m >= 0 ? '+' : ''}{change5m.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">MC: {formatMarketCap(mc)}</div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-sm text-zinc-400 text-center py-4">Loading trending tokens...</div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+       /* Portfolio - STABLE (doesn't re-render on parent updates) */
+// Global metadata cache to avoid re-fetching
+const metadataCache = {};
+
+// Shared connection for metadata fetching (reuse to avoid rate limits)
+let sharedConnection = null;
+function getSharedConnection() {
+  if (!sharedConnection) {
+    const rpc = window.NX_RPC || 'https://api.mainnet-beta.solana.com';
+    sharedConnection = new solanaWeb3.Connection(rpc, 'confirmed');
+  }
+  return sharedConnection;
+}
+
+// Fetch token metadata (module-level, uses cache)
+async function fetchTokenMetadata(mint) {
+  // Return cached if available
+  if (metadataCache[mint]) {
+    return metadataCache[mint];
+  }
+  
+  let symbol = mint.slice(0, 4) + '...' + mint.slice(-4);
+  let name = 'Unknown';
+  let found = false;
+  
+  // Try DexScreener first (works for most traded tokens)
+  try {
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.pairs && data.pairs.length > 0) {
+        const pair = data.pairs[0];
+        if (pair.baseToken?.symbol) {
+          symbol = pair.baseToken.symbol;
+          name = pair.baseToken.name || symbol;
+          found = true;
+          console.log(`[Portfolio] Found ${symbol} via DexScreener`);
+        }
+      }
+    }
+  } catch (e) {
+    // Silent fail
+  }
+  
+  // Fallback: Try on-chain Metaplex metadata (for pump.fun tokens etc)
+  if (!found) {
+    try {
+      const connection = getSharedConnection();
+      const TOKEN_METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+      const mintPubkey = new solanaWeb3.PublicKey(mint);
+      
+      const seeds = [
+        new TextEncoder().encode('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBytes(),
+        mintPubkey.toBytes()
+      ];
+      
+      const [metadataPDA] = await solanaWeb3.PublicKey.findProgramAddress(seeds, TOKEN_METADATA_PROGRAM_ID);
+      const accountInfo = await connection.getAccountInfo(metadataPDA);
+      
+      if (accountInfo && accountInfo.data) {
+        const data = new Uint8Array(accountInfo.data);
+        let offset = 1 + 32 + 32;
+        
+        const nameLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        offset += 4;
+        const nameBytes = data.slice(offset, offset + nameLen);
+        const onchainName = new TextDecoder().decode(nameBytes).replace(/\0/g, '').trim();
+        offset += nameLen;
+        
+        const symbolLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        offset += 4;
+        const symbolBytes = data.slice(offset, offset + symbolLen);
+        const onchainSymbol = new TextDecoder().decode(symbolBytes).replace(/\0/g, '').trim();
+        
+        if (onchainSymbol) {
+          symbol = onchainSymbol;
+          name = onchainName || onchainSymbol;
+          console.log(`[Portfolio] Found ${symbol} via on-chain metadata`);
+        }
+      }
+    } catch (e) {
+      console.warn(`[Portfolio] On-chain metadata failed for ${mint.slice(0,8)}...`);
+    }
+  }
+  
+  // Cache the result
+  const result = { symbol, name };
+  metadataCache[mint] = result;
+  return result;
+}
+
+// Static formatters (outside component to avoid recreation)
+const portfolioUsdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+const portfolioNf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
+
+const formatPortfolioPrice = (p) => {
+  if (!p || p === 0) return '$0';
+  if (p >= 1) return p.toFixed(2);
+  if (p >= 0.01) return p.toFixed(4);
+  if (p >= 0.00001) return p.toFixed(6);
+  if (p > 0) {
+    const priceStr = p.toFixed(20);
+    const match = priceStr.match(/^0\.(0+)([1-9]\d*)/);
+    if (match) {
+      const zeros = match[1].length;
+      const digits = match[2].substring(0, 2);
+      return `0.0^${zeros}${digits}`;
+    }
+  }
+  return '0';
+};
+
+// Memoized positions list with custom comparison
+const PositionsList = React.memo(function PositionsList({ positions, loading }) {
+  // Use a ref to store previous positions for smooth transitions
+  const prevPositionsRef = React.useRef(positions);
+  
+  // Only update ref when we have new valid data
+  React.useEffect(() => {
+    if (positions.length > 0) {
+      prevPositionsRef.current = positions;
+    }
+  }, [positions]);
+  
+  // Use previous positions during loading to prevent flicker
+  const displayPositions = loading && prevPositionsRef.current.length > 0 
+    ? prevPositionsRef.current 
+    : positions;
+  
+  if (displayPositions.length === 0 && !loading) {
+    return (
+      <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2 max-h-[180px] overflow-y-auto">
+        <div className="text-zinc-500 text-xs">No positions found</div>
+      </div>
+    );
+  }
+  
+  if (displayPositions.length === 0 && loading) {
+    return (
+      <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2 max-h-[180px] overflow-y-auto">
+        <div className="text-zinc-500 text-xs">Loading positions...</div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2 max-h-[180px] overflow-y-auto">
+      <div className="space-y-1.5">
+        {displayPositions.map((pos) => {
+          const unrealized = pos.value - (pos.avgCost * pos.qty);
+          const pctChange = pos.avgCost > 0 ? ((pos.currentPrice - pos.avgCost) / pos.avgCost * 100) : 0;
+          
+          return (
+            <div
+              key={pos.mint}
+              className="rounded bg-[var(--cyberpunk-dark)] hover:bg-[rgba(18,21,42,.85)] cursor-pointer transition-colors p-2"
+              onClick={() => {
+                if (window.NX?.goToCoin) {
+                  window.NX.goToCoin({ mint: pos.mint, symbol: pos.symbol, pair: `${pos.symbol}/SOL` });
+                }
+              }}
+            >
+              {/* Row 1: Symbol/Name and Value */}
+              <div className="flex items-center justify-between text-xs mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-semibold neon-text truncate">{pos.symbol || 'Unknown'}</span>
+                  <span className="text-[10px] text-zinc-500 truncate">{pos.qty?.toFixed(2) || '0'}</span>
+                </div>
+                <div className="font-semibold text-right">{portfolioUsdFmt.format(pos.value || 0)}</div>
+              </div>
+              {/* Row 2: Avg / Current / Unrealized */}
+              <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                <div className="flex gap-2">
+                  <span>Avg: ${formatPortfolioPrice(pos.avgCost)}</span>
+                  <span>Now: ${formatPortfolioPrice(pos.currentPrice)}</span>
+                </div>
+                <div className={unrealized >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                  {unrealized >= 0 ? '+' : ''}{portfolioUsdFmt.format(unrealized)} ({pctChange >= 0 ? '+' : ''}{pctChange.toFixed(1)}%)
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if loading changed or positions data changed
+  if (prevProps.loading !== nextProps.loading) return false;
+  if (prevProps.positions.length !== nextProps.positions.length) return false;
+  // Deep compare positions
+  for (let i = 0; i < prevProps.positions.length; i++) {
+    const prev = prevProps.positions[i];
+    const next = nextProps.positions[i];
+    if (prev.mint !== next.mint || 
+        prev.symbol !== next.symbol ||
+        prev.currentPrice !== next.currentPrice || 
+        prev.value !== next.value) {
+      return false;
+    }
+  }
+  return true; // Props are equal, don't re-render
+});
+
+function LivePortfolioCard() {
+  // Read address once at mount, don't change
+  const [address] = React.useState(() => {
+    const pkObj = window.NXWallet?.getPublicKey?.() || window.solana?.publicKey || null;
+    return (typeof pkObj === "string" ? pkObj : pkObj?.toBase58?.() || pkObj?.toString?.() || null);
+  });
+
+  // Read balance from event emitter, not from parent prop
+  const solBal = useSolBalance(address);
+  
+  // State for live positions with metadata and prices
+  const [positions, setPositions] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  
+  // Ref to track if initial load is done (to avoid flickering on subsequent updates)
+  const initialLoadDone = React.useRef(false);
+
+  // Fetch live positions from wallet with metadata and prices
+  React.useEffect(() => {
+    if (!address) {
+      setPositions([]);
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    let fetchInProgress = false;
+
+    const fetchPositions = async () => {
+      // Prevent overlapping fetches
+      if (fetchInProgress) return;
+      fetchInProgress = true;
+      
+      try {
+        const rpc = window.NX_RPC || 'https://api.mainnet-beta.solana.com';
+        const connection = new solanaWeb3.Connection(rpc, 'confirmed');
+        const pubkey = new solanaWeb3.PublicKey(address);
+
+        // Get SPL token accounts
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubkey, {
+          programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+        });
+
+        const rawPositions = tokenAccounts.value
+          .filter(acc => {
+            const amount = acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0;
+            return amount > 0;
+          })
+          .map(acc => {
+            const info = acc.account.data.parsed?.info;
+            return {
+              mint: info?.mint,
+              qty: info?.tokenAmount?.uiAmount || 0,
+              decimals: info?.tokenAmount?.decimals || 0
+            };
+          })
+          .slice(0, 10); // Show top 10 positions
+
+        if (!mounted) {
+          fetchInProgress = false;
+          return;
+        }
+        
+        if (rawPositions.length === 0) {
+          setPositions([]);
+          setLoading(false);
+          initialLoadDone.current = true;
+          fetchInProgress = false;
+          return;
+        }
+
+        // Fetch prices from Jupiter
+        const mints = rawPositions.map(p => p.mint).join(',');
+        let prices = {};
+        try {
+          const priceRes = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mints}&showExtraInfo=true`);
+          if (priceRes.ok) {
+            const priceData = await priceRes.json();
+            prices = priceData.data || priceData || {};
+            console.log('[Portfolio] Jupiter prices for', Object.keys(prices).length, 'tokens');
+          }
+        } catch (e) {
+          console.warn('[Portfolio] Jupiter price fetch failed:', e);
+        }
+
+        // Fetch metadata for each token (uses cache for known tokens)
+        console.log('[Portfolio] Fetching metadata for', rawPositions.length, 'tokens...');
+        const metadataPromises = rawPositions.map(async (pos) => {
+          const metadata = await fetchTokenMetadata(pos.mint);
+          const priceData = prices[pos.mint];
+          // Jupiter v3 uses 'price' as string, older versions use 'usdPrice'
+          const currentPrice = parseFloat(priceData?.price) || priceData?.usdPrice || 0;
+          const value = currentPrice * pos.qty;
+          
+          console.log(`[Portfolio] ${metadata.symbol}: qty=${pos.qty.toFixed(2)}, price=$${currentPrice.toFixed(6)}, value=$${value.toFixed(2)}`);
+
+          return {
+            mint: pos.mint,
+            symbol: metadata.symbol,
+            name: metadata.name,
+            qty: pos.qty,
+            avgCost: currentPrice, // Mock entry price (we don't have historical data)
+            currentPrice,
+            value
+          };
+        });
+
+        const enrichedPositions = await Promise.all(metadataPromises);
+        
+        if (mounted) {
+          // Smooth update: merge with existing positions to preserve keys
+          setPositions(prev => {
+            // If this is first load or positions changed, do full update
+            if (!initialLoadDone.current || prev.length !== enrichedPositions.length) {
+              return enrichedPositions;
+            }
+            // Otherwise, update in place to avoid DOM recreation
+            return enrichedPositions.map((newPos, idx) => {
+              const oldPos = prev[idx];
+              // If same mint, update values without replacing object reference unnecessarily
+              if (oldPos && oldPos.mint === newPos.mint) {
+                // Only create new object if values actually changed
+                if (oldPos.currentPrice === newPos.currentPrice && 
+                    oldPos.qty === newPos.qty && 
+                    oldPos.value === newPos.value) {
+                  return oldPos;
+                }
+              }
+              return newPos;
+            });
+          });
+          setLoading(false);
+          initialLoadDone.current = true;
+        }
+      } catch (e) {
+        console.warn('[Portfolio] Failed to fetch positions:', e);
+        if (mounted && !initialLoadDone.current) {
+          setPositions([]);
+          setLoading(false);
+          initialLoadDone.current = true;
+        }
+      } finally {
+        fetchInProgress = false;
+      }
+    };
+
+    fetchPositions();
+    const interval = setInterval(fetchPositions, 30000); // Refresh every 30s
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [address]); // Only re-run if address changes
+
+  // Use static formatters defined outside component
+  const formatSOL = (x) => x == null ? "—" : portfolioNf.format(x);
+
+  // Get SOL/USD price from window (read once per render, cached by React)
+  const solUsd = window.NX_SOL_USD ?? 170;
 
   const addr = address || null;
-  const usdFmt = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
-  const nf     = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
-  const formatSOL = (x) => x == null ? "—" : nf.format(x);
-
-  const pnlUsd = 0; // placeholder until you compute it
+  const totalUSD = (solBal != null && solUsd) ? solBal * solUsd : null;
 
   return (
     <Card
@@ -722,7 +1267,7 @@ function LivePortfolioCard({ solUsd }) {
       }
       toolbar={
         <span className="text-[10px] px-2 py-1 rounded-full border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)]">
-          Local
+          Live
         </span>
       }
     >
@@ -736,7 +1281,7 @@ function LivePortfolioCard({ solUsd }) {
         <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">
           <div className="text-xs text-zinc-400">Total Value</div>
           <div className="text-lg font-semibold neon-text">
-            {addr ? (totalUSD != null ? usdFmt.format(totalUSD) : "—") : "—"}
+            {addr ? (totalUSD != null ? portfolioUsdFmt.format(totalUSD) : "—") : "—"}
           </div>
         </div>
 
@@ -749,21 +1294,24 @@ function LivePortfolioCard({ solUsd }) {
           <div className="text-xs text-zinc-400">Available</div>
           <div className="text-lg font-semibold neon-text">
             {addr ? `${formatSOL(solBal)} SOL` : "— SOL"}
-            <span className="text-zinc-400 text-xs"> &nbsp;• {totalUSD != null ? usdFmt.format(totalUSD) : "$0"} USDC</span>
           </div>
         </div>
       </div>
 
-      {/* positions block */}
-      <div className="text-sm neon-text">
-        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Positions</div>
-        <div className="rounded-xl border border-[var(--cyberpunk-border)] p-2">
-          <div className="text-zinc-500 text-sm">No live positions (mock).</div>
+      {/* positions block with scroller */}
+      <div className="text-sm neon-text flex-1 min-h-0">
+        <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">
+          Positions ({positions.length})
         </div>
+        <PositionsList positions={positions} loading={loading} />
       </div>
     </Card>
   );
 }
+
+// Wrap with React.memo - now super stable since no parent props and only updates on address/balance changes
+const MemoizedLivePortfolioCard = React.memo(LivePortfolioCard);
+
 function PortfolioMiniCard() {
   const bal = useSolBalance();          // <- uses cached balance + events
   // …any positions/tokens you show should use *their own* cached state too…
@@ -793,10 +1341,12 @@ function PortfolioMiniCard() {
         const [feedLatency,setFeedLatency]=useState(null);
         const [feedMsgs,setFeedMsgs]=useState([]);
         function connectFeed(){ setFeedStatus("Connecting…"); setTimeout(()=>{ setFeedStatus("Connected"); setFeedLatency(Math.floor(Math.random()*20)+35); },350); }
+        /* DISABLED: Mock feed messages
         usePausableInterval(()=>{
           if(feedStatus!=="Connected") return;
           setFeedMsgs(prev=>[{id:Date.now(),text:`tick ${symbol} @ ${nf.format((last(candlesBySymbol[symbol])||{close:0}).close)}`,ts:Date.now()},...prev].slice(0,50));
         }, 1500, [feedStatus,symbol,JSON.stringify(candlesBySymbol[symbol]||[])], editMode);
+        */
         /* Edit mode & layout */
         const [layout,setLayout]=useState(loadLayout);
         const [getLastCol,setLastCol]=useLastColumn();
@@ -936,26 +1486,235 @@ function MarketInfo(){
 }
 
           
-        // Data feed panel: messages never overlap (flex + min-h-0)
-        function DataFeedPanel(){
+        // Arcade & Leaderboard panel
+        function ArcadeLeaderboardPanel(){
+          const bulbRingRef = React.useRef(null);
+          const containerRef = React.useRef(null);
+          const [showLeaderboard, setShowLeaderboard] = React.useState(true);
+          const [leaderboard, setLeaderboard] = React.useState([]);
+
+          // Load real leaderboard data from localStorage
+          React.useEffect(() => {
+            const loadLeaderboard = () => {
+              try {
+                const allPoints = JSON.parse(localStorage.getItem('nebx:arcade:points') || '{}');
+                const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+                
+                // Convert to array and sort by score descending
+                const sorted = Object.entries(allPoints).map(([addr, score]) => {
+                  const displayName = addr === 'guest' ? '@Guest' : (addr.substring(0, 4) + '...' + addr.substring(addr.length - 4));
+                  const avatar = storeState.profile?.avatar || 'NebulaX-logo.png';
+                  return {
+                    rank: 0, // Will be set below
+                    username: displayName,
+                    score: Math.floor(score || 0),
+                    games: 0, // Not tracked per player, could be added if available
+                    badge: '', // Will be set for top 3
+                    fullAddr: addr,
+                    avatar: avatar
+                  };
+                }).sort((a, b) => b.score - a.score);
+                
+                // Add rank and badges for top 3
+                const withRanks = sorted.map((p, i) => ({
+                  ...p,
+                  rank: i + 1,
+                  badge: i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : ''
+                }));
+                
+                setLeaderboard(withRanks);
+              } catch (e) {
+                console.error('Leaderboard load error:', e);
+                setLeaderboard([]);
+              }
+            };
+
+            loadLeaderboard();
+
+            // Listen for storage changes to update leaderboard in real-time
+            const handleStorageChange = (e) => {
+              if (e.key === 'nebx:arcade:points') {
+                loadLeaderboard();
+              }
+            };
+
+            window.addEventListener('storage', handleStorageChange);
+            return () => window.removeEventListener('storage', handleStorageChange);
+          }, []);
+
+          React.useEffect(() => {
+            // Generate bulbs around the marquee
+            if (!bulbRingRef.current) return;
+            
+            const container = bulbRingRef.current;
+            const bulbCount = 30;
+            const w = container.offsetWidth;
+            const h = container.offsetHeight;
+            const perimeter = 2 * (w + h);
+            
+            for (let i = 0; i < bulbCount; i++) {
+              const bulb = document.createElement('div');
+              bulb.className = 'bulb';
+              
+              const distance = (i / bulbCount) * perimeter;
+              let x, y;
+              
+              if (distance < w) {
+                x = distance;
+                y = 0;
+              } else if (distance < w + h) {
+                x = w;
+                y = distance - w;
+              } else if (distance < 2 * w + h) {
+                x = w - (distance - w - h);
+                y = h;
+              } else {
+                x = 0;
+                y = h - (distance - 2 * w - h);
+              }
+              
+              bulb.style.left = `${x}px`;
+              bulb.style.top = `${y}px`;
+              bulb.style.animationDelay = `${i * 0.045}s`;
+              
+              container.appendChild(bulb);
+            }
+            
+            return () => {
+              if (container) {
+                container.innerHTML = '';
+              }
+            };
+          }, []);
+
+          // Check container width and adapt layout
+          React.useEffect(() => {
+            if (!containerRef.current) return;
+            
+            const resizeObserver = new ResizeObserver(entries => {
+              for (let entry of entries) {
+                const width = entry.contentRect.width;
+                // Stack vertically if width < 500px, otherwise show side by side
+                setShowLeaderboard(width >= 500);
+              }
+            });
+            
+            resizeObserver.observe(containerRef.current);
+            
+            return () => resizeObserver.disconnect();
+          }, []);
+
           return (
-            <Card title="Data Feed" toolbar={<Pill>WS</Pill>}>
-              <div className="h-full flex flex-col min-h-0">
-                <div className="mb-2 flex items-center gap-2 shrink-0">
-                  <Input value={feedUrl} onChange={(v)=>setFeedUrlBySymbol(p=>({...p,[symbol]:v}))} placeholder="wss://..." right={<Icon name="link" className="w-4 h-4"/>}/>
+            <Card title="Arcade & Leaderboard" toolbar={<Pill>Weekly</Pill>}>
+              <div ref={containerRef} className={cx(
+                "h-full flex gap-3 min-h-0",
+                showLeaderboard ? "flex-row" : "flex-col"
+              )}>
+                {/* Arcade Button with Marquee Effect */}
+                <div className={cx(
+                  "flex items-center justify-center",
+                  showLeaderboard ? "w-1/2 flex-shrink-0" : "flex-1"
+                )}>
+                  <a 
+                    href="NEBX-Arcade.html"
+                    className="arcade-marquee-button group relative block w-full max-w-full"
+                    style={{
+                      aspectRatio: '10 / 4',
+                      filter: 'drop-shadow(0 4px 16px rgba(0,0,0,.4))'
+                    }}
+                  >
+                    {/* Plate background */}
+                    <div 
+                      className="absolute inset-0 rounded-2xl"
+                      style={{
+                        background: 'radial-gradient(70% 110% at 30% 20%, rgba(0,0,0,.0), rgba(0,0,0,.35)), linear-gradient(180deg,#0c1022,#0a0d1b)',
+                        border: '2px solid #2a2f55',
+                        boxShadow: 'inset 0 0 20px rgba(0,0,0,.6)'
+                      }}
+                    />
+                    
+                    {/* Bulb ring */}
+                    <div ref={bulbRingRef} className="arcade-bulb-ring absolute inset-0 pointer-events-none" />
+                    
+                    {/* Title */}
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center z-10"
+                      style={{
+                        fontSize: 'clamp(20px, 4vw, 48px)',
+                        color: '#9af6ff',
+                        textShadow: '0 0 3px #9af6ff, 0 0 8px #55eaff, 0 0 22px #00e6ff, 0 0 38px rgba(0,230,255,.8)',
+                        letterSpacing: '.02em',
+                        fontWeight: '700'
+                      }}
+                    >
+                      Arcade
+                    </div>
+                    
+                    {/* Subtitle */}
+                    <div 
+                      className="absolute bottom-[10%] left-0 right-0 text-center z-10"
+                      style={{
+                        fontSize: 'clamp(8px, 1.2vw, 11px)',
+                        color: '#eeca73',
+                        opacity: '.9',
+                        textShadow: '0 0 4px rgba(255,210,95,.5)'
+                      }}
+                    >
+                      Play • Earn • Compete
+                    </div>
+                  </a>
+                </div>
 
-
-                  <Button variant="outline" onClick={connectFeed}>Connect</Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs shrink-0">
-                  <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Latency<br/><span className="font-semibold neon-text">{feedLatency??"—"} {feedLatency?"ms":""}</span></div>
-                  <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Status<br/><span className={cx("font-semibold",feedStatus==="Connected"?"text-emerald-400":"neon-text")}>{feedStatus}</span></div>
-                  <div className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] p-2">Market<br/><span className="font-semibold neon-text">{symbol}</span></div>
-                </div>
-                <div className="mt-2 flex-1 min-h-0 overflow-auto rounded-lg bg-[var(--cyberpunk-dark-secondary)] p-2 text-xs">
-                  {feedMsgs.length===0 ? <div className="text-zinc-500">No messages yet.</div> :
-                    feedMsgs.map(m=><div key={m.id} className="neon-text">{new Date(m.ts).toLocaleTimeString()} — {m.text}</div>)}
-                </div>
+                {/* Leaderboard - Always shown, but positioned based on width */}
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <div className="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wide">
+                    Top Gamers This Week
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-auto rounded-lg bg-[var(--cyberpunk-dark-secondary)] p-2">
+                      <div className="space-y-1">
+                        {leaderboard.length > 0 ? (
+                          leaderboard.map((player) => (
+                            <div 
+                              key={player.rank}
+                              className={cx(
+                                "flex items-center gap-2 rounded-lg p-2 transition-colors",
+                                player.rank <= 3 
+                                  ? "bg-gradient-to-r from-[rgba(255,215,0,0.08)] to-transparent hover:from-[rgba(255,215,0,0.12)]"
+                                  : "hover:bg-[rgba(255,255,255,0.03)]"
+                              )}
+                            >
+                              <div className="w-6 text-center font-bold text-sm">
+                                {player.badge || player.rank}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className={cx(
+                                  "text-sm font-semibold truncate",
+                                  player.rank === 1 ? "text-amber-300" : 
+                                  player.rank === 2 ? "text-zinc-300" :
+                                  player.rank === 3 ? "text-orange-400" : "neon-text"
+                                )}>
+                                  {player.username}
+                                </div>
+                                <div className="text-xs text-zinc-500">
+                                  {player.games} games
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-cyan-400">
+                                  {player.score.toLocaleString()}
+                                </div>
+                                <div className="text-xs text-zinc-500">XP</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center text-xs text-zinc-400 py-4">
+                            No scores yet. Play a game to get on the board!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
               </div>
             </Card>
           );
@@ -990,7 +1749,7 @@ function DocsPanel(){
   );
 }
 
-        function SelfTestPanel(){ return <Card title="Self-Test" toolbar={<Pill>Diagnostics</Pill>}><div className="text-sm neon-text space-y-2"><button className="rounded-xl bg-[var(--cyberpunk-dark-secondary)] px-3 py-2 hover:bg-[var(--cyberpunk-dark-secondary)] active-glow" onClick={()=>{try{const okReact=!!window.React&&!!window.ReactDOM;const okTailwind=!!document.querySelector(".rounded-2xl");const okLucide=!!window.lucide;const okLW=!!(window.LightweightCharts&&typeof window.LightweightCharts.createChart==="function");alert(`React:${okReact} • Tailwind:${okTailwind} • Lucide:${okLucide} • LWC:${okLW}`);}catch(e){alert("Self-Test failed: "+e.message);}}}>Run Self-Test</button><div className="text-xs text-zinc-400">Runs quick client checks.</div></div></Card>; }
+        function SelfTestPanel(){ return <Card title="Nebula Launcher" toolbar={<Pill>Launch</Pill>}><div className="text-sm neon-text space-y-2"><a href="NebbyLauncher.html" className="inline-block rounded-xl bg-[var(--nx-cyan)] px-4 py-2 hover:bg-cyan-400 text-black font-semibold active-glow" style={{textDecoration:'none',cursor:'pointer'}}>Launch Pad</a><div className="text-xs text-zinc-400">Access the Nebula Launch Pad.</div></div></Card>; }
 
         /* Signal Hub: content scrolls inside the panel (no overflow outside) */
         function SignalHubPanel({dockBack}){
@@ -1105,6 +1864,114 @@ function ExplorePanel({dockBack, isTop}){
   );
 }
 
+        // Header wallet display component (replaces UseWalletReadout)
+        function HeaderWalletDisplay() {
+          const [addr, setAddr] = React.useState(null);
+          const [bal, setBal] = React.useState(null);
+
+          React.useEffect(() => {
+            let alive = true;
+
+            // set initial from wallet cache
+            const setFromWallet = () => {
+              const a = window.NXWallet?.getAddress?.() || null;
+              const b = window.NXWallet?.getBalance?.();
+              if (!alive) return;
+              setAddr(a);
+              setBal(b == null ? null : b);
+            };
+
+            // 1) push updates: fired by nx-wallet when balance changes
+            const onSol = (e) => {
+              const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+              if (alive) setBal(b == null ? null : b);
+            };
+            window.addEventListener("nebula:sol:changed", onSol);
+
+            // 2) gentle 60s tick (hits RPC at most once/min because of your throttle)
+            setFromWallet();
+            const id = setInterval(() => {
+              try { window.NXWallet?.refreshBalance?.(false); } catch {}
+            }, 60_000);
+
+            // 3) fast catch-up when tab regains focus
+            const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+            const onVis = () => { if (!document.hidden) onFocus(); };
+            window.addEventListener("focus", onFocus);
+            window.addEventListener("visibilitychange", onVis);
+
+            return () => {
+              alive = false;
+              window.removeEventListener("nebula:sol:changed", onSol);
+              window.removeEventListener("focus", onFocus);
+              window.removeEventListener("visibilitychange", onVis);
+              clearInterval(id);
+            };
+          }, []);
+
+          return (
+            <div className="text-xs text-zinc-300 flex items-center gap-2">
+              {addr ? (
+                <>
+                  <span className="text-zinc-500">{addr.slice(0, 6)}…{addr.slice(-4)}</span>
+                  <span className="neon-text font-semibold">{bal == null ? "—" : Number(bal).toFixed(3)} SOL</span>
+                </>
+              ) : (
+                <span className="text-zinc-500">—</span>
+              )}
+            </div>
+          );
+        }
+
+        function HeaderWalletButton() {
+          const [bal, setBal] = React.useState(null);
+
+          React.useEffect(() => {
+            let alive = true;
+
+            const updateBal = () => {
+              const b = window.NXWallet?.getBalance?.();
+              if (alive) setBal(b == null ? null : b);
+            };
+
+            const onSol = (e) => {
+              const b = e?.detail?.balance ?? window.NXWallet?.getBalance?.();
+              if (alive) setBal(b == null ? null : b);
+            };
+            window.addEventListener("nebula:sol:changed", onSol);
+
+            updateBal();
+            const id = setInterval(() => {
+              try { window.NXWallet?.refreshBalance?.(false); } catch {}
+            }, 60_000);
+
+            const onFocus = () => { try { window.NXWallet?.refreshBalance?.(true); } catch {} };
+            const onVis = () => { if (!document.hidden) onFocus(); };
+            window.addEventListener("focus", onFocus);
+            window.addEventListener("visibilitychange", onVis);
+
+            return () => {
+              alive = false;
+              window.removeEventListener("nebula:sol:changed", onSol);
+              window.removeEventListener("focus", onFocus);
+              window.removeEventListener("visibilitychange", onVis);
+              clearInterval(id);
+            };
+          }, []);
+
+          const handleClick = () => {
+            if (window.NXWallet?.openWalletMenu) {
+              window.NXWallet.openWalletMenu();
+            }
+          };
+
+          return (
+            <button id="wallet-btn" className="nx-btn" onClick={handleClick}>
+              <i data-lucide="wallet" className="w-3 h-3 mr-2" />
+              {bal == null ? "Connect Wallet" : `Bal: ${Number(bal).toFixed(3)} SOL`}
+            </button>
+          );
+        }
 
         /* ====================== UI ====================== */
         return (
@@ -1199,19 +2066,11 @@ function ExplorePanel({dockBack, isTop}){
 
       <a href="nebula_x_store_official.html" id="nx-store" className="nx-btn">Store</a>
 
-      {/* Neutral wallet button (no undefined vars here) */}
-      <Button variant="outline" className="flex items-center gap-2">
-        <i data-lucide="wallet" className="w-4 h-4" />
-        Wallet
-      </Button>
-
-      {/* Live address/balance (reads from window.NXWallet) */}
-      <UseWalletReadout />
+      {/* Wallet button with balance display */}
+      <HeaderWalletButton />
     </div>
   </div>
 </div>
-
-
 
         {/* Body: Sidebar + Canvas */}
             <div className="mx-auto max-w-[1600px] p-3 relative">
@@ -1246,19 +2105,30 @@ function ExplorePanel({dockBack, isTop}){
                   <div className="mb-3">
                     <div className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Trending</div>
                     <div className="grid grid-cols-1 gap-2">
-{trending.slice(0,5).map((s)=>(
+{trending.length > 0 ? trending.slice(0,5).map((token, idx)=>{
+  const sym = typeof token === 'string' ? token : token.symbol;
+  const change = typeof token === 'object' ? (token.dsPriceChange_5m || 0) : (Math.random()*5);
+  const mint = typeof token === 'object' ? token.mint : null;
+  return (
   <button
-    key={s}
+    key={mint || sym || idx}
     onMouseDown={(e)=>e.stopPropagation()}
-    onClick={(e)=>{ e.stopPropagation(); NX.goToCoin({ symbol: s }); }}
+    onClick={(e)=>{ 
+      e.stopPropagation(); 
+      if (window.NX?.goToCoin && mint) {
+        window.NX.goToCoin({ mint, symbol: sym, pair: `${sym}/SOL` }); 
+      }
+    }}
     className="group flex items-center justify-between rounded-xl border border-[var(--cyberpunk-border)] bg-[var(--cyberpunk-dark-secondary)] px-3 py-2 hover:bg-[var(--cyberpunk-dark-secondary)]"
   >
-    <span className="text-sm neon-text truncate">{s}</span>
-    <span className="text-xs text-emerald-400 group-hover:translate-x-0.5 transition shrink-0 ml-2">
-      +{(Math.random()*5).toFixed(2)}%
+    <span className="text-sm neon-text truncate">{sym || '???'}</span>
+    <span className={cx("text-xs group-hover:translate-x-0.5 transition shrink-0 ml-2", change >= 0 ? "text-emerald-400" : "text-red-400")}>
+      {change >= 0 ? '+' : ''}{change.toFixed(2)}%
     </span>
   </button>
-))}
+)}) : (
+  <div className="text-xs text-zinc-500 p-2">Loading trending...</div>
+)}
 
                     </div>
 
@@ -1405,10 +2275,10 @@ function ExplorePanel({dockBack, isTop}){
                         >
                           {pid==="ticker" && <MarketInfo/>}
                           {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
-                          {pid==="data-feed" && <DataFeedPanel/>}
+                          {pid==="data-feed" && <ArcadeLeaderboardPanel/>}
                           {pid==="alerts" && <AlertsPanel/>}
                           {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <LivePortfolioCard solUsd={solUsd}/>}
+{pid === "portfolio" && <MemoizedLivePortfolioCard/>}
                               {pid==="docs" && <DocsPanel/>}
                           {pid==="selftest" && <SelfTestPanel/>}
                           {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
@@ -1441,14 +2311,15 @@ function ExplorePanel({dockBack, isTop}){
                               setWide={setWide}
                               onInsertAt={(pid2)=>onInsertAt(pid2,"left",idx)}
                             >
+                              {pid==="trending" && <TrendingPanel/>}
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
-                              {pid==="data-feed" && <DataFeedPanel/>}
+                              {pid==="data-feed" && <ArcadeLeaderboardPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="signal" && <SignalHubPanel dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedSignal=false; next.wide=next.wide.filter(p=>p!=="signal"); next.left=next.left.filter(p=>p!=="signal"); next.right=next.right.filter(p=>p!=="signal"); return next; })}/>}
                               {pid==="explore" && <ExplorePanel isTop={false} dockBack={()=>setLayout(prev=>{ const next=cloneLayout(prev); next.undockedExplore=false; next.wide=next.wide.filter(p=>p!=="explore"); next.left=next.left.filter(p=>p!=="explore"); next.right=next.right.filter(p=>p!=="explore"); return next; })}/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <LivePortfolioCard solUsd={solUsd}/>}
+{pid === "portfolio" && <MemoizedLivePortfolioCard/>}
                                   {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
                             </DraggableResizablePanel>
@@ -1476,12 +2347,13 @@ function ExplorePanel({dockBack, isTop}){
                               setWide={setWide}
                               onInsertAt={(pid2)=>onInsertAt(pid2,"right",idx)}
                             >
+                              {pid==="trending" && <TrendingPanel/>}
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
-                              {pid==="data-feed" && <DataFeedPanel/>}
+                              {pid==="data-feed" && <ArcadeLeaderboardPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
                               {pid==="alerts" && <AlertsPanel/>}
                               {pid==="referrals" && <ReferralsPanel/>}
-{pid === "portfolio" && <LivePortfolioCard solUsd={solUsd}/>}
+{pid === "portfolio" && <MemoizedLivePortfolioCard/>}
                                   {pid==="docs" && <DocsPanel/>}
                               {pid==="selftest" && <SelfTestPanel/>}
 

@@ -8,6 +8,47 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<!-- Jupiter Swap Integration -->
+<script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const btn = document.getElementById("wallet-btn");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
+    } else {
+      const s = sol.toFixed(3);
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${s} SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+});
+</script>
 <style>
   :root {
     --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
@@ -211,7 +252,11 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet</button>
+          <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+                  style="border-color:var(--nx-border)">
+            <img id="nx-pfp" src="/pfp/default.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+          </button>
         </div>
       </div>
     </header>
@@ -221,11 +266,11 @@
       <section class="mt-3">
         <div class="nx-panel p-3">
           <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-sm">
-            <div class="nx-btn tabnums">Market Cap: <span class="ml-1 text-emerald-400">—</span></div>
-            <div class="nx-btn tabnums">Price: <span class="ml-1 text-emerald-400">—</span></div>
-            <div class="nx-btn tabnums">Liquidity: <span class="ml-1 text-emerald-400">—</span></div>
-            <div class="nx-btn tabnums">Supply: <span class="ml-1 text-emerald-400">—</span></div>
-            <div class="nx-btn tabnums">24h Vol (mock): <span class="ml-1 text-emerald-400">—</span></div>
+            <div id="stat-mcap" class="nx-btn tabnums">Market Cap: <span class="ml-1 text-emerald-400">—</span></div>
+            <div id="stat-price" class="nx-btn tabnums">Price: <span class="ml-1 text-emerald-400">—</span></div>
+            <div id="stat-liq" class="nx-btn tabnums">Liquidity: <span class="ml-1 text-emerald-400">—</span></div>
+            <div id="stat-fdv" class="nx-btn tabnums">Supply: <span class="ml-1 text-emerald-400">—</span></div>
+            <div id="stat-vol" class="nx-btn tabnums">24h Vol (mock): <span class="ml-1 text-emerald-400">—</span></div>
             <div class="flex justify-end">
               <button id="alerts-open" class="nx-btn nx-btn-cyan"><i data-lucide="bell-plus" class="w-4 h-4 mr-2"></i>Alerts</button>
             </div>
@@ -239,8 +284,11 @@
         <section id="leftColPanel" class="nx-panel p-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="h-5 w-5 rounded-full bg-[var(--nx-dark-2)] border border-[var(--nx-border)]"></div>
-              <div class="text-lg nx-title">NEBULAX (NEBX) — Nebula Exchange Token</div>
+              <div id="coin-logo" class="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 border border-[var(--nx-border)] overflow-hidden flex items-center justify-center text-xs"></div>
+              <div>
+                <div class="text-lg nx-title" id="coin-title">Loading...</div>
+                <div class="text-xs text-zinc-500 mt-1 font-mono" id="title-ca">—</div>
+              </div>
             </div>
             <div class="flex items-center gap-2">
               <button class="nx-btn h-8 w-8 grid place-items-center" title="More"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
@@ -251,9 +299,14 @@
 
           <!-- CHART CARD -->
           <div class="mt-3 relative nx-panel p-2 h-[420px]" id="coinChartPanel">
-            <button class="absolute top-2 right-2 nx-btn nx-btn-cyan text-xs px-2 py-1">1m</button>
-            <div class="w-full h-full bg-[#090d16] grid place-items-center rounded-[12px] border border-[var(--nx-border)]">
-              <div class="text-zinc-400 text-sm">Chart Placeholder (Integrate TradingView or similar later)</div>
+            <div id="chart-container" class="w-full h-full bg-[#090d16] rounded-[12px] border border-[var(--nx-border)] overflow-hidden">
+              <div id="chart-loading" class="w-full h-full grid place-items-center">
+                <div class="text-center">
+                  <div class="text-zinc-400 text-sm mb-2">Loading chart...</div>
+                  <div class="text-xs text-zinc-500">Powered by GeckoTerminal</div>
+                </div>
+              </div>
+              <iframe id="chart-iframe" class="w-full h-full" style="display:none; border:none;" frameborder="0"></iframe>
             </div>
           </div>
 
@@ -311,8 +364,34 @@
           </div>
 
           <div class="mt-3 space-y-2">
-            <label class="text-sm">Amount (SOL)</label>
+            <label class="text-sm" id="amt-label">Amount (SOL)</label>
             <input id="amt" class="nx-input tabnums" placeholder="0.0"/>
+            
+            <!-- Quick Amount Buttons - Buy Mode: SOL presets, Sell Mode: % buttons -->
+            <div class="grid grid-cols-4 gap-2" id="quick-buy-btns">
+              <button class="nx-btn text-xs" data-sol="0.005">0.005</button>
+              <button class="nx-btn text-xs" data-sol="0.01">0.01</button>
+              <button class="nx-btn text-xs" data-sol="0.015">0.015</button>
+              <button class="nx-btn text-xs" data-sol="0.02">0.02</button>
+            </div>
+            <div class="grid grid-cols-4 gap-2 hidden" id="quick-sell-btns">
+              <button class="nx-btn text-xs" data-pct="25">25%</button>
+              <button class="nx-btn text-xs" data-pct="50">50%</button>
+              <button class="nx-btn text-xs" data-pct="75">75%</button>
+              <button class="nx-btn text-xs" data-pct="100">100%</button>
+            </div>
+            
+            <!-- Expected Output -->
+            <div id="output-display" class="hidden nx-panel p-2 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="text-zinc-400">You'll receive:</span>
+                <span id="output-amount" class="font-semibold text-emerald-400">—</span>
+              </div>
+              <div class="flex justify-between items-center mt-1 text-xs">
+                <span class="text-zinc-400">Price Impact:</span>
+                <span id="price-impact" class="text-zinc-400">—</span>
+              </div>
+            </div>
 
             <div id="tp-sl" class="grid grid-cols-2 gap-2">
               <div>
@@ -352,31 +431,30 @@
           </div>
 
           <div class="grid grid-cols-4 gap-3 mt-4 text-center text-xs">
-            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Bought</div><div>$0</div></div>
-            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Sold</div><div>$0</div></div>
-            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Holding</div><div>$0</div></div>
-            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">PnL</div><div class="text-rose-400">$0 (0%)</div></div>
+            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Bought</div><div id="stat-bought">$0</div></div>
+            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Sold</div><div id="stat-sold">$0</div></div>
+            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">Holding</div><div id="stat-holding">$0</div></div>
+            <div class="nx-panel p-2 tabnums"><div class="text-zinc-400">PnL</div><div id="stat-pnl" class="text-rose-400">$0 (0%)</div></div>
           </div>
+          
+          <!-- Token Holdings Display -->
+          <div id="holdings-info" class="mt-2 text-xs text-zinc-500 text-center"></div>
 
           <div class="mt-3 mb-1 h-px bg-[var(--nx-border)]"></div>
           <div class="text-xs uppercase tracking-wide text-zinc-400 mb-2">Token Info</div>
 
           <div class="grid grid-cols-3 gap-3 text-center text-xs">
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">Top 10 H</span></div>
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">Dev H</span></div>
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">Snipers H</span></div>
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">Insiders</span></div>
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">Bundlers</span></div>
-            <div class="nx-panel p-2">0%<br/><span class="text-zinc-400">LP Burned</span></div>
-            <div class="nx-panel p-2">0<br/><span class="text-zinc-400">Holders</span></div>
-            <div class="nx-panel p-2">0<br/><span class="text-zinc-400">Pro Traders</span></div>
-            <div class="nx-panel p-2">None<br/><span class="text-zinc-400">Dex Paid</span></div>
+            <div class="nx-panel p-2"><div id="info-top10h">0%</div><span class="text-zinc-400">Top 10 H</span></div>
+            <div class="nx-panel p-2"><div id="info-devh">0%</div><span class="text-zinc-400">Dev H</span></div>
+            <div class="nx-panel p-2"><div id="info-snipersh">0%</div><span class="text-zinc-400">Snipers H</span></div>
+            <div class="nx-panel p-2"><div id="info-insiders">0%</div><span class="text-zinc-400">Insiders</span></div>
+            <div class="nx-panel p-2"><div id="info-bundlers">0%</div><span class="text-zinc-400">Bundlers</span></div>
+            <div class="nx-panel p-2"><div id="info-lpburned">0%</div><span class="text-zinc-400">LP Burned</span></div>
+            <div class="nx-panel p-2"><div id="info-holders">0</div><span class="text-zinc-400">Holders</span></div>
+            <div class="nx-panel p-2"><div id="info-protraders">0</div><span class="text-zinc-400">Pro Traders</span></div>
+            <div class="nx-panel p-2"><div id="info-dexpaid">None</div><span class="text-zinc-400">Dex Paid</span></div>
           </div>
-
-          <div class="mt-3 nx-panel p-3 text-xs break-words">
-            CA: <span class="text-zinc-400">fooGf...WYo9FbWTQ9sv… (mock)</span>
-          </div>
-        </aside>
+        </section>
       </main>
 
       <footer class="mt-3 mb-4">
@@ -582,15 +660,8 @@
         alert(`Reset Preset ${activePreset}`);
       });
 
-      /* Buy/Sell & Submit mock */
-      document.getElementById('buy-btn')?.addEventListener('click', ()=>{ document.getElementById('submit-order').textContent='Buy NEBULAX'; });
-      document.getElementById('sell-btn')?.addEventListener('click', ()=>{ document.getElementById('submit-order').textContent='Sell NEBULAX'; });
-      document.getElementById('submit-order')?.addEventListener('click', ()=>{
-        const side=document.getElementById('submit-order').textContent.startsWith('Sell')?'Sell':'Buy';
-        const feeSol=activePreset?(PRESETS[activePreset]?.feeSol||'0.001'):'—';
-        const mev=activePreset?(PRESETS[activePreset]?.mev?'On':'Off'):'—';
-        alert(`${side} ${amtInput.value||'0'} SOL of NEBULAX (mock)\nFee: ${feeSol} SOL\nMEV Protection: ${mev}`);
-      });
+      /* Buy/Sell & Submit - now handled by Jupiter integration below */
+      // Removed old mock handlers - Jupiter script handles these
 
       /* Alerts popover */
       const aOpen=document.getElementById('alerts-open');
@@ -611,6 +682,572 @@
       document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id)?.classList.add('hidden'); }));
       ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.classList.add('hidden'); }); });
     </script>
+
+    <!-- === Jupiter Swap Integration === -->
+<script>
+(async function(){
+  // Jupiter Swap Configuration
+  const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
+  const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+  const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Native SOL
+  const SLIPPAGE_BPS = 50; // 0.5% slippage (50 basis points)
+  
+  let currentQuote = null;
+  let isSwapping = false;
+  let isBuyMode = true; // true = buy token, false = sell token
+  
+  const amtInput = document.getElementById('amt');
+  const outputDisplay = document.getElementById('output-display');
+  const outputAmount = document.getElementById('output-amount');
+  const priceImpact = document.getElementById('price-impact');
+  const submitBtn = document.getElementById('submit-order');
+  const buyBtn = document.getElementById('buy-btn');
+  const sellBtn = document.getElementById('sell-btn');
+  
+  // Get current token mint from URL
+  function getCurrentMint() {
+    const qp = new URLSearchParams(location.search);
+    const mint = qp.get('mint') || '';
+    if (!mint) {
+      console.warn('[Jupiter] No mint address found in URL');
+    }
+    return mint;
+  }
+  
+  // Make getCurrentMint globally accessible
+  window.NX_getCurrentMint = getCurrentMint;
+  
+  // Format token amounts with proper decimals
+  function formatTokenAmount(amount, decimals = 9) {
+    const num = parseFloat(amount) / Math.pow(10, decimals);
+    if (num < 0.01) return num.toExponential(2);
+    if (num < 1) return num.toFixed(6);
+    if (num < 1000) return num.toFixed(4);
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  
+  // Fetch quote from Jupiter with retry logic
+  async function fetchQuote(inputMint, outputMint, amount, decimals = 9, retries = 2) {
+    try {
+      const amountLamports = Math.floor(parseFloat(amount) * Math.pow(10, decimals));
+      if (amountLamports <= 0) return null;
+      
+      const params = new URLSearchParams({
+        inputMint,
+        outputMint,
+        amount: amountLamports.toString(),
+        slippageBps: SLIPPAGE_BPS.toString(),
+      });
+      
+      const response = await fetch(`${JUPITER_QUOTE_API}?${params}`);
+      if (!response.ok) throw new Error(`Quote failed: ${response.status}`);
+      
+      const quote = await response.json();
+      console.log('[Jupiter] Quote:', quote);
+      return quote;
+    } catch (error) {
+      console.error('[Jupiter] Quote error:', error);
+      
+      // Retry with exponential backoff
+      if (retries > 0) {
+        const delay = (3 - retries) * 500; // 500ms, then 1000ms
+        console.log(`[Jupiter] Retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchQuote(inputMint, outputMint, amount, decimals, retries - 1);
+      }
+      
+      return null;
+    }
+  }
+  
+  // Get swap transaction from Jupiter
+  async function getSwapTransaction(quote, userPublicKey) {
+    try {
+      const response = await fetch(JUPITER_SWAP_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteResponse: quote,
+          userPublicKey: userPublicKey.toString(),
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto'
+        })
+      });
+      
+      if (!response.ok) throw new Error(`Swap transaction failed: ${response.status}`);
+      
+      const { swapTransaction } = await response.json();
+      return swapTransaction;
+    } catch (error) {
+      console.error('[Jupiter] Swap transaction error:', error);
+      throw error;
+    }
+  }
+  
+  // Update output display with quote info
+  function updateOutputDisplay(quote) {
+    if (!quote) {
+      outputDisplay.classList.add('hidden');
+      return;
+    }
+    
+    currentQuote = quote;
+    const outAmount = formatTokenAmount(quote.outAmount, 9);
+    const impact = parseFloat(quote.priceImpactPct || 0);
+    const impactColor = impact > 5 ? 'text-rose-400' : impact > 1 ? 'text-amber-400' : 'text-emerald-400';
+    
+    outputAmount.textContent = outAmount;
+    priceImpact.textContent = `${impact.toFixed(2)}%`;
+    priceImpact.className = `${impactColor}`;
+    outputDisplay.classList.remove('hidden');
+  }
+  
+  // Show error in output display
+  function showOutputError(message) {
+    outputAmount.textContent = message;
+    outputAmount.className = 'font-semibold text-rose-400 text-xs';
+    priceImpact.textContent = '—';
+    outputDisplay.classList.remove('hidden');
+  }
+  
+  // Debounced quote fetcher
+  let quoteTimeout;
+  async function handleAmountChange() {
+    clearTimeout(quoteTimeout);
+    
+    const amount = amtInput.value?.trim();
+    if (!amount || parseFloat(amount) <= 0) {
+      outputDisplay.classList.add('hidden');
+      currentQuote = null;
+      return;
+    }
+    
+    const mint = getCurrentMint();
+    if (!mint) {
+      console.warn('[Jupiter] No token mint found');
+      return;
+    }
+    
+    // Show loading state
+    outputAmount.textContent = 'Loading...';
+    outputAmount.className = 'font-semibold text-emerald-400';
+    priceImpact.textContent = '...';
+    outputDisplay.classList.remove('hidden');
+    
+    quoteTimeout = setTimeout(async () => {
+      const inputMint = isBuyMode ? SOL_MINT : mint;
+      const outputMint = isBuyMode ? mint : SOL_MINT;
+      const quote = await fetchQuote(inputMint, outputMint, amount);
+      
+      if (quote) {
+        updateOutputDisplay(quote);
+      } else {
+        // Show error message
+        const tokenSymbol = window.NX?.base || 'TOKEN';
+        if (isBuyMode) {
+          showOutputError(`No liquidity to buy ${tokenSymbol}`);
+        } else {
+          showOutputError(`No liquidity to sell ${tokenSymbol}`);
+        }
+      }
+    }, 1000);
+  }
+  
+  // Execute swap
+  async function executeSwap() {
+    if (isSwapping || !currentQuote) {
+      if (!currentQuote) {
+        alert('Please wait for quote to load or check if token has liquidity on Jupiter');
+      }
+      return;
+    }
+    
+    // Check wallet connection
+    if (!window.NXWallet?.isConnected()) {
+      alert('Please connect your wallet first');
+      return;
+    }
+    
+    const mint = getCurrentMint();
+    if (!mint) {
+      alert('Token mint not found');
+      return;
+    }
+    
+    isSwapping = true;
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Swapping...';
+    submitBtn.disabled = true;
+    
+    try {
+      // Get wallet provider
+      const provider = window.phantom?.solana || window.solana;
+      if (!provider) throw new Error('Wallet provider not found');
+      
+      const publicKey = provider.publicKey;
+      if (!publicKey) throw new Error('Wallet not connected');
+      
+      console.log('[Jupiter] Getting swap transaction...');
+      const swapTransactionBase64 = await getSwapTransaction(currentQuote, publicKey);
+      
+      // Deserialize and sign transaction
+      const swapTransactionBuf = Buffer.from(swapTransactionBase64, 'base64');
+      const transaction = solanaWeb3.VersionedTransaction.deserialize(swapTransactionBuf);
+      
+      console.log('[Jupiter] Signing transaction...');
+      const signedTransaction = await provider.signTransaction(transaction);
+      
+      // Send transaction
+      console.log('[Jupiter] Sending transaction...');
+      const connection = new solanaWeb3.Connection(window.NX_RPC);
+      const rawTransaction = signedTransaction.serialize();
+      const txid = await connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: true,
+        maxRetries: 2
+      });
+      
+      console.log('[Jupiter] Transaction sent:', txid);
+      submitBtn.textContent = 'Confirming...';
+      
+      // Wait for confirmation
+      const latestBlockHash = await connection.getLatestBlockhash();
+      await connection.confirmTransaction({
+        blockhash: latestBlockHash.blockhash,
+        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+        signature: txid
+      });
+      
+      console.log('[Jupiter] Transaction confirmed:', txid);
+      
+      // Log to order book
+      const tokenSymbol = window.NX?.base || 'TOKEN';
+      const mint = getCurrentMint();
+      const userPublicKey = window.NXWallet?.publicKey;
+      
+      // Calculate actual amounts from quote
+      const tokenAmount = parseFloat(
+        isBuyMode ? currentQuote.outAmount : currentQuote.inAmount
+      ) / Math.pow(10, 9);
+      
+      const solAmount = parseFloat(
+        isBuyMode ? currentQuote.inAmount : currentQuote.outAmount
+      ) / Math.pow(10, 9);
+      
+      const price = window.NX?.price || 0;
+      
+      logTradeToOrderBook({
+        tokenMint: mint,
+        tokenSymbol: tokenSymbol,
+        type: isBuyMode ? 'buy' : 'sell',
+        tokenAmount: tokenAmount,
+        solAmount: solAmount,
+        price: price,
+        txid: txid,
+        wallet: userPublicKey.toString()
+      });
+      
+      // Clear inputs and refresh all balances
+      amtInput.value = '';
+      outputDisplay.classList.add('hidden');
+      currentQuote = null;
+      
+      // Refresh wallet SOL balance
+      if (window.NXWallet?.refreshBalance) {
+        await window.NXWallet.refreshBalance(true);
+      }
+      
+      // Trigger holdings refresh (token balance and stats)
+      console.log('[Jupiter] Triggering holdings refresh...');
+      window.dispatchEvent(new CustomEvent('jupiter:swap:complete', { detail: { txid } }));
+      
+      // Show success message
+      alert(`Swap successful!\n\nTransaction: ${txid.slice(0, 8)}...${txid.slice(-8)}\n\nView on Solscan: https://solscan.io/tx/${txid}`);
+      
+    } catch (error) {
+      console.error('[Jupiter] Swap failed:', error);
+      alert(`Swap failed: ${error.message}`);
+    } finally {
+      isSwapping = false;
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
+  }
+  
+  // ===== ORDER BOOK SYSTEM =====
+  const ORDER_BOOK_KEY = 'nebulax_order_book';
+  
+  // Make order book functions globally accessible
+  window.NXOrderBook = {
+    ORDER_BOOK_KEY: ORDER_BOOK_KEY,
+    logTrade: logTradeToOrderBook,
+    getTokenTrades: getTokenTrades,
+    getUserTokenTrades: getUserTokenTrades,
+    calculateUserStats: calculateUserStats,
+    refreshDisplay: refreshOrderBookDisplay
+  };
+  
+  // Log trade to order book
+  function logTradeToOrderBook(trade) {
+    try {
+      const orderBook = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+      
+      const tradeEntry = {
+        timestamp: Date.now(),
+        tokenMint: trade.tokenMint,
+        tokenSymbol: trade.tokenSymbol,
+        type: trade.type, // 'buy' or 'sell'
+        tokenAmount: trade.tokenAmount,
+        solAmount: trade.solAmount,
+        price: trade.price,
+        txid: trade.txid,
+        wallet: trade.wallet
+      };
+      
+      orderBook.unshift(tradeEntry); // Add to beginning
+      
+      // Keep last 1000 trades
+      if (orderBook.length > 1000) orderBook.pop();
+      
+      localStorage.setItem(ORDER_BOOK_KEY, JSON.stringify(orderBook));
+      console.log('[OrderBook] Trade logged:', tradeEntry);
+      
+      // Refresh order book display if on current token
+      const currentMint = (window.NX_getCurrentMint && window.NX_getCurrentMint()) || '';
+      if (currentMint === trade.tokenMint) {
+        refreshOrderBookDisplay();
+      }
+    } catch (error) {
+      console.error('[OrderBook] Failed to log trade:', error);
+    }
+  }
+  
+  // Get trades for specific token
+  function getTokenTrades(tokenMint) {
+    try {
+      const orderBook = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+      return orderBook.filter(trade => trade.tokenMint === tokenMint);
+    } catch (error) {
+      console.error('[OrderBook] Failed to get token trades:', error);
+      return [];
+    }
+  }
+  
+  // Get user's trades for specific token
+  function getUserTokenTrades(tokenMint, wallet) {
+    try {
+      const orderBook = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+      return orderBook.filter(trade => 
+        trade.tokenMint === tokenMint && 
+        trade.wallet === wallet
+      );
+    } catch (error) {
+      console.error('[OrderBook] Failed to get user trades:', error);
+      return [];
+    }
+  }
+  
+  // Calculate user stats from trade history
+  function calculateUserStats(tokenMint, wallet) {
+    const trades = getUserTokenTrades(tokenMint, wallet);
+    
+    let totalBought = 0;
+    let totalSold = 0;
+    let solSpent = 0;
+    let solReceived = 0;
+    
+    trades.forEach(trade => {
+      if (trade.type === 'buy') {
+        totalBought += trade.tokenAmount;
+        solSpent += trade.solAmount;
+      } else {
+        totalSold += trade.tokenAmount;
+        solReceived += trade.solAmount;
+      }
+    });
+    
+    const pnl = solReceived - solSpent;
+    
+    return {
+      bought: totalBought,
+      sold: totalSold,
+      pnl: pnl,
+      boughtUSD: solSpent * (window.NX?.solPrice || 0),
+      soldUSD: solReceived * (window.NX?.solPrice || 0),
+      pnlUSD: pnl * (window.NX?.solPrice || 0)
+    };
+  }
+  
+  // Format time ago
+  function timeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    
+    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
+  
+  // Refresh order book display
+  function refreshOrderBookDisplay() {
+    const mint = (window.NX_getCurrentMint && window.NX_getCurrentMint()) || '';
+    if (!mint) {
+      console.warn('[OrderBook] No mint address found');
+      return;
+    }
+    
+    const trades = getTokenTrades(mint).slice(0, 50); // Show last 50 trades
+    
+    // Find the tab content container
+    const tabs = document.querySelectorAll('.tab');
+    let orderBookTab = null;
+    tabs.forEach(tab => {
+      if (tab.textContent.includes('Order Book')) {
+        orderBookTab = tab;
+      }
+    });
+    
+    if (!orderBookTab) {
+      console.warn('[OrderBook] Could not find Order Book tab');
+      return;
+    }
+    
+    // Get the parent tab container
+    const tabContainer = orderBookTab.closest('.tabs');
+    if (!tabContainer) return;
+    
+    // Find the tab content area (usually the next sibling or nearby element)
+    let contentArea = tabContainer.nextElementSibling;
+    while (contentArea && !contentArea.classList.contains('tab-content')) {
+      contentArea = contentArea.nextElementSibling;
+    }
+    
+    if (!contentArea) {
+      console.warn('[OrderBook] Could not find tab content area');
+      return;
+    }
+    
+    if (trades.length === 0) {
+      contentArea.innerHTML = `
+        <div class="p-6 text-center text-gray-400">
+          <p>No trades yet for this token</p>
+          <p class="text-sm mt-2">Be the first to trade!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    contentArea.innerHTML = `
+      <div class="overflow-auto" style="max-height: 400px;">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-gray-900 border-b border-gray-700">
+            <tr class="text-gray-400 text-left">
+              <th class="p-2">Time</th>
+              <th class="p-2">Type</th>
+              <th class="p-2 text-right">Token Amount</th>
+              <th class="p-2 text-right">SOL Amount</th>
+              <th class="p-2 text-right">Price</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800">
+            ${trades.map(trade => `
+              <tr class="hover:bg-gray-800/50">
+                <td class="p-2 text-gray-400 text-xs">${timeAgo(trade.timestamp)}</td>
+                <td class="p-2">
+                  <span class="px-2 py-1 rounded text-xs font-semibold ${
+                    trade.type === 'buy' 
+                      ? 'bg-emerald-500/20 text-emerald-400' 
+                      : 'bg-rose-500/20 text-rose-400'
+                  }">
+                    ${trade.type.toUpperCase()}
+                  </span>
+                </td>
+                <td class="p-2 text-right font-mono">${formatNumber(trade.tokenAmount)}</td>
+                <td class="p-2 text-right font-mono">${trade.solAmount.toFixed(4)} SOL</td>
+                <td class="p-2 text-right font-mono text-gray-300">$${formatNumber(trade.price)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    console.log('[OrderBook] Display refreshed with', trades.length, 'trades');
+  }
+  
+  // Event listeners
+  amtInput?.addEventListener('input', handleAmountChange);
+  submitBtn?.addEventListener('click', executeSwap);
+  
+  // Quick amount buttons
+  const quickBuyBtns = document.getElementById('quick-buy-btns');
+  const quickSellBtns = document.getElementById('quick-sell-btns');
+  const amtLabel = document.getElementById('amt-label');
+  let currentBalance = 0; // Will be updated by holdings system
+  
+  // Store user's token balance globally
+  window.NX_updateBalance = function(balance) {
+    currentBalance = balance;
+  };
+  
+  // SOL preset buttons (buy mode)
+  if (quickBuyBtns) {
+    quickBuyBtns.querySelectorAll('[data-sol]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const amount = btn.dataset.sol;
+        amtInput.value = amount;
+        handleAmountChange();
+      });
+    });
+  }
+  
+  // Percentage buttons (sell mode)
+  if (quickSellBtns) {
+    quickSellBtns.querySelectorAll('[data-pct]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pct = parseFloat(btn.dataset.pct);
+        if (!pct) return;
+        
+        if (currentBalance > 0) {
+          const amount = (currentBalance * pct / 100).toFixed(6);
+          amtInput.value = amount;
+          handleAmountChange();
+        } else {
+          alert('No token balance to sell');
+        }
+      });
+    });
+  }
+  
+  // Buy/Sell mode toggle
+  buyBtn?.addEventListener('click', () => {
+    isBuyMode = true;
+    const mint = getCurrentMint();
+    const base = window.NX?.base || 'TOKEN';
+    submitBtn.textContent = `Buy ${base}`;
+    if (amtLabel) amtLabel.textContent = 'Amount (SOL)';
+    // Show SOL presets, hide percentage buttons
+    if (quickBuyBtns) quickBuyBtns.classList.remove('hidden');
+    if (quickSellBtns) quickSellBtns.classList.add('hidden');
+    amtInput.value = ''; // Clear amount on mode switch
+    handleAmountChange();
+  });
+  
+  sellBtn?.addEventListener('click', () => {
+    isBuyMode = false;
+    const base = window.NX?.base || 'TOKEN';
+    submitBtn.textContent = `Sell ${base}`;
+    if (amtLabel) amtLabel.textContent = `Amount (${base})`;
+    // Show percentage buttons, hide SOL presets
+    if (quickBuyBtns) quickBuyBtns.classList.add('hidden');
+    if (quickSellBtns) quickSellBtns.classList.remove('hidden');
+    amtInput.value = ''; // Clear amount on mode switch
+    handleAmountChange();
+  });
+  
+  console.log('[Jupiter] Swap integration loaded');
+})();
+</script>
 
     <!-- === Adrenaline overlay script === -->
     <script>
@@ -680,29 +1317,621 @@
 </script>
 <script>
 (function(){
+  // Birdeye API configuration
+  const BIRDEYE_KEY =
+    window.NX_BIRDEYE_KEY ||
+    window.NX?.BIRDEYE_KEY ||
+    localStorage.getItem('BIRDEYE_KEY') ||
+    '267367afba5b44f2b7398e53aba49f5f';
+  const CHAIN = 'solana';
+  const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
+  
   const qp = new URLSearchParams(location.search);
-  const rawPair = qp.get('pair') || 'NEBULAX/SOL';
-  const pair = decodeURIComponent(rawPair).replace(/\s+/g,'').toUpperCase(); // e.g. WIF/SOL
-  const mint = (qp.get('mint') || '').trim();
+  let rawPair = qp.get('pair') || 'NEBULAX/SOL';
+  let mint = (qp.get('mint') || '').trim();
+  let pairAddr = (qp.get('pairAddr') || '').trim(); // Get pool/pair address from URL
 
+  console.log('[CoinPage] URL params:', { rawPair, mint, pairAddr });
+
+  // Try to get coin data from localStorage only if URL doesn't have mint (backward compatibility)
+  let coinData = null;
+  if (!mint) {
+    try {
+      const stored = localStorage.getItem('nebula_selected_coin');
+      if (stored) {
+        coinData = JSON.parse(stored);
+        if (coinData.mint) mint = coinData.mint;
+        if (coinData.pair) rawPair = coinData.pair;
+        console.log('[CoinPage] Loaded from localStorage:', { mint, pair: rawPair });
+      }
+    } catch (e) {
+      console.error('Error reading stored coin data:', e);
+    }
+  }
+  
+  if (!mint) {
+    console.error('[CoinPage] No mint address found in URL or localStorage!');
+    const titleEl = document.getElementById('coin-title');
+    if (titleEl) titleEl.textContent = 'Error: No token address provided';
+    return; // Stop execution if no mint
+  }
+  
+  // Safely decode pair - handle already-decoded or malformed URLs
+  let pair;
+  try {
+    pair = decodeURIComponent(rawPair).replace(/\s+/g,'').toUpperCase();
+  } catch (e) {
+    // If decoding fails, use as-is (might already be decoded)
+    pair = rawPair.replace(/\s+/g,'').toUpperCase();
+    console.warn('Could not decode pair, using as-is:', pair);
+  }
   const [base, quote = 'SOL'] = pair.split('/');
-  // Title row
+  
+  // Title row - update with proper coin info
   const titleEl = document.querySelector('#leftColPanel .nx-title');
-  if (titleEl) titleEl.textContent = `${pair} — ${base} on ${quote}`;
+  if (titleEl) {
+    // Priority: use symbol if available, otherwise use base token symbol
+    let displayName = coinData?.symbol?.toUpperCase() || base || 'UNKNOWN';
+    let displayFull = coinData?.name || displayName;
+    titleEl.textContent = `${displayName} — ${displayFull}`;
+  }
+  
   // Buy button text
   const submit = document.getElementById('submit-order');
   if (submit) submit.textContent = `Buy ${base}`;
-  // Stats strip placeholders
-  const statPrice = [...document.querySelectorAll('.nx-btn')].find(el => el.textContent.startsWith('Price:'));
-  // (optional) update other labels as you wire data
-
-  // Contract area
-  const caBox = [...document.querySelectorAll('.nx-panel')]
-    .find(el => /CA:/i.test(el.textContent));
-  if (caBox && mint) caBox.innerHTML = `CA: <span class="text-zinc-400 break-all">${mint}</span>`;
+  
+  // Contract area - update the CA display under title
+  const caDisplay = document.getElementById('title-ca');
+  if (caDisplay && mint) {
+    const shortCA = `${mint.slice(0, 6)}...${mint.slice(-6)}`;
+    caDisplay.innerHTML = `<span class="text-zinc-400">${shortCA}</span>`;
+    caDisplay.title = mint; // Full address on hover
+  }
 
   // Expose current context for other scripts
-  window.NX = Object.assign({}, window.NX || {}, { pair, base, quote, mint });
+  window.NX = Object.assign({}, window.NX || {}, { pair, base, quote, mint, coinData });
+  
+  // Format numbers for market cap, liquidity, volume (available globally)
+  const fmt = (v) => {
+    if (!v && v !== 0) return '—';
+    const num = Math.abs(v);
+    if (num >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+    if (num >= 1e3) return `$${(v / 1e3).toFixed(2)}K`;
+    if (num < 0.01) return `$${v.toExponential(2)}`;
+    return `$${v.toFixed(2)}`;
+  };
+  
+  // Format prices separately
+  const fmtPrice = (v) => {
+    if (!v && v !== 0) return '—';
+    if (v < 0.00001) return `$${v.toExponential(4)}`;
+    if (v < 0.01) return `$${v.toFixed(8)}`;
+    if (v < 1) return `$${v.toFixed(6)}`;
+    if (v < 100) return `$${v.toFixed(4)}`;
+    return `$${v.toFixed(2)}`;
+  };
+  
+  // Helper function to update metrics display (available globally)
+  const updateMetricsDisplay = (p, mc, fd, lq, v, pct) => {
+    const mcapBtn = document.getElementById('stat-mcap');
+    const priceBtn = document.getElementById('stat-price');
+    const liqBtn = document.getElementById('stat-liq');
+    const fdvBtn = document.getElementById('stat-fdv');
+    const volBtn = document.getElementById('stat-vol');
+    
+    if (mcapBtn) mcapBtn.innerHTML = `Market Cap: <span class="ml-1 text-emerald-400">${fmt(mc)}</span>`;
+    if (priceBtn) {
+      const priceColor = pct && pct >= 0 ? 'text-emerald-400' : 'text-rose-400';
+      const priceStr = `${fmtPrice(p)}${pct ? ` <span class="${priceColor}">(${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)</span>` : ''}`;
+      priceBtn.innerHTML = `Price: <span class="ml-1 text-emerald-400">${priceStr}</span>`;
+    }
+    if (liqBtn) liqBtn.innerHTML = `Liquidity: <span class="ml-1 text-emerald-400">${fmt(lq)}</span>`;
+    if (fdvBtn) fdvBtn.innerHTML = `FDV: <span class="ml-1 text-amber-300">${fmt(fd)}</span>`;
+    if (volBtn) volBtn.innerHTML = `24h Vol: <span class="ml-1 text-emerald-400">${fmt(v)}</span>`;
+  };
+  
+  // Fetch coin data from Birdeye if mint is available
+  if (mint) {
+    console.log('[CoinPage] Starting data fetch for mint:', mint);
+    (async () => {
+      try {
+        // Fetch market data from Birdeye (may fail for new tokens)
+        let md = {};
+        try {
+          console.log('[CoinPage] Fetching Birdeye market data...');
+          const mdRes = await fetch(`https://public-api.birdeye.so/defi/v3/token/market-data?address=${mint}`, {
+            headers: HEADERS
+          });
+          if (mdRes.ok) {
+            const mdData = await mdRes.json();
+            md = mdData?.data || mdData || {};
+            console.log('[CoinPage] Birdeye data:', md);
+          } else {
+            console.warn(`[CoinPage] Birdeye market data returned ${mdRes.status}, will use DexScreener data`);
+          }
+        } catch (birdeyeError) {
+          console.warn('[CoinPage] Birdeye API unavailable, using DexScreener data only:', birdeyeError.message);
+        }
+        
+        // Update logo if available from Birdeye
+        let logoURI = md.logoURI || md.logo_uri || md.image || null;
+        const logoEl = document.getElementById('coin-logo');
+        if (logoURI && logoEl) {
+          console.log('Updating logo from Birdeye:', logoURI);
+          logoEl.innerHTML = `<img src="${logoURI}" class="h-full w-full object-cover" alt="${base}" onerror="this.parentElement.innerHTML='${base?.substring(0,2) || '??'}'"/>`;
+          logoEl.classList.remove('bg-gradient-to-br', 'from-cyan-500', 'to-purple-600');
+        } else {
+          console.log('No logo from Birdeye, will try DexScreener');
+          // Show initials as fallback
+          if (logoEl && base) logoEl.textContent = base.substring(0,2);
+        }
+        
+        // Fetch price stats for 24h change (optional Birdeye enhancement)
+        let priceChange24h = null;
+        try {
+          const psRes = await fetch(`https://public-api.birdeye.so/defi/v3/price/stats?address=${mint}`, {
+            headers: HEADERS
+          });
+          if (psRes.ok) {
+            const psData = await psRes.json();
+            priceChange24h = psData?.data?.price_change_24h || null;
+          }
+        } catch (e) {
+          console.warn('Birdeye price stats unavailable:', e.message);
+        }
+        
+        // Fetch holder data - try Birdeye first, then Solscan as fallback
+        let holdersCount = 0;
+        try {
+          const holderRes = await fetch(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`, {
+            headers: HEADERS
+          });
+          if (holderRes.ok) {
+            const hData = await holderRes.json();
+            holdersCount = hData?.data?.total || hData?.total || 0;
+          }
+        } catch (e) {
+          console.warn('Birdeye holders fetch failed, trying Solscan...', e);
+        }
+        
+        // Fallback to Solscan if Birdeye didn't return holders
+        if (!holdersCount || holdersCount === 0) {
+          try {
+            const solscanRes = await fetch(`https://public-api.solscan.io/token/holders?tokenAddress=${mint}&page=1&size=1`);
+            if (solscanRes.ok) {
+              const solscanData = await solscanRes.json();
+              holdersCount = solscanData?.data?.total || solscanData?.total || 0;
+              console.log('Solscan holders:', holdersCount);
+            }
+          } catch (e) {
+            console.warn('Solscan holders fetch also failed:', e);
+          }
+        }
+        
+        // Fetch DexScreener data for Market Cap and FDV
+        let dexData = {};
+        try {
+          console.log('[CoinPage] Fetching DexScreener data...');
+          const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+          if (dexRes.ok) {
+            const dexJson = await dexRes.json();
+            const pairs = dexJson?.pairs || [];
+            console.log('[CoinPage] DexScreener pairs found:', pairs.length);
+            if (pairs.length > 0) {
+              // Get pair with highest volume
+              const pair = pairs.reduce((best, p) => 
+                (p.volume?.h24 || 0) > (best.volume?.h24 || 0) ? p : best
+              );
+              console.log('[CoinPage] Selected pair:', pair);
+              dexData = {
+                price: parseFloat(pair.priceUsd) || 0,
+                marketCap: pair.marketCap || 0,
+                fdv: pair.fdv || 0,
+                liquidity: parseFloat(pair.liquidity?.usd) || 0,
+                volume24h: parseFloat(pair.volume?.h24) || 0,
+                priceChange24h: parseFloat(pair.priceChange?.h24) || null,
+                pairAddress: pair.pairAddress,
+                logoURI: pair.info?.imageUrl || pair.baseToken?.logo || null
+              };
+              
+              // Update logo from DexScreener if we don't have one yet
+              if (dexData.logoURI && !logoURI) {
+                logoURI = dexData.logoURI;
+                console.log('Updating logo from DexScreener:', logoURI);
+                const logoEl = document.getElementById('coin-logo');
+                if (logoEl) {
+                  logoEl.innerHTML = `<img src="${logoURI}" class="h-full w-full object-cover" alt="${base}" onerror="this.parentElement.innerHTML='${base?.substring(0,2) || '??'}'"/>`;
+                  logoEl.classList.remove('bg-gradient-to-br', 'from-cyan-500', 'to-purple-600');
+                }
+              } else if (dexData.logoURI) {
+                console.log('Logo already set from Birdeye, skipping DexScreener');
+              } else {
+                console.log('No logo available from either source');
+              }
+              
+              // Update title with DexScreener data
+              const titleEl = document.getElementById('coin-title');
+              if (titleEl) {
+                const symbol = pair.baseToken?.symbol || base || 'UNKNOWN';
+                const name = pair.baseToken?.name || symbol;
+                titleEl.textContent = `${symbol.toUpperCase()} — ${name}`;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('DexScreener fetch failed:', e);
+        }
+        
+        // Extract and format data (prioritize DexScreener over Birdeye for new tokens)
+        const price = dexData?.price || md.price || 0;
+        const mcap = dexData?.marketCap || md.market_cap || md.market_cap_usd || 0;
+        const fdv = dexData?.fdv || 0;
+        const liquidity = dexData?.liquidity || md.liquidity || md.liquidity_usd || 0;
+        const vol24h = dexData?.volume24h || md.v24hUsd || md.volume_usd_24h || 0;
+        const pctChange24h = priceChange24h || dexData?.priceChange24h || null;
+        
+        // Initial metrics update using the global updateMetricsDisplay function
+        updateMetricsDisplay(price, mcap, fdv, liquidity, vol24h, pctChange24h);
+        
+        // Live update metrics every 3 seconds using Jupiter + DexScreener
+        const currentMintForUpdates = mint;
+        let lastPrice = price;
+        
+        const liveUpdateInterval = setInterval(async () => {
+          try {
+            // Stop if user navigated away
+            const newMint = new URLSearchParams(location.search).get('mint') || '';
+            if (newMint !== currentMintForUpdates) {
+              clearInterval(liveUpdateInterval);
+              return;
+            }
+            
+            // Try Jupiter Price API first (faster, more real-time)
+            let jupiterPrice = null;
+            try {
+              const jupRes = await fetch(`https://api.jup.ag/price/v2?ids=${currentMintForUpdates}`);
+              if (jupRes.ok) {
+                const jupData = await jupRes.json();
+                jupiterPrice = jupData?.data?.[currentMintForUpdates]?.price || null;
+              }
+            } catch (e) {
+              // Jupiter failed, will fall back to DexScreener
+            }
+            
+            // Get full data from DexScreener
+            const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${currentMintForUpdates}`);
+            if (dexRes.ok) {
+              const dexJson = await dexRes.json();
+              const pairs = dexJson?.pairs || [];
+              if (pairs.length > 0) {
+                const pair = pairs.reduce((best, p) => 
+                  (p.volume?.h24 || 0) > (best.volume?.h24 || 0) ? p : best
+                );
+                
+                // Use Jupiter price if available (more real-time), otherwise DexScreener
+                const livePrice = jupiterPrice || parseFloat(pair.priceUsd) || price;
+                const liveMcap = pair.marketCap || mcap;
+                const liveFdv = pair.fdv || fdv;
+                const liveLiq = parseFloat(pair.liquidity?.usd) || liquidity;
+                const liveVol = parseFloat(pair.volume?.h24) || vol24h;
+                const livePct = parseFloat(pair.priceChange?.h24) || pctChange24h;
+                
+                updateMetricsDisplay(livePrice, liveMcap, liveFdv, liveLiq, liveVol, livePct);
+                
+                // Flash effect if price changed significantly
+                if (lastPrice && Math.abs((livePrice - lastPrice) / lastPrice) > 0.001) {
+                  const priceBtn = document.getElementById('stat-price');
+                  if (priceBtn) {
+                    priceBtn.style.transition = 'background 0.2s';
+                    priceBtn.style.background = livePrice > lastPrice ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)';
+                    setTimeout(() => { priceBtn.style.background = ''; }, 500);
+                  }
+                }
+                lastPrice = livePrice;
+              }
+            }
+          } catch (e) {
+            // Silently fail live updates - don't break the interval
+          }
+        }, 3000);
+        
+        // Update Token Info panels
+        const infoHolders = document.getElementById('info-holders');
+        if (infoHolders) infoHolders.textContent = holdersCount.toLocaleString();
+        
+        // Update CA display in title
+        const titleCA = document.getElementById('title-ca');
+        if (titleCA) titleCA.textContent = mint;
+        
+        // UPDATE TITLE with real coin data after fetch (Birdeye fallback)
+        const titleEl = document.getElementById('coin-title');
+        if (titleEl && md.name && titleEl.textContent === 'Loading...') {
+          titleEl.textContent = `${base?.toUpperCase() || 'TOKEN'} — ${md.name || base}`;
+        }
+        
+        
+        // Placeholder values for holder distribution (would need additional API calls)
+        // These would typically come from a security analysis API
+        const setIfExists = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = value;
+        };
+        
+        setIfExists('info-top10h', '—');
+        setIfExists('info-devh', '—');
+        setIfExists('info-snipersh', '—');
+        setIfExists('info-insiders', '—');
+        setIfExists('info-bundlers', '—');
+        setIfExists('info-lpburned', '—');
+        setIfExists('info-protraders', '—');
+        setIfExists('info-dexpaid', '—');
+        
+        // Safety check: Only update if this is still the current coin (prevents stale async updates)
+        const currentMint = new URLSearchParams(location.search).get('mint') || '';
+        if (currentMint && currentMint !== mint) {
+          console.warn(`Stale data detected: loaded ${mint} but current coin is ${currentMint}, skipping UI update`);
+          return;
+        }
+        
+        // Store data for other components
+        window.NX.coinMarketData = {
+          price, mcap, fdv, liquidity, vol24h, 
+          priceChange24h: pctChange24h,
+          verified: !!md.verified,
+          holders: holdersCount
+        };
+        
+        console.log('Coin data loaded:', window.NX.coinMarketData);
+        
+        // Load GeckoTerminal chart with the pair address from URL
+        await loadGeckoTerminalChart(mint, pairAddr);
+      } catch (e) {
+        console.error('[CoinPage] Error fetching coin data:', e);
+        // Show error in UI
+        const titleEl = document.getElementById('coin-title');
+        if (titleEl) titleEl.textContent = `Error loading token data: ${e.message}`;
+      }
+    })();
+  } else {
+    console.warn('[CoinPage] No mint address provided, skipping data fetch');
+  }
+  
+  // Load GeckoTerminal embedded chart
+  async function loadGeckoTerminalChart(mint, pairAddr) {
+    const chartIframe = document.getElementById('chart-iframe');
+    const chartLoading = document.getElementById('chart-loading');
+    
+    if (!chartIframe || !chartLoading) return;
+    
+    try {
+      let poolAddress = pairAddr; // Use the pair address passed from the URL first
+      
+      // If no pool address from URL, try to get from sessionStorage (set by trending page)
+      if (!poolAddress) {
+        const poolMap = JSON.parse(sessionStorage.getItem('gt_pool_map') || '{}');
+        poolAddress = poolMap[mint];
+      }
+      
+      // If still no pool address, try to fetch it from GeckoTerminal API
+      if (!poolAddress && mint) {
+        const response = await fetch(`https://api.geckoterminal.com/api/v2/search/pools?query=${mint}&network=solana`);
+        if (response.ok) {
+          const data = await response.json();
+          const pools = data?.data || [];
+          if (pools.length > 0) {
+            poolAddress = pools[0].id.split('_')[1]; // Extract pool address from format "solana_pooladdress"
+          }
+        }
+      }
+      
+      if (poolAddress) {
+        // Embed GeckoTerminal chart iframe
+        const embedUrl = `https://www.geckoterminal.com/solana/pools/${poolAddress}?embed=1&info=0&swaps=0`;
+        chartIframe.src = embedUrl;
+        chartIframe.style.display = 'block';
+        chartLoading.style.display = 'none';
+        console.log('GeckoTerminal chart loaded:', poolAddress);
+      } else {
+        // Fallback: show message
+        chartLoading.innerHTML = `
+          <div class="text-center">
+            <div class="text-zinc-400 text-sm mb-2">Chart not available</div>
+            <div class="text-xs text-zinc-500">Pool not found for this token</div>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.error('Error loading chart:', e);
+      chartLoading.innerHTML = `
+        <div class="text-center">
+          <div class="text-zinc-400 text-sm mb-2">Chart unavailable</div>
+          <div class="text-xs text-zinc-500">Failed to load GeckoTerminal data</div>
+        </div>
+      `;
+    }
+  }
+})();
+</script>
+
+    <!-- === Token Holdings & Stats Display === -->
+<script>
+(async function(){
+  const statBought = document.getElementById('stat-bought');
+  const statSold = document.getElementById('stat-sold');
+  const statHolding = document.getElementById('stat-holding');
+  const statPnl = document.getElementById('stat-pnl');
+  const holdingsInfo = document.getElementById('holdings-info');
+  
+  // Get current mint from URL
+  function getCurrentMint() {
+    const qp = new URLSearchParams(location.search);
+    return qp.get('mint') || '';
+  }
+  
+  // Format large numbers
+  function formatNumber(num) {
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    if (num < 0.01) return num.toExponential(2);
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  
+  // Fetch user's token balance
+  async function fetchTokenBalance(mint, walletAddress) {
+    try {
+      const connection = new solanaWeb3.Connection(window.NX_RPC);
+      const publicKey = new solanaWeb3.PublicKey(walletAddress);
+      const mintPublicKey = new solanaWeb3.PublicKey(mint);
+      
+      // Get token accounts for this wallet
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+        mint: mintPublicKey
+      });
+      
+      if (tokenAccounts.value.length === 0) return 0;
+      
+      // Sum all token account balances (usually just 1)
+      const totalBalance = tokenAccounts.value.reduce((sum, account) => {
+        return sum + (account.account.data.parsed.info.tokenAmount.uiAmount || 0);
+      }, 0);
+      
+      return totalBalance;
+    } catch (error) {
+      console.error('[Holdings] Error fetching balance:', error);
+      return 0;
+    }
+  }
+  
+  // Update holdings display
+  async function updateHoldings() {
+    const mint = getCurrentMint();
+    if (!mint) {
+      console.warn('[Holdings] No mint address found');
+      return;
+    }
+    
+    // Check wallet connection
+    if (!window.NXWallet?.isConnected()) {
+      holdingsInfo.textContent = 'Connect wallet to see holdings';
+      return;
+    }
+    
+    const walletAddress = window.NXWallet.getAddress();
+    if (!walletAddress) {
+      holdingsInfo.textContent = 'Connect wallet to see holdings';
+      return;
+    }
+    
+    // Show loading
+    holdingsInfo.textContent = 'Loading holdings...';
+    
+    try {
+      // Fetch balance
+      const balance = await fetchTokenBalance(mint, walletAddress);
+      
+      // Get token info from NX global
+      const tokenSymbol = window.NX?.base || 'TOKEN';
+      const tokenPrice = window.NX?.coinMarketData?.price || 0;
+      
+      // Calculate USD value
+      const usdValue = balance * tokenPrice;
+      
+      // Update holdings panels
+      if (statHolding) {
+        statHolding.textContent = usdValue > 0 ? `$${formatNumber(usdValue)}` : '$0';
+      }
+      
+      // Update holdings info text
+      if (balance > 0) {
+        holdingsInfo.innerHTML = `<span class="text-cyan-400">${tokenSymbol}</span> Holdings: <span class="font-semibold text-zinc-300">${formatNumber(balance)} ${tokenSymbol}</span>`;
+      } else {
+        holdingsInfo.textContent = `You don't hold any ${tokenSymbol}`;
+      }
+      
+      // Store balance globally for percentage buttons
+      if (typeof window.NX_updateBalance === 'function') {
+        window.NX_updateBalance(balance);
+      }
+      
+      // Load real trade history from order book
+      const statBought = document.getElementById('stat-bought');
+      const statSold = document.getElementById('stat-sold');
+      const statPnl = document.getElementById('stat-pnl');
+      
+      if (window.NXWallet?.isConnected?.() && window.NXWallet?.publicKey) {
+        const wallet = window.NXWallet.publicKey.toString();
+        
+        // Use global order book function
+        if (window.NXOrderBook?.calculateUserStats) {
+          const stats = window.NXOrderBook.calculateUserStats(mint, wallet);
+          
+          if (statBought) statBought.textContent = `$${formatNumber(stats.boughtUSD)}`;
+          if (statSold) statSold.textContent = `$${formatNumber(stats.soldUSD)}`;
+          if (statPnl) {
+            statPnl.textContent = `$${formatNumber(Math.abs(stats.pnlUSD))}`;
+            statPnl.className = `text-xl font-bold ${stats.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+          }
+          
+          console.log('[Holdings] Stats calculated:', stats);
+        }
+      } else {
+        if (statBought) statBought.textContent = '$0';
+        if (statSold) statSold.textContent = '$0';
+        if (statPnl) {
+          statPnl.textContent = '$0';
+          statPnl.className = 'text-xl font-bold text-gray-400';
+        }
+      }
+      
+      console.log('[Holdings] Balance loaded:', { balance, tokenSymbol, usdValue });
+    } catch (error) {
+      console.error('[Holdings] Error updating holdings:', error);
+      holdingsInfo.textContent = 'Error loading holdings';
+    }
+  }
+  
+  // Initialize on page load
+  await updateHoldings();
+  
+  // Initialize order book display
+  try {
+    setTimeout(() => {
+      if (window.NXOrderBook?.refreshDisplay) {
+        window.NXOrderBook.refreshDisplay();
+      }
+    }, 1000); // Wait for UI to load
+  } catch (error) {
+    console.error('[OrderBook] Failed to initialize:', error);
+  }
+  
+  // Update when wallet connects/disconnects
+  window.addEventListener('nxwallet:connected', updateHoldings);
+  window.addEventListener('nxwallet:disconnected', () => {
+    if (statBought) statBought.textContent = '$0';
+    if (statSold) statSold.textContent = '$0';
+    if (statHolding) statHolding.textContent = '$0';
+    if (statPnl) statPnl.textContent = '$0 (0%)';
+    if (holdingsInfo) holdingsInfo.textContent = 'Connect wallet to see holdings';
+    // Reset balance for percentage buttons
+    if (typeof window.NX_updateBalance === 'function') {
+      window.NX_updateBalance(0);
+    }
+  });
+  
+  // Update immediately when Jupiter swap completes
+  window.addEventListener('jupiter:swap:complete', (e) => {
+    console.log('[Holdings] Jupiter swap completed, refreshing...', e.detail);
+    setTimeout(updateHoldings, 1000); // 1 second delay for blockchain to settle
+  });
+  
+  // Update when SOL balance changes (indicates potential transaction)
+  window.addEventListener('nebula:sol:changed', () => {
+    setTimeout(updateHoldings, 2000); // Delay to let transaction settle
+  });
+  
+  console.log('[Holdings] Stats system loaded');
 })();
 </script>
 

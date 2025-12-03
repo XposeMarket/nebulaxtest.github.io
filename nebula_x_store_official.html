@@ -7,6 +7,121 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const btn = document.getElementById("wallet-btn");
+  const balSol = document.getElementById("bal-sol");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-1"></i> Connect Wallet`;
+      if (balSol) balSol.textContent = "0.000";
+    } else {
+      const s = sol.toFixed(3);
+      if (balSol) balSol.textContent = s;
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-1"></i> <span id="bal-sol">${s}</span> SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+  
+  // Wallet Modal Handlers
+  function updateWalletDisplay(){
+    const bal = window.NXWallet?.getBalance?.() || 0;
+    document.getElementById('wallet-total').textContent = bal.toFixed(3) + ' SOL';
+    document.getElementById('wallet-available').textContent = bal.toFixed(3) + ' SOL';
+  }
+  
+  const wBtn = document.getElementById('wallet-btn');
+  const wModal = document.getElementById('wallet-modal');
+  
+  wBtn?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    updateWalletDisplay();
+    wModal.classList.remove('hidden');
+  });
+  
+  wModal?.addEventListener('click', (e)=>{
+    if(e.target === wModal) wModal.classList.add('hidden');
+  });
+  
+  document.getElementById('dp-open')?.addEventListener('click', ()=>{
+    wModal.classList.add('hidden');
+    document.getElementById('deposit').classList.remove('hidden');
+  });
+  
+  document.getElementById('wd-open')?.addEventListener('click', ()=>{
+    wModal.classList.add('hidden');
+    document.getElementById('withdraw').classList.remove('hidden');
+  });
+  
+  document.getElementById('wallet-connect')?.addEventListener('click', async ()=>{
+    const prov = (window.phantom?.solana) || window.solana;
+    try {
+      await prov?.connect?.();
+    } catch(e){
+      console.log('Connect cancelled');
+    }
+  });
+  
+  document.getElementById('wallet-disconnect')?.addEventListener('click', async ()=>{
+    const prov = (window.phantom?.solana) || window.solana;
+    try {
+      await prov?.disconnect?.();
+    } catch(e){
+      console.log('Disconnect error');
+    }
+  });
+  
+  document.getElementById('copy-deposit-btn')?.addEventListener('click', async ()=>{
+    const addr = document.getElementById('deposit-addr').textContent;
+    try {
+      await navigator.clipboard.writeText(addr);
+      const btn = document.getElementById('copy-deposit-btn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(()=>{ btn.textContent = orig; }, 2000);
+    } catch(e){
+      console.log('Copy failed');
+    }
+  });
+  
+  document.getElementById('deposit')?.addEventListener('click', (e)=>{
+    if(e.target === document.getElementById('deposit')) document.getElementById('deposit').classList.add('hidden');
+  });
+  
+  document.getElementById('withdraw')?.addEventListener('click', (e)=>{
+    if(e.target === document.getElementById('withdraw')) document.getElementById('withdraw').classList.add('hidden');
+  });
+  
+  window.addEventListener('nebula:sol:changed', (e)=>{
+    if(!wModal.classList.contains('hidden')) updateWalletDisplay();
+  });
+});
+</script>
 
     <style>
       :root{
@@ -64,12 +179,51 @@
       .bg-c{ background:linear-gradient(145deg,#0a0d1b 0%, #12152a 60%, #0a0d1b 100%); }
       .bg-grid{ background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size: 20px 20px; }
 
+      /* Mario 8-bit Retro Theme */
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+      .mario-retro{ 
+        background-image: url('assets/NebulaXMarioBG.jpeg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+      }
+      .mario-retro .panel{ 
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect fill="%23FFFFFF" width="20" height="20"/><rect fill="%23F0F0F0" x="20" width="20" height="20"/><rect fill="%23F0F0F0" y="20" width="20" height="20"/><rect fill="%23FFFFFF" x="20" y="20" width="20" height="20"/></svg>');
+        background-size: 20px 20px;
+        background-color: white;
+        border: 4px solid #333;
+        border-radius: 0;
+        box-shadow: 4px 4px 0 rgba(0,0,0,0.4), inset 2px 2px 0 rgba(255,255,255,0.8), inset -2px -2px 0 rgba(0,0,0,0.2);
+        color: #333;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.65rem;
+        padding: 12px;
+      }
+      .mario-retro .panel div, .mario-retro .panel span{ color: #333; font-family: 'Press Start 2P', cursive; }
+      .mario-retro .text-emerald-400{ color: #22C55E !important; }
+      .mario-retro .text-zinc-400{ color: #71717A !important; }
+      .mario-retro .text-cyan-300{ color: #06B6D4 !important; }
+      .mario-retro .nx-btn{
+        background: #FFB020;
+        color: #333;
+        border: 3px solid #333;
+        border-radius: 0;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.55rem;
+        padding: 8px 12px;
+        box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+      }
+      .mario-retro .nx-btn:hover{ box-shadow: 2px 2px 0 rgba(0,0,0,0.3); transform: translate(1px,1px); }
+      .mario-retro .nx-btn:active{ box-shadow: 1px 1px 0 rgba(0,0,0,0.3); transform: translate(2px,2px); }
+
       /* Avatar gallery */
       .avatar{ width:64px; height:64px; border-radius:14px; border:1px solid var(--nx-border); box-shadow:0 0 6px rgba(0,230,255,.12) inset; object-fit:cover; }
       .avatar.locked{ filter: grayscale(100%) brightness(.7); }
 
       .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
-      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx{ position:fixed; inset:0; display:grid; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx.hidden{ display:none !important; }
 
       .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
     </style>
@@ -90,6 +244,7 @@
             <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
             <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
             <span class="nx-btn px-2 py-1 text-xs nx-btn-cyan">Store</span>
+            <a class="nx-btn px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
           </nav>
         </div>
 
@@ -99,13 +254,64 @@
           <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
         </div>
 
-        <!-- Right: Wallet + Cart -->
+        <!-- Right: Wallet + Cart + Profile -->
         <div class="flex items-center gap-2">
-          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: <span id="bal-sol">0.214</span> SOL • <span id="bal-nebx">1,200</span> NEBX</button>
-          <button id="cart-btn" class="nx-btn nx-btn-cyan"><i data-lucide="shopping-cart" class="w-3 h-3 mr-2"></i><span id="cart-count">0</span></button>
+          <button id="wallet-btn" class="nx-btn text-xs"><i data-lucide="wallet" class="w-3 h-3 mr-1"></i> <span id="bal-sol">0.000</span> SOL</button>
+          <button id="cart-btn" class="nx-btn nx-btn-cyan text-xs"><i data-lucide="shopping-cart" class="w-3 h-3 mr-1"></i><span id="cart-count">0</span></button>
+          <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+                  style="border-color:var(--nx-border)">
+            <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+          </button>
         </div>
       </div>
     </header>
+    
+    <!-- Wallet Modal -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <button class="nx-btn nx-btn-cyan w-full">Withdraw SOL</button>
+        </div>
+      </div>
+    </div>
 
     <div class="page-wrap">
       <main class="mt-3 grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-3">
@@ -125,14 +331,30 @@
               <div id="preview" class="skin">
                 <div class="panel big" id="pv-main">
                   <div class="flex items-center justify-between mb-2">
-                    <div class="font-semibold">Dashboard</div>
-                    <span class="pill cyan">LIVE</span>
+                    <div class="font-semibold">Portfolio</div>
+                    <span class="pill cyan">$8,420.50</span>
                   </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <div class="panel border-glow">Chart</div>
-                    <div class="panel">Feed</div>
-                    <div class="panel">Portfolio</div>
-                    <div class="panel border-glow">Alerts</div>
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="panel border-glow">
+                      <div class="text-[0.65rem] text-zinc-400">SOL</div>
+                      <div class="font-semibold">2.45 SOL</div>
+                      <div class="text-zinc-400">≈ $294.00</div>
+                    </div>
+                    <div class="panel">
+                      <div class="text-[0.65rem] text-zinc-400">NEBX</div>
+                      <div class="font-semibold">5,200 NEBX</div>
+                      <div class="text-zinc-400">≈ $5,200</div>
+                    </div>
+                    <div class="panel">
+                      <div class="text-[0.65rem] text-zinc-400">Other</div>
+                      <div class="font-semibold">8 Assets</div>
+                      <div class="text-zinc-400">≈ $2,926.50</div>
+                    </div>
+                    <div class="panel border-glow">
+                      <div class="text-[0.65rem] text-zinc-400">24H Change</div>
+                      <div class="font-semibold text-emerald-400">+$142.30</div>
+                      <div class="text-emerald-400 font-semibold">+1.72%</div>
+                    </div>
                   </div>
                 </div>
                 <div class="panel" id="pv-side">
@@ -182,10 +404,12 @@
 
           <div id="tab-avatars" class="nx-panel p-3 hidden">
             <div class="flex items-center justify-between mb-2">
-              <div class="text-sm font-semibold">NebulaX Avatars (NFT-style collection, mock)</div>
+              <div class="text-sm font-semibold">NebulaX Avatars (NFT-style collection)</div>
               <div class="text-xs text-zinc-400">Show off in leaderboards & profile</div>
             </div>
-            <div id="avatars-grid" class="grid grid-cols-3 md:grid-cols-5 xl:grid-cols-7 gap-3"></div>
+            <div id="avatars-scroll" style="max-height: 520px; overflow-y: auto;" class="space-y-4">
+              <div id="avatars-grid"></div>
+            </div>
           </div>
 
           <div id="tab-effects" class="nx-panel p-3 hidden">
@@ -249,8 +473,18 @@
           </div>
 
           <div class="nx-panel p-3">
-            <div class="text-sm font-semibold mb-2">Theme JSON (applied)</div>
-            <textarea id="json-out" class="nx-input h-40 text-xs"></textarea>
+            <div class="text-sm font-semibold mb-2">Your Inventory</div>
+            <select id="inventory-filter" class="nx-input w-full mb-3" style="background:var(--nx-dark-2); border:1px solid var(--nx-border); color:var(--nx-text); padding:.55rem .7rem;">
+              <option value="">All Categories</option>
+              <option value="preset">Presets</option>
+              <option value="bg">Backgrounds</option>
+              <option value="border">Borders</option>
+              <option value="effect">Effects</option>
+              <option value="avatar">Profile Pictures</option>
+            </select>
+            <div id="inventory-list" style="max-height: 420px; overflow-y: auto;" class="space-y-2 text-sm">
+              <div class="text-xs text-zinc-400">No avatars in inventory yet.</div>
+            </div>
           </div>
         </aside>
       </main>
@@ -267,7 +501,22 @@
     </div>
 
     <!-- Modals -->
-    <div id="name-modal" class="modal-fx">
+    <div id="lore-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[500px] max-w-[92vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold text-lg" id="lore-title">Avatar Name</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('lore-modal').classList.add('hidden')">Close</button>
+        </div>
+        <img id="lore-image" src="" class="w-32 h-32 rounded-lg mb-3 border border-[var(--nx-border)] mx-auto" alt="avatar"/>
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-cyan-300 uppercase">Backstory</div>
+          <div id="lore-text" class="text-sm text-zinc-300 leading-relaxed"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="name-modal" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
         <div class="flex items-center justify-between mb-2"><div class="font-semibold">Edit Username</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#name-modal">Close</button></div>
         <input id="name-input" class="nx-input" placeholder="Your name"/>
@@ -275,10 +524,24 @@
       </div>
     </div>
 
-    <div id="avatar-modal" class="modal-fx">
-      <div class="nx-panel w-[420px] max-w-[92vw] p-3">
+    <div id="avatar-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[600px] max-w-[92vw] p-3">
         <div class="flex items-center justify-between mb-2"><div class="font-semibold">Choose Avatar</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#avatar-modal">Close</button></div>
-        <div id="avatar-choose" class="grid grid-cols-5 gap-2"></div>
+        <div id="avatar-choose" style="max-height: 400px; overflow-y: auto;" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <div id="checkout-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[420px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold text-lg">✓ Purchase Complete!</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('checkout-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="space-y-2 mb-3">
+          <div class="text-sm text-zinc-300">Your items have been added to your inventory.</div>
+          <div id="checkout-summary" class="text-xs text-zinc-400"></div>
+        </div>
+        <button class="nx-btn nx-btn-cyan w-full" onclick="document.getElementById('checkout-modal').classList.add('hidden')">Continue Shopping</button>
       </div>
     </div>
 
@@ -293,8 +556,11 @@
       /* Mock wallet balances */
       const state = LS.get('nx_store_state_v3', {
         bal:{SOL:0.214, NEBX:1200}, spentSOL:0, profile:{name:'Guest', avatar:'NebulaX-logo.png', level:1},
-        activeTheme:null, cart:[], currency:'SOL'
+        activeTheme:null, cart:[], currency:'SOL', inventory:[]
       });
+      
+      // Ensure inventory exists
+      if(!state.inventory) state.inventory = [];
 
       const $=sel=>document.querySelector(sel);
       const $$=sel=>Array.from(document.querySelectorAll(sel));
@@ -311,44 +577,89 @@
 
       /* Catalog (mock data) */
       const PRESETS=[
-        {id:'cyber', name:'Cyber Cyan', price:{SOL:0.25, NEBX:150}, bg:'bg-a', border:'glow', accent:'cyan', req:1},
-        {id:'ember', name:'Ember Pulse', price:{SOL:0.35, NEBX:210}, bg:'bg-b', border:'flame', accent:'amber', req:2},
-        {id:'void', name:'Deep Void', price:{SOL:0.3, NEBX:180}, bg:'bg-c bg-grid', border:'none', accent:'pink', req:1},
-        {id:'neon', name:'Neon Matrix', price:{SOL:0.45, NEBX:270}, bg:'bg-c', border:'glow', accent:'cyan', req:3},
+        {id:'mario-retro', name:'Mario Retro', price:{SOL:0, NEBX:0}, theme:'mario-retro', accent:'#FFB020', req:1},
+        {id:'cyber', name:'Cyber Cyan', price:{SOL:0, NEBX:0}, bg:'bg-a', border:'glow', accent:'cyan', req:1},
+        {id:'ember', name:'Ember Pulse', price:{SOL:0, NEBX:0}, bg:'bg-b', border:'flame', accent:'amber', req:1},
+        {id:'void', name:'Deep Void', price:{SOL:0, NEBX:0}, bg:'bg-c bg-grid', border:'none', accent:'pink', req:1},
+        {id:'neon', name:'Neon Matrix', price:{SOL:0, NEBX:0}, bg:'bg-c', border:'glow', accent:'cyan', req:1},
       ];
       const BACKGROUNDS=[
-        {id:'bg-a', name:'Aurora Cyan', price:{SOL:0.1, NEBX:60}, cls:'bg-a', req:1},
-        {id:'bg-b', name:'Solar Amber', price:{SOL:0.12, NEBX:72}, cls:'bg-b', req:1},
-        {id:'bg-c', name:'Nebula Grid', price:{SOL:0.14, NEBX:84}, cls:'bg-c bg-grid', req:2},
+        {id:'bg-a', name:'Aurora Cyan', price:{SOL:0, NEBX:0}, cls:'bg-a', req:1},
+        {id:'bg-b', name:'Solar Amber', price:{SOL:0, NEBX:0}, cls:'bg-b', req:1},
+        {id:'bg-c', name:'Nebula Grid', price:{SOL:0, NEBX:0}, cls:'bg-c bg-grid', req:1},
       ];
       const BORDERS=[
-        {id:'glow', name:'Neon Glow', price:{SOL:0.18, NEBX:108}, cls:'border-glow', req:1},
-        {id:'flame', name:'Blue Flame', price:{SOL:0.22, NEBX:132}, cls:'border-flame', req:2},
-        {id:'plain', name:'Minimal', price:{SOL:0.08, NEBX:48}, cls:'', req:1},
+        {id:'glow', name:'Neon Glow', price:{SOL:0, NEBX:0}, cls:'border-glow', req:1},
+        {id:'flame', name:'Blue Flame', price:{SOL:0, NEBX:0}, cls:'border-flame', req:1},
+        {id:'plain', name:'Minimal', price:{SOL:0, NEBX:0}, cls:'', req:1},
       ];
       const EFFECTS=[
-        {id:'cursor', name:'Cyan Cursor Trail', price:{SOL:0.12, NEBX:72}, req:2},
-        {id:'parallax', name:'Parallax BG', price:{SOL:0.16, NEBX:96}, req:3},
+        {id:'cursor', name:'Cyan Cursor Trail', price:{SOL:0, NEBX:0}, req:1},
+        {id:'parallax', name:'Parallax BG', price:{SOL:0, NEBX:0}, req:1},
       ];
       const AVATARS=[
-        {id:'a1', src:'NebulaX-logo.png', price:{SOL:0, NEBX:0}, req:1},
-        {id:'a2', src:'https://picsum.photos/seed/nebula1/256', price:{SOL:0.05, NEBX:30}, req:1},
-        {id:'a3', src:'https://picsum.photos/seed/nebula2/256', price:{SOL:0.08, NEBX:48}, req:2},
-        {id:'a4', src:'https://picsum.photos/seed/nebula3/256', price:{SOL:0.12, NEBX:72}, req:3},
-        {id:'a5', src:'https://picsum.photos/seed/nebula4/256', price:{SOL:0.15, NEBX:90}, req:4},
+        // 8Bit Category
+        {id:'8bit-ana', category:'8Bit', name:'Ana', src:'PFPs/8Bit/Ana.png', lore:'A mysterious hacker from the neon-lit streets of Neo-Tokyo. Ana emerged from the digital underground to become a legend in the crypto world.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-ansee', category:'8Bit', name:'Ansee', src:'PFPs/8Bit/Ansee.png', lore:'The silent observer of all blockchains. Ansee sees what others miss—tracking patterns across the decentralized web.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-arc', category:'8Bit', name:'Arc', src:'PFPs/8Bit/Arc.png', lore:'A bridge between worlds. Arc connects disparate networks and protocols, forever seeking balance in the chaotic crypto ecosystem.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-arfy', category:'8Bit', name:'Arfy', src:'PFPs/8Bit/Arfy.png', lore:'Loyal guardian of wallets and portfolios. Arfy has protected countless fortunes through the bear markets and pump-and-dump schemes.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-celia', category:'8Bit', name:'Celia', src:'PFPs/8Bit/Celia.png', lore:'A cryptographer whose algorithms have never been broken. Celia stands at the forefront of digital security in the Web3 revolution.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-debo', category:'8Bit', name:'Debo', src:'PFPs/8Bit/Debo.png', lore:'The voice of rebellion against centralized control. Debo inspires traders and developers to build a freer future.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-fiona', category:'8Bit', name:'Fiona', src:'PFPs/8Bit/Fiona.png', lore:'Master of market analysis and chart reading. Fiona predicts trends with uncanny accuracy, her insights worth their weight in SOL.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-kitty', category:'8Bit', name:'Kitty', src:'PFPs/8Bit/Kitty.png', lore:'Mischievous trader and beloved mascot of the community. Kitty brings joy and humor to even the darkest crypto winters.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-lucia', category:'8Bit', name:'Lucia', src:'PFPs/8Bit/Lucia.png', lore:'A scholar of distributed systems and economic theory. Lucia bridges the gap between academic rigor and practical trading wisdom.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-princess', category:'8Bit', name:'Princess Mag', src:'PFPs/8Bit/Princess_Mag.png', lore:'Royalty of the blockchain realm. Princess Mag commands respect and controls some of the largest holdings in the space.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-sunji', category:'8Bit', name:'Sunji', src:'PFPs/8Bit/Sunji.png', lore:'A seeker of hidden gems in a sea of tokens. Sunji\'s portfolio is a collection of undervalued treasures waiting to be discovered.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'8bit-tiff', category:'8Bit', name:'Tiff', src:'PFPs/8Bit/Tiff.png', lore:'Explorer of new frontiers in DeFi and NFT ecosystems. Tiff pushes boundaries and discovers opportunities others overlook.', price:{SOL:0, NEBX:0}, req:1},
+        
+        // Animals Category
+        {id:'animal-athena', category:'Animals', name:'Athena', src:'PFPs/Animals/Athena.png', lore:'Goddess of wisdom and strategic warfare. Athena guides her followers to victory through superior market knowledge and tactical precision.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-bigfoot', category:'Animals', name:'Bigfoot', src:'PFPs/Animals/Bigfoot.png', lore:'A legendary figure emerging from the shadows of crypto mythology. Bigfoot\'s existence is disputed but his profits are undeniable.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-bun', category:'Animals', name:'Bun Agent', src:'PFPs/Animals/Bun_Agent.png', lore:'An undercover operative gathering intelligence on every protocol. Bun Agent\'s reports shape the decisions of seasoned traders.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-marcia', category:'Animals', name:'Marcia', src:'PFPs/Animals/Marcia.png', lore:'A nomadic trader following the sun and the green candles. Marcia\'s adventures span multiple continents and countless exchanges.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-tunya', category:'Animals', name:'Tunya', src:'PFPs/Animals/Tunya.png', lore:'Fierce protector of community interests. Tunya stands against rug pulls and scams, fighting for justice in the decentralized wilderness.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-zena', category:'Animals', name:'Zena', src:'PFPs/Animals/Zena.png', lore:'Warrior princess of the blockchain. Zena\'s combat-ready mindset serves her well in the volatile crypto markets.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'animal-zeneva', category:'Animals', name:'Zeneva', src:'PFPs/Animals/Zeneva.png', lore:'An enigmatic figure shrouded in mystery. Zeneva\'s true identity remains unknown, but her market moves are legendary.', price:{SOL:0, NEBX:0}, req:1},
+        
+        // Characters Category
+        {id:'char-archy', category:'Characters', name:'Archy', src:'PFPs/Characters/Archy.png', lore:'An architect of financial systems and protocol design. Archy builds the infrastructure upon which the future of finance rests.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-argos', category:'Characters', name:'Argos', src:'PFPs/Characters/Argos.png', lore:'The all-seeing sentinel with eyes on every market. Argos never sleeps, constantly monitoring for opportunities and threats.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-dunny', category:'Characters', name:'Dunny', src:'PFPs/Characters/Dunny.png', lore:'A humble but wise sage of the crypto realms. Dunny\'s simple philosophy masks deep understanding of market mechanics.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-golumn', category:'Characters', name:'Golumn', src:'PFPs/Characters/Golumn.png', lore:'Ancient guardian of blockchain treasures. Golumn has protected digital gold since the earliest days of cryptocurrency.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-headwing', category:'Characters', name:'Headwing', src:'PFPs/Characters/Headwing.png', lore:'A maverick trader who flies above market trends. Headwing\'s unconventional strategies consistently outperform the index.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-hirscho', category:'Characters', name:'Hirscho', src:'PFPs/Characters/Hirscho.png', lore:'A forest-dwelling philosopher contemplating the nature of value. Hirscho brings ancient wisdom to modern finance.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-marki', category:'Characters', name:'Marki', src:'PFPs/Characters/Marki.png', lore:'A marker of important milestones and turning points. Marki identifies the pivotal moments that shape market cycles.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-terrorizur', category:'Characters', name:'Terrorizur', src:'PFPs/Characters/Terrorizur.png', lore:'A force of nature that reshapes the landscape. Terrorizur\'s volatility trades are as profitable as they are legendary.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'char-z', category:'Characters', name:'Z', src:'PFPs/Characters/Z.png', lore:'The final form, the ultimate trader. Z represents the culmination of experience, wisdom, and unwavering market discipline.', price:{SOL:0, NEBX:0}, req:1},
+        
+        // Crypto Category
+        {id:'crypto-believer', category:'Crypto', name:'Bitcoin Believer', src:'PFPs/Crypto/Bitcoin_Believer.png', lore:'A true believer in the original vision. Bitcoin Believer holds conviction through cycles, never wavering in faith.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'crypto-diamond', category:'Crypto', name:'Diamond Holder', src:'PFPs/Crypto/Diamond_Holder.png', lore:'Hands forged from diamond, unbreakable and unwavering. Diamond Holder never panic sells, riding every wave with calm resolve.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'crypto-doge', category:'Crypto', name:'Doge the Dog', src:'PFPs/Crypto/Doge_the_dog.png', lore:'Much wisdom. Very trade. Wow. Doge brings humor and optimism to the community, reminding all not to take themselves too seriously.', price:{SOL:0, NEBX:0}, req:1},
+        {id:'crypto-dorge', category:'Crypto', name:'Dorge', src:'PFPs/Crypto/Dorge.png', lore:'A meme lord and market manipulator extraordinaire. Dorge\'s posts move millions in volume across all trading pairs.', price:{SOL:0, NEBX:0}, req:1},
       ];
       const BUNDLES=[
-        {id:'starter', name:'Starter Kit', items:['bg-a','glow','a2'], price:{SOL:0.36, NEBX:210}, req:1},
-        {id:'elite', name:'Elite FX', items:['bg-b','flame','parallax','a4'], price:{SOL:0.72, NEBX:420}, req:3},
+        {id:'starter', name:'Starter Kit', items:['bg-a','glow','a2'], price:{SOL:0, NEBX:0}, req:1},
+        {id:'elite', name:'Elite FX', items:['bg-b','flame','parallax','a4'], price:{SOL:0, NEBX:0}, req:1},
       ];
 
       /* Render helpers */
       function cardHTML(entry, type){
-        const locked = state.profile.level < entry.req;
+        const locked = false; // Everything unlocked for testing
         const price = entry.price[unit()] + ' ' + unit();
+        let thumbClass = entry.cls||'';
+        let thumbStyle = '';
+        if(type === 'preset'){
+          if(entry.theme === 'mario-retro'){
+            thumbStyle = ` style="background-image: url('assets/NebulaXMarioBG.jpeg'); background-size: cover; background-position: center;"`;
+          } else if(entry.accent){
+            const accentColors = {cyan:'#06B6D4', amber:'#F59E0B', pink:'#EC4899', emerald:'#10B981'};
+            thumbStyle = ` style="background: linear-gradient(135deg, ${accentColors[entry.accent] || '#06B6D4'} 0%, ${accentColors[entry.accent] || '#06B6D4'}20 100%);"`;
+          }
+        }
         return `
           <div class="store-card" data-type="${type}" data-id="${entry.id}">
-            <div class="thumb ${entry.cls||''}"></div>
+            <div class="thumb ${thumbClass}"${thumbStyle}></div>
             <div class="meta">
               <div class="flex items-center justify-between">
                 <div class="font-semibold text-sm truncate">${entry.name||entry.id}</div>
@@ -369,23 +680,61 @@
         $('#bgs-grid').innerHTML = BACKGROUNDS.map(p=>cardHTML(p,'bg')).join('');
         $('#borders-grid').innerHTML = BORDERS.map(p=>cardHTML(p,'border')).join('');
         $('#effects-grid').innerHTML = EFFECTS.map(p=>cardHTML(p,'effect')).join('');
-        // Avatars
-        $('#avatars-grid').innerHTML = AVATARS.map(a=>{
-          const locked = state.profile.level < a.req;
-          const price = a.price[unit()] + ' ' + unit();
-          return `<div class="flex flex-col items-center gap-2" data-type="avatar" data-id="${a.id}">
-            <img src="${a.src}" class="avatar ${locked?'locked':''}"/>
-            <div class="text-xs">L${a.req} • ${price}</div>
-            <div class="grid grid-cols-2 gap-2 w-full">
-              <button class="nx-btn nx-btn-cyan add-avatar">Add</button>
-              <button class="nx-btn set-avatar">Use</button>
+        
+        // Avatars - grouped by category
+        const categories = {};
+        AVATARS.forEach(a => {
+          if (!categories[a.category]) categories[a.category] = [];
+          categories[a.category].push(a);
+        });
+        
+        let avatarHTML = '';
+        Object.keys(categories).sort().forEach(cat => {
+          const items = categories[cat];
+          avatarHTML += `
+            <div class="mb-4">
+              <div class="text-xs font-semibold text-cyan-300 mb-2 uppercase tracking-wider">${cat}</div>
+              <div class="grid grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-3">
+                ${items.map(a => {
+                  const locked = state.profile.level < a.req;
+                  const price = a.price[unit()] + ' ' + unit();
+                  return `<div class="flex flex-col items-center gap-2" data-type="avatar" data-id="${a.id}">
+                    <img src="${a.src}" class="avatar ${locked?'locked':''}" title="${a.name}"/>
+                    <div class="text-xs text-center truncate w-full">${a.name}</div>
+                    <div class="text-xs text-zinc-400">L${a.req}</div>
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                      <button class="nx-btn nx-btn-cyan add-avatar text-xs">Add</button>
+                      <button class="nx-btn lore-btn text-xs" data-id="${a.id}">Lore</button>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
             </div>
-          </div>`;
-        }).join('');
+          `;
+        });
+        $('#avatars-grid').innerHTML = avatarHTML;
+        
+        // Add lore button handlers
+        $$('.lore-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute('data-id');
+            const avatar = AVATARS.find(a => a.id === id);
+            if(avatar) showLore(avatar);
+          });
+        });
+        
         // Bundles
         $('#bundles-grid').innerHTML = BUNDLES.map(b=>cardHTML(b,'bundle')).join('');
 
         if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      }
+      
+      function showLore(avatar){
+        $('#lore-title').textContent = avatar.name;
+        $('#lore-image').src = avatar.src;
+        $('#lore-text').textContent = avatar.lore;
+        $('#lore-modal').classList.remove('hidden');
       }
 
       /* Tabs */
@@ -435,9 +784,63 @@
         const map={preset:PRESETS, bg:BACKGROUNDS, border:BORDERS, effect:EFFECTS, avatar:AVATARS, bundle:BUNDLES};
         const coll=map[item.type]||[]; const f=coll.find(x=>x.id===item.id); return f? f.price[unit()] : 0;
       }
+      function itemName(item){
+        const map={preset:PRESETS, bg:BACKGROUNDS, border:BORDERS, effect:EFFECTS, avatar:AVATARS, bundle:BUNDLES};
+        const coll=map[item.type]||[]; const f=coll.find(x=>x.id===item.id); return f? f.name : item.id;
+      }
+      function itemThumb(item){
+        const map={preset:PRESETS, bg:BACKGROUNDS, border:BORDERS, effect:EFFECTS, avatar:AVATARS, bundle:BUNDLES};
+        const coll=map[item.type]||[]; const f=coll.find(x=>x.id===item.id); 
+        if(!f) return '';
+        if(f.src) return f.src;
+        // For presets, try to get the background
+        if(item.type === 'preset'){
+          if(f.theme === 'mario-retro') return 'mario-retro-thumb';
+          if(f.bg) return 'bg-preset';
+        }
+        if(f.cls) return ''; // bg/border - return empty, we'll use class
+        return '';
+      }
       function renderCart(){
         $('#cart-count').textContent = state.cart.length;
-        const list = state.cart.map((it,i)=>`<div class="nx-panel p-2 flex items-center justify-between"><div class="text-xs">${it.type}:${it.id}</div><div class="flex items-center gap-2"><div class="text-xs">${priceOf(it)} ${unit()}</div><button data-i="${i}" class="nx-btn rm">✕</button></div></div>`).join('');
+        const list = state.cart.map((it,i)=>{
+          const name = itemName(it);
+          const thumb = itemThumb(it);
+          const price = priceOf(it);
+          const typeLabel = it.type === 'preset' ? 'Preset' : it.type === 'bg' ? 'BG' : it.type === 'border' ? 'Border' : it.type === 'effect' ? 'Effect' : it.type === 'avatar' ? 'Avatar' : 'Bundle';
+          let thumbHTML = '';
+          if(thumb === 'mario-retro-thumb'){
+            thumbHTML = `<div class="w-10 h-10 rounded border border-[var(--nx-border)]" style="background-image: url('assets/NebulaXMarioBG.jpeg'); background-size: cover; background-position: center;"></div>`;
+          } else if(thumb === 'bg-preset'){
+            const preset = PRESETS.find(x=>x.id===it.id);
+            if(preset?.bg){
+              const bgItem = BACKGROUNDS.find(b=>b.id===preset.bg);
+              if(bgItem?.cls) thumbHTML = `<div class="w-10 h-10 rounded border border-[var(--nx-border)] ${bgItem.cls}"></div>`;
+            }
+          } else if(thumb){
+            thumbHTML = `<img src="${thumb}" class="w-10 h-10 rounded border border-[var(--nx-border)]" alt="${name}"/>`;
+          } else if(it.type === 'bg' || it.type === 'border'){
+            const item = (it.type === 'bg' ? BACKGROUNDS : BORDERS).find(x=>x.id===it.id);
+            if(item?.cls) thumbHTML = `<div class="w-10 h-10 rounded border border-[var(--nx-border)] ${item.cls}"></div>`;
+          } else {
+            thumbHTML = `<div class="w-10 h-10 rounded border border-[var(--nx-border)] bg-zinc-700 flex items-center justify-center text-xs">${typeLabel.charAt(0)}</div>`;
+          }
+          return `
+            <div class="nx-panel p-2 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-1">
+                ${thumbHTML}
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-semibold truncate">${name}</div>
+                  <div class="text-xs text-zinc-400">${typeLabel}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="text-xs font-semibold whitespace-nowrap">${price} ${unit()}</div>
+                <button data-i="${i}" class="nx-btn nx-btn-cyan rm text-xs px-2 py-1">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
         $('#cart-list').innerHTML = list || '<div class="text-xs text-zinc-400">No items yet.</div>';
         const total = state.cart.reduce((a,b)=>a+priceOf(b),0);
         $('#cart-total').textContent = (unit()==='NEBX'? Math.round(total*100): total.toFixed(3));
@@ -445,37 +848,83 @@
         $$('#cart-list .rm').forEach(btn=>btn.addEventListener('click',()=>{ const i=+btn.getAttribute('data-i'); state.cart.splice(i,1); LS.set('nx_store_state_v3',state); renderCart(); }));
       }
       $('#cart-clear').addEventListener('click',()=>{ state.cart=[]; LS.set('nx_store_state_v3',state); renderCart(); });
-
       $('#checkout').addEventListener('click',()=>{
-        const total = state.cart.reduce((a,b)=>a+priceOf(b),0);
-        if(total<=0) return alert('Cart is empty.');
-        if(unit()==='SOL'){
-          if(state.bal.SOL<total) return alert('Insufficient SOL.');
-          state.bal.SOL -= total; state.spentSOL += total;
-        }else{
-          if(state.bal.NEBX < Math.round(total*100)) return alert('Insufficient NEBX.');
-          state.bal.NEBX -= Math.round(total*100);
-          state.spentSOL += total; // credit toward unlocks using SOL equivalent pricing (1 SOL = 100 NEBX mock)
-        }
-        // grant items: for presets apply as active theme
+        if(state.cart.length === 0) return alert('Cart is empty.');
+        
+        // Collect purchased items for summary
+        const purchased = state.cart.map(it => itemName(it)).join(', ');
+        
+        // grant items: add to inventory and apply active theme
         state.cart.forEach(it=>{
-          if(it.type==='preset'){ applyPreset(it.id); }
-          if(it.type==='bg'){ active.bg = BACKGROUNDS.find(x=>x.id===it.id)?.cls || active.bg; }
-          if(it.type==='border'){ active.border = BORDERS.find(x=>x.id===it.id)?.cls || active.border; }
+          if(it.type==='preset'){ 
+            const p=PRESETS.find(x=>x.id===it.id);
+            if(p && !state.inventory.find(inv => inv.id === p.id)){
+              state.inventory.push({type: 'preset', id: p.id, name: p.name, price: p.price, bg: p.bg, border: p.border, accent: p.accent, theme: p.theme});
+            }
+            applyPreset(it.id); 
+          }
+          if(it.type==='bg'){ 
+            const bg = BACKGROUNDS.find(x=>x.id===it.id);
+            if(bg && !state.inventory.find(inv => inv.id === bg.id)){
+              state.inventory.push({type: 'bg', id: bg.id, name: bg.name, cls: bg.cls, price: bg.price});
+            }
+            active.bg = bg?.cls || active.bg; 
+          }
+          if(it.type==='border'){ 
+            const br = BORDERS.find(x=>x.id===it.id);
+            if(br && !state.inventory.find(inv => inv.id === br.id)){
+              state.inventory.push({type: 'border', id: br.id, name: br.name, cls: br.cls, price: br.price});
+            }
+            active.border = br?.cls || active.border; 
+          }
+          if(it.type==='effect'){
+            const ef = EFFECTS.find(x=>x.id===it.id);
+            if(ef && !state.inventory.find(inv => inv.id === ef.id)){
+              state.inventory.push({type: 'effect', id: ef.id, name: ef.name, price: ef.price});
+            }
+            if(!active.effects) active.effects = [];
+            if(!active.effects.includes(it.id)) active.effects.push(it.id);
+          }
           if(it.type==='bundle'){
-            const b=BUNDLES.find(x=>x.id===it.id); if(b){
+            const b=BUNDLES.find(x=>x.id===it.id); 
+            if(b && !state.inventory.find(inv => inv.id === b.id)){
+              state.inventory.push({type: 'bundle', id: b.id, name: b.name, items: b.items, price: b.price});
+            }
+            if(b){
               b.items.forEach(sub=>{
                 const bg=BACKGROUNDS.find(x=>x.id===sub); if(bg) active.bg=bg.cls;
                 const br=BORDERS.find(x=>x.id===sub); if(br) active.border=br.cls;
               });
             }
           }
-          if(it.type==='avatar'){ const a=AVATARS.find(x=>x.id===it.id); if(a) state.profile.avatar=a.src; }
+          if(it.type==='avatar'){ 
+            const a=AVATARS.find(x=>x.id===it.id); 
+            if(a){ 
+              if(!state.inventory.find(inv => inv.id === a.id)){
+                state.inventory.push({type: 'avatar', id: a.id, name: a.name, src: a.src, category: a.category});
+              }
+              state.profile.avatar=a.src;
+              try{ localStorage.setItem('nx_platform_avatar', a.src); } catch{}
+              window.dispatchEvent(new CustomEvent('nebula:avatar:changed', {detail:{avatar:a.src}}));
+            }
+          }
         });
-        state.cart=[]; recalcLevel(); saveActive(); renderBalances(); renderCart(); renderPreview(); renderProfile(); alert('Purchase complete (mock).');
+        state.cart=[]; recalcLevel(); saveActive(); renderBalances(); renderCart(); renderPreview(); renderProfile(); renderInventory();
+        
+        // Show checkout confirmation modal
+        $('#checkout-summary').textContent = `Added: ${purchased}`;
+        $('#checkout-modal').classList.remove('hidden');
       });
 
-      function renderBalances(){ $('#bal-sol').textContent=state.bal.SOL.toFixed(3); $('#bal-nebx').textContent=state.bal.NEBX; $('#spent-sol').textContent=state.spentSOL.toFixed(2); }
+      function renderBalances(){ 
+        const balSol = $('#bal-sol');
+        const balNebx = $('#bal-nebx');
+        const spentSol = $('#spent-sol');
+        
+        if(balSol) balSol.textContent = state.bal.SOL.toFixed(3); 
+        if(balNebx) balNebx.textContent = state.bal.NEBX; 
+        if(spentSol) spentSol.textContent = state.spentSOL.toFixed(2); 
+      }
 
       /* Unlock bars */
       function renderUnlocks(){
@@ -486,38 +935,195 @@
         });
       }
 
-      /* Profile */
-      function renderProfile(){ $('#profile-name').textContent=state.profile.name; $('#profile-avatar').src=state.profile.avatar; $('#profile-level').textContent=state.profile.level; }
-      $('#edit-username').addEventListener('click',()=>{ $('#name-input').value=state.profile.name; $('#name-modal').style.display='grid'; });
-      $('#name-save').addEventListener('click',()=>{ const v=$('#name-input').value.trim()||'Guest'; state.profile.name=v; LS.set('nx_store_state_v3',state); renderProfile(); $('#name-modal').style.display='none'; });
-      $('[data-close="#name-modal"]').addEventListener('click',()=>$('#name-modal').style.display='none');
-      $('#change-avatar').addEventListener('click',()=>{ renderAvatarPicker(); $('#avatar-modal').style.display='grid'; });
-      $('[data-close="#avatar-modal"]').addEventListener('click',()=>$('#avatar-modal').style.display='none');
+      /* Inventory */
+      function renderInventory(){
+        const filter = $('#inventory-filter').value;
+        let filtered = state.inventory;
+        if(filter) filtered = filtered.filter(inv => inv.type === filter);
+        
+        if(filtered.length === 0){
+          $('#inventory-list').innerHTML = '<div class="text-xs text-zinc-400">No items in inventory yet.</div>';
+        } else {
+          $('#inventory-list').innerHTML = filtered.map(inv => {
+            const typeLabel = inv.type === 'preset' ? 'Preset' : inv.type === 'bg' ? 'Background' : inv.type === 'border' ? 'Border' : inv.type === 'effect' ? 'Effect' : inv.type === 'avatar' ? 'Avatar' : inv.type;
+            const displayImg = inv.src || inv.cls ? (inv.src ? inv.src : `<div class="w-10 h-10 rounded border border-[var(--nx-border)] ${inv.cls}"></div>`) : '';
+            return `
+              <div class="nx-panel p-2 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  ${inv.src ? `<img src="${inv.src}" class="w-10 h-10 rounded border border-[var(--nx-border)]" alt="${inv.name}"/>` : inv.cls ? `<div class="w-10 h-10 rounded border border-[var(--nx-border)] ${inv.cls}"></div>` : `<div class="w-10 h-10 rounded border border-[var(--nx-border)] bg-zinc-700"></div>`}
+                  <div class="flex-1">
+                    <div class="text-xs font-semibold">${inv.name}</div>
+                    <div class="text-xs text-zinc-400">${typeLabel}</div>
+                  </div>
+                </div>
+                <button class="nx-btn nx-btn-cyan apply-btn text-xs" data-id="${inv.id}" data-type="${inv.type}">Apply</button>
+              </div>
+            `;
+          }).join('');
+          
+          // Add apply button handlers
+          $$('.apply-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-id');
+              const type = btn.getAttribute('data-type');
+              const inv = state.inventory.find(i => i.id === id);
+              if(inv){
+                if(type === 'avatar'){
+                  state.profile.avatar = inv.src;
+                  renderProfile();
+                  try{ localStorage.setItem('nx_platform_avatar', inv.src); } catch{}
+                  window.dispatchEvent(new CustomEvent('nebula:avatar:changed', {detail:{avatar:inv.src}}));
+                } else if(type === 'preset'){
+                  active = inv;
+                } else if(type === 'bg'){
+                  active.bg = inv.cls;
+                } else if(type === 'border'){
+                  active.border = inv.cls;
+                } else if(type === 'effect'){
+                  if(!active.effects) active.effects = [];
+                  if(!active.effects.includes(inv.id)) active.effects.push(inv.id);
+                }
+                LS.set('nx_store_state_v3', state);
+                renderPreview();
+              }
+            });
+          });
+        }
+      }
+      
+      $('#inventory-filter').addEventListener('change', renderInventory);
 
-      function renderAvatarPicker(){ $('#avatar-choose').innerHTML = AVATARS.map(a=>`<img src="${a.src}" class="avatar ${state.profile.level<a.req?'locked':''}" data-id="${a.id}"/>`).join(''); $$('#avatar-choose .avatar').forEach(img=>img.addEventListener('click',()=>setAvatar(img.getAttribute('data-id')))); }
-      function setAvatar(id){ const a=AVATARS.find(x=>x.id===id); if(!a) return; if(state.profile.level<a.req) return alert('Locked. Level up by spending.'); state.profile.avatar=a.src; LS.set('nx_store_state_v3',state); renderProfile(); $('#avatar-modal').style.display='none'; }
+      /* Profile */
+      function renderProfile(){ 
+        $('#profile-name').textContent=state.profile.name; 
+        const avatarSrc = state.profile.avatar || 'NebulaX-logo.png';
+        $('#profile-avatar').src = avatarSrc;
+        
+        // Also update header profile pic
+        const headerPfp = $('#nx-pfp');
+        if(headerPfp) headerPfp.src = avatarSrc;
+        
+        $('#profile-level').textContent=state.profile.level; 
+      }
+      $('#edit-username').addEventListener('click',()=>{ $('#name-input').value=state.profile.name; $('#name-modal').classList.remove('hidden'); });
+      $('#name-save').addEventListener('click',()=>{ const v=$('#name-input').value.trim()||'Guest'; state.profile.name=v; LS.set('nx_store_state_v3',state); renderProfile(); $('#name-modal').classList.add('hidden'); });
+      $('[data-close="#name-modal"]').addEventListener('click',()=>$('#name-modal').classList.add('hidden'));
+      $('#change-avatar').addEventListener('click',()=>{ renderAvatarPicker(); $('#avatar-modal').classList.remove('hidden'); });
+      $('[data-close="#avatar-modal"]').addEventListener('click',()=>$('#avatar-modal').classList.add('hidden'));
+
+      function renderAvatarPicker(){ 
+        const categories = {};
+        AVATARS.forEach(a => {
+          if (!categories[a.category]) categories[a.category] = [];
+          categories[a.category].push(a);
+        });
+        
+        let html = '';
+        Object.keys(categories).sort().forEach(cat => {
+          const items = categories[cat];
+          html += `
+            <div>
+              <div class="text-xs font-semibold text-cyan-300 mb-2 uppercase tracking-wider">${cat}</div>
+              <div class="grid grid-cols-4 md:grid-cols-6 gap-2">
+                ${items.map(a => `<img src="${a.src}" class="avatar ${state.profile.level<a.req?'locked':''} cursor-pointer hover:opacity-80" data-id="${a.id}" title="${a.name}"/>`).join('')}
+              </div>
+            </div>
+          `;
+        });
+        
+        $('#avatar-choose').innerHTML = html;
+        $$('#avatar-choose .avatar').forEach(img=>img.addEventListener('click',()=>setAvatar(img.getAttribute('data-id'))));
+      }
+      function setAvatar(id){ 
+        const a=AVATARS.find(x=>x.id===id); 
+        if(!a) return; 
+        state.profile.avatar=a.src; 
+        LS.set('nx_store_state_v3',state);
+        
+        // Share avatar with platform header
+        try{ localStorage.setItem('nx_platform_avatar', a.src); } catch{}
+        
+        // Dispatch event so other pages update
+        window.dispatchEvent(new CustomEvent('nebula:avatar:changed', {detail:{avatar:a.src}}));
+        
+        renderProfile(); 
+        $('#avatar-modal').classList.add('hidden'); 
+      }
 
       /* Active theme + preview */
       let active = state.activeTheme || { bg:'bg-a', border:'border-glow', accent:'cyan' };
-      function applyPreset(id){ const p=PRESETS.find(x=>x.id===id); if(!p) return; active={ bg:p.bg? (BACKGROUNDS.find(b=>b.id===p.bg)?.cls || p.bg) : active.bg, border: (p.border==='glow'? 'border-glow' : p.border==='flame'? 'border-flame' : ''), accent:p.accent||'cyan' }; saveActive(); renderPreview(); }
-      function saveActive(){ state.activeTheme=active; LS.set('nx_store_state_v3',state); $('#json-out').value = JSON.stringify(active,null,2); }
-      function renderPreview(){
-        const pv=$('#preview'); pv.className = 'skin '+(active.bg||'');
-        ['pv-main','pv-side'].forEach(id=>{ const el=$('#'+id); el.classList.remove('border-glow','border-flame'); if(active.border) el.classList.add(active.border); });
+      function applyPreset(id){ 
+        const p=PRESETS.find(x=>x.id===id); 
+        if(!p) return; 
+        active={ 
+          id: p.id,
+          name: p.name,
+          theme: p.theme||'',
+          bg: p.bg? (BACKGROUNDS.find(b=>b.id===p.bg)?.cls || p.bg) : active.bg, 
+          border: (p.border==='glow'? 'border-glow' : p.border==='flame'? 'border-flame' : p.border==='none'?'':'border-glow'), 
+          accent: p.accent||'cyan',
+          effects: []
+        }; 
+        saveActive(); 
+        renderPreview(); 
       }
-      function tryItem(item){ if(item.type==='preset') return applyPreset(item.id); if(item.type==='bg'){ const x=BACKGROUNDS.find(b=>b.id===item.id); if(x){ active.bg=x.cls; renderPreview(); } } if(item.type==='border'){ const x=BORDERS.find(b=>b.id===item.id); if(x){ active.border=x.cls; renderPreview(); } } }
+      function saveActive(){ state.activeTheme=active; LS.set('nx_store_state_v3',state); }
+      function renderPreview(){
+        const pv=$('#preview'); 
+        let classes = 'skin';
+        if(active.theme) classes += ' ' + active.theme;
+        else if(active.bg) classes += ' ' + active.bg;
+        pv.className = classes;
+        ['pv-main','pv-side'].forEach(id=>{ const el=$('#'+id); el.classList.remove('border-glow','border-flame'); if(active.border && !active.theme) el.classList.add(active.border); });
+      }
+      function tryItem(item){ 
+        if(item.type==='preset') return applyPreset(item.id); 
+        if(item.type==='bg'){ 
+          const x=BACKGROUNDS.find(b=>b.id===item.id); 
+          if(x){ active.bg=x.cls; renderPreview(); } 
+        } 
+        if(item.type==='border'){ 
+          const x=BORDERS.find(b=>b.id===item.id); 
+          if(x){ active.border=x.cls; renderPreview(); } 
+        }
+        if(item.type==='effect'){
+          const x=EFFECTS.find(e=>e.id===item.id);
+          if(x){
+            if(!active.effects) active.effects = [];
+            if(active.effects.includes(item.id)) active.effects = active.effects.filter(e=>e!==item.id);
+            else active.effects.push(item.id);
+            renderPreview();
+          }
+        }
+      }
       $('#apply-active').addEventListener('click',()=>{ alert('Applied theme to app (mock). Persisted locally.'); saveActive(); });
-      $('#export-json').addEventListener('click',()=>{ navigator.clipboard.writeText($('#json-out').value).then(()=>alert('Copied JSON to clipboard')); });
 
       /* Tabs default */
       function showTab(id){ ['presets','backgrounds','borders','avatars','effects','bundles'].forEach(t=>{ const p=$('#tab-'+t); if(p) p.classList.toggle('hidden', t!==id); }); $$('.nx-panel [data-tab]').forEach(b=>{ if(b.getAttribute('data-tab')===id) b.classList.add('nx-btn-cyan'); else b.classList.remove('nx-btn-cyan'); }); }
 
       /* Init */
-      function init(){ renderBalances(); recalcLevel(); renderUnlocks(); renderProfile(); renderGrids(); renderCart(); saveActive(); renderPreview(); showTab('presets'); }
+      function init(){ 
+        // Load shared platform avatar if available
+        try{ 
+          const platformAvatar = localStorage.getItem('nx_platform_avatar');
+          if(platformAvatar) state.profile.avatar = platformAvatar;
+        } catch{}
+        
+        renderBalances(); recalcLevel(); renderUnlocks(); renderProfile(); renderGrids(); renderCart(); renderInventory(); saveActive(); renderPreview(); showTab('presets'); 
+      }
       init();
 
+      // Listen for avatar changes from other pages
+      window.addEventListener('nebula:avatar:changed', (e)=>{
+        if(e.detail?.avatar){
+          state.profile.avatar = e.detail.avatar;
+          const headerPfp = $('#nx-pfp');
+          if(headerPfp) headerPfp.src = e.detail.avatar;
+        }
+      });
+
       // Overlay close on backdrop click
-      $$('#name-modal, #avatar-modal').forEach(el=>el.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }));
+      $$('#name-modal, #avatar-modal').forEach(el=>el.addEventListener('click',(e)=>{ if(e.target===el) el.classList.add('hidden'); }));
 
       // Minimal search mock
       const sWrap=$('#search-wrap'), sIn=$('#search-input'), sDD=$('#search-dd');

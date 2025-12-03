@@ -8,6 +8,454 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<script src="adrenaline-engine.js"></script>
+<script>
+// Global helper functions (available for onclick handlers)
+function goToCoin(mint, symbol) {
+  if (!window.NX) window.NX = {};
+  window.NX.currentCoin = { mint, symbol };
+  window.location.href = `Coinpage-Official.html?mint=${encodeURIComponent(mint)}`;
+}
+
+async function copyAddress(address) {
+  try {
+    await navigator.clipboard.writeText(address);
+    console.log('Address copied:', address);
+  } catch (e) {
+    console.error('Copy failed:', e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Clear old mock data from previous versions
+  try {
+    localStorage.removeItem('adrenaline_migrating_tokens');
+    localStorage.removeItem('adrenaline_migrated_tokens');
+    localStorage.removeItem('adrenaline_new_pairs');
+    sessionStorage.clear();
+  } catch (e) {}
+
+  // Sync profile picture from platform avatar or store state
+  function updatePfp() {
+    try {
+      const pfpImg = document.getElementById('nx-pfp');
+      console.log('PFP element found:', !!pfpImg);
+      
+      if(!pfpImg) {
+        console.log('PFP element not found, retrying...');
+        setTimeout(updatePfp, 500);
+        return;
+      }
+
+      // First try the platform avatar key (set by store when avatar changes)
+      let avatarSrc = localStorage.getItem('nx_platform_avatar');
+      console.log('nx_platform_avatar:', avatarSrc);
+      
+      // If not found, try to get from store state
+      if (!avatarSrc) {
+        const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+        avatarSrc = storeState.profile?.avatar;
+        console.log('from store state:', avatarSrc);
+      }
+      
+      // Default to logo if nothing found
+      if (!avatarSrc) {
+        console.log('Using default logo');
+        avatarSrc = 'NebulaX-logo.png';
+      }
+      
+      console.log('Setting avatar src to:', avatarSrc);
+      pfpImg.src = avatarSrc;
+      pfpImg.onerror = () => { 
+        console.log('Image failed to load, using fallback');
+        pfpImg.src = 'NebulaX-logo.png'; 
+      };
+      pfpImg.onload = () => {
+        console.log('Image loaded successfully:', avatarSrc);
+      };
+    } catch(e) {
+      console.error('Error updating PFP:', e);
+      const pfpImg = document.getElementById('nx-pfp');
+      if(pfpImg) pfpImg.src = 'NebulaX-logo.png';
+    }
+  }
+  
+  // Small delay to ensure DOM is ready
+  setTimeout(updatePfp, 100);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    const pfpImg = document.getElementById('nx-pfp');
+    if(pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    }
+  });
+
+  const btn = document.getElementById("wallet-btn");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
+    } else {
+      const s = sol.toFixed(3);
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${s} SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+  
+  // Wallet Modal Handlers
+  function updateWalletDisplay(){
+    const bal = window.NXWallet?.getBalance?.() || 0;
+    document.getElementById('wallet-total').textContent = bal.toFixed(3) + ' SOL';
+    document.getElementById('wallet-available').textContent = bal.toFixed(3) + ' SOL';
+  }
+  
+  const wBtn = document.getElementById('wallet-btn');
+  const wModal = document.getElementById('wallet-modal');
+  
+  wBtn?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    updateWalletDisplay();
+    wModal.classList.remove('hidden');
+  });
+  
+  wModal?.addEventListener('click', (e)=>{
+    if(e.target === wModal) wModal.classList.add('hidden');
+  });
+  
+  document.getElementById('dp-open')?.addEventListener('click', ()=>{
+    wModal.classList.add('hidden');
+    document.getElementById('deposit').classList.remove('hidden');
+  });
+  
+  document.getElementById('wd-open')?.addEventListener('click', ()=>{
+    wModal.classList.add('hidden');
+    document.getElementById('withdraw').classList.remove('hidden');
+  });
+  
+  document.getElementById('wallet-connect')?.addEventListener('click', async ()=>{
+    const prov = (window.phantom?.solana) || window.solana;
+    try {
+      await prov?.connect?.();
+    } catch(e){
+      console.log('Connect cancelled');
+    }
+  });
+  
+  document.getElementById('wallet-disconnect')?.addEventListener('click', async ()=>{
+    const prov = (window.phantom?.solana) || window.solana;
+    try {
+      await prov?.disconnect?.();
+    } catch(e){
+      console.log('Disconnect error');
+    }
+  });
+  
+  document.getElementById('copy-deposit')?.addEventListener('click', async ()=>{
+    const addr = document.getElementById('deposit-addr').textContent;
+    try {
+      await navigator.clipboard.writeText(addr);
+      const btn = document.getElementById('copy-deposit');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(()=>{ btn.textContent = orig; }, 2000);
+    } catch(e){
+      console.log('Copy failed');
+    }
+  });
+  
+  document.getElementById('deposit')?.addEventListener('click', (e)=>{
+    if(e.target === document.getElementById('deposit')) document.getElementById('deposit').classList.add('hidden');
+  });
+  
+  document.getElementById('withdraw')?.addEventListener('click', (e)=>{
+    if(e.target === document.getElementById('withdraw')) document.getElementById('withdraw').classList.add('hidden');
+  });
+  
+  window.addEventListener('nebula:sol:changed', (e)=>{
+    if(!wModal.classList.contains('hidden')) updateWalletDisplay();
+  });
+
+  // === NEW PAIRS PANEL RENDERING ===
+  
+  function formatAge(minutes) {
+    if (minutes < 1) return '<1m';
+    if (minutes < 60) return `${Math.floor(minutes)}m`;
+    if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
+    return `${Math.floor(minutes / 1440)}d`;
+  }
+  
+  function renderNewPairs() {
+    const container = document.getElementById('col-new');
+    if (!container) return;
+
+    const pairs = window.NX?.getNewPairs?.() || [];
+    
+    if (pairs.length === 0) {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Loading new pairs...</div>';
+      return;
+    }
+
+    container.innerHTML = pairs.map(token => {
+      const ageText = formatAge(token.ageMinutes);
+      const mcText = formatCompact(token.mcapUsd);
+      const liqText = formatCompact(token.liquidityUsd);
+      const volText = formatCompact(token.vol24h);
+      const pctChange = token.pct5m || token.pct1h || 0;
+      const pctClass = pctChange >= 0 ? 'green' : 'red';
+      const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
+      const logoUrl = token.logoURI;
+
+      return `
+        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          <div class="row-top">
+            <div class="row-left">
+              <div class="token-media">
+                ${logoUrl ? 
+                  `<img class="token-img" src="${logoUrl}" alt="${token.symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+                   <div class="token-img" style="display:none; background:#333; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>` 
+                  : 
+                  `<div class="token-img" style="background:#333; display:flex; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>`
+                }
+                <div class="name-block">
+                  <div class="ticker-line">
+                    <div class="ticker">${token.symbol}</div>
+                  </div>
+                  <div class="fullname">${token.name}</div>
+                </div>
+              </div>
+            </div>
+            <div class="metrics">
+              <!-- Row 1 -->
+              <div class="met-row">
+                <div class="metric amb"><span class="k">MC</span><span class="v">${mcText}</span></div>
+                <div class="metric grn"><span class="k">Liq</span><span class="v">${liqText}</span></div>
+              </div>
+              <!-- Row 2 -->
+              <div class="met-row">
+                <div class="metric cyan"><span class="k">Vol</span><span class="v">${volText}</span></div>
+                <div class="metric"><span class="k">Txns</span><span class="v">${token.txns5m || 0}</span></div>
+              </div>
+              <!-- Row 3 (status + copy) -->
+              <div class="met-row status-line">
+                <span class="chip ${pctClass}">${pctText}</span>
+                <div class="metric"><span class="k">Age</span><span class="v">${ageText}</span></div>
+                <span class="chip grn no-wrap">${token.dex}</span>
+                <button class="copy-btn" onclick="event.stopPropagation(); copyAddress('${token.mint}')">
+                  <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Re-initialize lucide icons
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+
+  function formatCompact(value) {
+    if (!value || value === 0) return '$0';
+    if (value >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
+    if (value >= 1e6) return '$' + (value / 1e6).toFixed(2) + 'M';
+    if (value >= 1e3) return '$' + (value / 1e3).toFixed(1) + 'K';
+    return '$' + value.toFixed(0);
+  }
+
+  // Listen for updates from adrenaline engine
+  window.addEventListener('adrenaline:newpairs:updated', () => {
+    renderNewPairs();
+  });
+
+  // Render function for Migrating panel
+  function renderMigratingPairs() {
+    const container = document.getElementById('col-migrating');
+    if (!container) return;
+    
+    // Get tokens that are still migrating (no real market yet)
+    const migratingPairs = window.NX?.getMigratingPairs?.() || [];
+    
+    if (migratingPairs.length === 0) {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No tokens migrating...</div>';
+      return;
+    }
+
+    container.innerHTML = migratingPairs.map(token => {
+      const ageText = formatAge(token.ageMinutes);
+      const mcText = formatCompact(token.mcapUsd);
+      const liqText = formatCompact(token.liquidityUsd);
+      const volText = formatCompact(token.vol24h);
+      const pctChange = token.pct5m || token.pct1h || 0;
+      const pctClass = pctChange >= 0 ? 'green' : 'red';
+      const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
+      const logoUrl = token.logoURI;
+
+      return `
+        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          <div class="row-top">
+            <div class="row-left">
+              <div class="token-media">
+                ${logoUrl ? 
+                  `<img class="token-img" src="${logoUrl}" alt="${token.symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+                   <div class="token-img" style="display:none; background:#333; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>` 
+                  : 
+                  `<div class="token-img" style="background:#333; display:flex; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>`
+                }
+                <div class="name-block">
+                  <div class="ticker-line">
+                    <div class="ticker">${token.symbol}</div>
+                  </div>
+                  <div class="fullname">${token.name}</div>
+                </div>
+              </div>
+            </div>
+            <div class="metrics">
+              <!-- Row 1 -->
+              <div class="met-row">
+                <div class="metric amb"><span class="k">MC</span><span class="v">${mcText}</span></div>
+                <div class="metric grn"><span class="k">Liq</span><span class="v">${liqText}</span></div>
+              </div>
+              <!-- Row 2 -->
+              <div class="met-row">
+                <div class="metric cyan"><span class="k">Vol</span><span class="v">${volText}</span></div>
+                <div class="metric"><span class="k">Txns</span><span class="v">${token.txns5m || 0}</span></div>
+              </div>
+              <!-- Row 3 (status + copy) -->
+              <div class="met-row status-line">
+                <span class="chip ${pctClass}">${pctText}</span>
+                <div class="metric"><span class="k">Age</span><span class="v">${ageText}</span></div>
+                <span class="chip amb no-wrap">Migrating</span>
+                <button class="copy-btn" onclick="event.stopPropagation(); copyAddress('${token.mint}')">
+                  <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+
+  // Render function for Migrated panel
+  function renderMigratedPairs() {
+    const container = document.getElementById('col-migrated');
+    if (!container) return;
+    
+    // Get tokens that have successfully migrated (real market detected)
+    const migratedPairs = window.NX?.getMigratedPairs?.() || [];
+    
+    if (migratedPairs.length === 0) {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No migrated tokens yet...</div>';
+      return;
+    }
+
+    container.innerHTML = migratedPairs.map(token => {
+      const ageText = formatAge(token.ageMinutes);
+      const mcText = formatCompact(token.mcapUsd);
+      const liqText = formatCompact(token.liquidityUsd);
+      const volText = formatCompact(token.vol24h);
+      const pctChange = token.pct5m || token.pct1h || 0;
+      const pctClass = pctChange >= 0 ? 'green' : 'red';
+      const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
+      const logoUrl = token.logoURI;
+
+      return `
+        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          <div class="row-top">
+            <div class="row-left">
+              <div class="token-media">
+                ${logoUrl ? 
+                  `<img class="token-img" src="${logoUrl}" alt="${token.symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"/>
+                   <div class="token-img" style="display:none; background:#333; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>` 
+                  : 
+                  `<div class="token-img" style="background:#333; display:flex; align-items:center; justify-content:center; font-size:10px; color:#666;">${token.symbol.substring(0,2)}</div>`
+                }
+                <div class="name-block">
+                  <div class="ticker-line">
+                    <div class="ticker">${token.symbol}</div>
+                  </div>
+                  <div class="fullname">${token.name}</div>
+                </div>
+              </div>
+            </div>
+            <div class="metrics">
+              <!-- Row 1 -->
+              <div class="met-row">
+                <div class="metric amb"><span class="k">MC</span><span class="v">${mcText}</span></div>
+                <div class="metric grn"><span class="k">Liq</span><span class="v">${liqText}</span></div>
+              </div>
+              <!-- Row 2 -->
+              <div class="met-row">
+                <div class="metric cyan"><span class="k">Vol</span><span class="v">${volText}</span></div>
+                <div class="metric"><span class="k">Txns</span><span class="v">${token.txns5m || 0}</span></div>
+              </div>
+              <!-- Row 3 (status + copy) -->
+              <div class="met-row status-line">
+                <span class="chip ${pctClass}">${pctText}</span>
+                <div class="metric"><span class="k">Age</span><span class="v">${ageText}</span></div>
+                <span class="chip grn no-wrap">Migrated</span>
+                <button class="copy-btn" onclick="event.stopPropagation(); copyAddress('${token.mint}')">
+                  <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+
+  // Listen for updates from adrenaline engine
+  window.addEventListener('adrenaline:newpairs:updated', () => {
+    renderNewPairs();
+  });
+
+  window.addEventListener('adrenaline:migrating:updated', () => {
+    renderMigratingPairs();
+  });
+
+  window.addEventListener('adrenaline:migrated:updated', () => {
+    renderMigratedPairs();
+  });
+
+  // Initial render
+  setTimeout(() => {
+    renderNewPairs();
+    renderMigratingPairs();
+    renderMigratedPairs();
+  }, 100);
+});
+</script>
 
 <style>
   :root {
@@ -69,7 +517,8 @@
 
       .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
       .search-dd{ z-index:2500; }
-      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx{ position:fixed; inset:0; display:grid; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx.hidden{ display:none !important; }
 
       /* Photon-style compact rows */
       .nx-list{ width:100%; }
@@ -118,7 +567,15 @@
       .name-block{ display:flex; flex-direction:column; gap:2px; min-width:0; }
       .ticker-line{ display:flex; align-items:center; gap:8px; min-width:0; }
       .ticker{ font-weight:800; font-size:16px; letter-spacing:.04em; white-space:nowrap; }
-      .fullname{ font-size:13px; color:#cfd6ff; opacity:.9; }
+      .fullname{ 
+        font-size:10px; 
+        color:#cfd6ff; 
+        opacity:.9;
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .status-line{ display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
       .chip{ display:inline-flex; align-items:center; gap:.35rem; padding:.2rem .55rem; border-radius:999px; border:1px solid var(--nx-border); background:rgba(18,21,42,.9); font-size:12px; font-weight:700; }
       .chip.green{ color:#34d399; box-shadow:0 0 6px rgba(52,211,153,.25) inset; }
@@ -146,7 +603,7 @@
       .accent-amber{ color:var(--nx-amber); }
       .accent-green{ color:var(--nx-green); }
 
-      .themed-scroll{ overflow-y:auto; overflow-x:hidden; border-radius:12px; border:1px solid var(--nx-border); padding:2px; max-height:none; }
+      .themed-scroll{ overflow-y:auto; overflow-x:hidden; border-radius:12px; border:1px solid var(--nx-border); padding:2px; max-height:520px; }
 
       .scroll-cyan::-webkit-scrollbar-thumb{background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);}
       .scroll-amber::-webkit-scrollbar-thumb{background:var(--nx-amber);box-shadow:0 0 8px rgba(255,176,32,.35);}
@@ -166,6 +623,8 @@
       .ri-metrics{display:flex;gap:12px;font-size:12px;white-space:nowrap}
       .ri-metrics .lab{color:#9aa6dc;margin-right:4px}
       .row-card.highlight{box-shadow:inset 0 0 0 1px rgba(0,230,255,.35),0 0 12px rgba(0,230,255,.12);border-radius:12px}
+      .modal-fx{position:fixed;inset:0;display:grid;place-items:center;z-index:2100;background:rgba(0,0,0,.55);padding:12px;}
+      .modal-fx.hidden{display:none !important;}
     </style>
   </head>
   <body>
@@ -184,6 +643,7 @@
             <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
             <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
             <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
           </nav>
         </div>
 
@@ -193,12 +653,97 @@
     <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
   </div>
 
-  <!-- Right: wallet -->
+  <!-- Right: wallet + Profile -->
   <div class="flex items-center gap-2">
-    <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+    <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet</button>
+    <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+            style="border-color:var(--nx-border)">
+      <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+    </button>
   </div>
 </div>
     </header>
+
+    <!-- Wallet Modal -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <button class="nx-btn nx-btn-cyan w-full">Withdraw SOL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deposit Modal -->
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="grid gap-3">
+          <div style="font-size:14px;font-weight:700">Deposit SOL</div>
+          <div>
+            <div style="font-size:12px;color:#9aa6dc;margin-bottom:6px">Send to this address:</div>
+            <div id="deposit-addr" style="font-size:11px;font-family:'Courier New',monospace;word-break:break-all;background:rgba(13,16,34,.8);padding:12px;border-radius:8px;border:1px solid var(--nx-border);margin-bottom:10px">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+            <button id="copy-deposit" class="nx-btn nx-btn-cyan w-full">Copy Address</button>
+          </div>
+          <button id="deposit-close" class="nx-btn" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Withdraw Modal -->
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="grid gap-3">
+          <div style="font-size:14px;font-weight:700">Withdraw SOL</div>
+          <div>
+            <label style="font-size:12px;color:#9aa6dc">Destination Address:</label>
+            <input id="withdraw-addr" type="text" class="nx-input mt-2" placeholder="Enter Solana address"/>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#9aa6dc">Amount:</label>
+            <input id="withdraw-amt" type="number" class="nx-input mt-2" placeholder="0.00" step="0.001"/>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full">Withdraw</button>
+          <button id="withdraw-close" class="nx-btn" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button>
+        </div>
+      </div>
+    </div>
 
     <div class="page-wrap">
       <!-- Main grid (3 columns) -->
@@ -211,158 +756,7 @@
           </div>
           <div class="themed-scroll scroll-cyan">
 <div class="nx-list" id="col-new"        data-section="new">
-              <!-- WIF -->
-              <div class="row-card" id="row-WIF" data-symbol="WIF" role="button" aria-label="Open WIF">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="WIF"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">WIF</div><span class="chip green">+6.2%</span></div>
-                        <div class="fullname">dogwifhat</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- BONK -->
-              <div class="row-card" id="row-BONK" data-symbol="BONK" role="button" aria-label="Open BONK">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="BONK"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">BONK</div><span class="chip red">-1.4%</span></div>
-                        <div class="fullname">Bonk</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- MEW -->
-              <div class="row-card" id="row-MEW" data-symbol="MEW" role="button" aria-label="Open MEW">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="MEW"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">MEW</div><span class="chip green">+2.1%</span></div>
-                        <div class="fullname">MEW</div>
-                       
-                      </div>
-                    </div>
-                  </div>
-<div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- POP -->
-              <div class="row-card" id="row-POP" data-symbol="POP" role="button" aria-label="Open POP">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="POP"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">POP</div><span class="chip red">-0.3%</span></div>
-                        <div class="fullname">POPCAT</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                 <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
+              <!-- Live data will be inserted here by JavaScript -->
             </div>
           </div>
         </section>
@@ -375,155 +769,7 @@
           </div>
           <div class="themed-scroll scroll-amber">
 <div class="nx-list" id="col-migrating"  data-section="migrating">
-              <!-- CAT -->
-              <div class="row-card" id="row-CAT" data-symbol="CAT" role="button" aria-label="Open CAT">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="CAT"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">CAT</div></div>
-                        <div class="fullname">Cat</div>
-                      </div>  
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                  </div>
-                </div>
-              </div>
-              <!-- PENGU -->
-              <div class="row-card" id="row-PENGU" data-symbol="PENGU" role="button" aria-label="Open PENGU">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="PENGU"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">PENGU</div></div>
-                        <div class="fullname">Pengu</div>
-                      </div>  
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- DUCK -->
-              <div class="row-card" id="row-DUCK" data-symbol="DUCK" role="button" aria-label="Open DUCK">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="DUCK"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">DUCK</div></div>
-                        <div class="fullname">Duck</div>
-                      </div>    
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- PUP -->
-              <div class="row-card" id="row-PUP" data-symbol="PUP" role="button" aria-label="Open PUP">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="PUP"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">PUP</div></div>
-                        <div class="fullname">Pup</div>
-                      </div?  
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
+              <!-- Live data will be inserted here by JavaScript -->
             </div>
           </div>
         </section>
@@ -535,158 +781,7 @@
           </div>
           <div class="themed-scroll scroll-green">
 <div class="nx-list" id="col-migrated"   data-section="migrated">
-              <!-- GME -->
-              <div class="row-card" id="row-GME" data-symbol="GME" role="button" aria-label="Open GME">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="GME"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">GME</div></div>
-                        <div class="fullname">GameStop</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrated</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- PEPE -->
-              <div class="row-card" id="row-PEPE" data-symbol="PEPE" role="button" aria-label="Open PEPE">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="PEPE"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">PEPE</div></div>
-                        <div class="fullname">PEPE</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- MOG -->
-              <div class="row-card" id="row-MOG" data-symbol="MOG" role="button" aria-label="Open MOG">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="MOG"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">MOG</div></div>
-                        <div class="fullname">MOG</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-               <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
-              <!-- BOME -->
-              <div class="row-card" id="row-BOME" data-symbol="BOME" role="button" aria-label="Open BOME">
-                <div class="row-top">
-                  <div class="row-left">
-                    <div class="token-media">
-                      <img class="token-img" src="NebulaX-logo.png" alt="BOME"/>
-                      <div class="name-block">
-                        <div class="ticker-line"><div class="ticker">BOME</div></div>
-                        <div class="fullname">BOME</div>
-                        
-                      </div>
-                    </div>
-                  </div>
-                  <div class="metrics">
-  <!-- Row 1 -->
-  <div class="met-row">
-    <div class="metric"><span class="k">Age</span><span class="v">&lt;1m</span></div>
-    <div class="metric amb"><span class="k">MC</span><span class="v">$95M</span></div>
-    <div class="metric grn"><span class="k">Liq</span><span class="v">$2.1M</span></div>
-  </div>
-
-  <!-- Row 2 -->
-  <div class="met-row">
-    <div class="metric cyan"><span class="k">Vol</span><span class="v">$9.4M</span></div>
-    <div class="metric"><span class="k">H</span><span class="v">5,210</span></div>
-  </div>
-
-  <!-- Row 3 (status + copy) -->
-  <div class="met-row status-line">
-    <span class="chip amb no-wrap">Migrating</span>
-    <button class="copy-btn" data-addr="9cA...mig">
-      <i data-lucide="copy" class="w-3 h-3"></i><span>Copy</span>
-    </button>
-  </div>
-</div>
-
-                </div>
-              </div>
+              <!-- Live data will be inserted here by JavaScript -->
             </div>
           </div>
         </section>
@@ -703,38 +798,53 @@
       </footer>
     </div>
 
-    <!-- Wallet dropdown -->
-    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
-      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
-      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-        <div class="nx-panel p-2">Total<br/><strong><span id="wallet-total">0.314</span> SOL</strong></div>
-        <div class="nx-panel p-2">Available<br/><strong><span id="wallet-available">0.214</span> SOL</strong></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="wd-open" class="nx-btn">Withdraw</button>
-        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base"><span id="wallet-total">0.000</span> SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base"><span id="wallet-available">0.000</span> SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
       </div>
     </div>
 
     <!-- Deposit / Withdraw modals -->
-    <div id="deposit" class="modal-fx">
+    <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[380px] max-w-[95vw] p-3" role="dialog" aria-label="Deposit">
         <div class="flex items-center justify-between mb-2">
           <div class="font-semibold">Deposit</div>
-          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button>
         </div>
-        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
-        <div class="nx-panel p-2 text-xs break-words select-all">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words select-all" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
         <div class="flex gap-2 mt-3 justify-end">
-          <button class="nx-btn" id="dp-copy">Copy Address</button>
+          <button class="nx-btn nx-btn-cyan" id="dp-copy">Copy Address</button>
         </div>
       </div>
     </div>
-    <div id="withdraw" class="modal-fx">
+    <div id="withdraw" class="modal-fx hidden">
       <div class="nx-panel w-[380px] max-w-[95vw] p-3" role="dialog" aria-label="Withdraw">
         <div class="flex items-center justify-between mb-2">
           <div class="font-semibold">Withdraw</div>
-          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button>
         </div>
         <div class="space-y-2">
           <input id="wd-address" class="nx-input" placeholder="Destination SOL address"/>
@@ -775,34 +885,54 @@
     <script>
       (function(){
         const fmt = n => (Math.round(n*1000)/1000).toFixed(3);
-        const state = { total: 0.314, avail: 0.214 };
         const els = {
           bal: document.getElementById('bal-text'),
           total: document.getElementById('wallet-total'),
           avail: document.getElementById('wallet-available'),
           btn: document.getElementById('wallet-btn'),
-          dd: document.getElementById('wallet-dd'),
+          modal: document.getElementById('wallet-modal'),
           dp: document.getElementById('deposit'),
-          wd: document.getElementById('withdraw')
+          wd: document.getElementById('withdraw'),
+          dpCopy: document.getElementById('dp-copy'),
+          dpAddr: document.getElementById('deposit-addr')
         };
-        function refresh(){
-          if(els.bal) els.bal.textContent = fmt(state.avail);
-          if(els.total) els.total.textContent = fmt(state.total);
-          if(els.avail) els.avail.textContent = fmt(state.avail);
+        
+        function updateWalletDisplay(){
+          const balance = window.NXWallet?.getBalance?.();
+          const sol = balance ? fmt(balance) : '0.000';
+          if(els.bal) els.bal.textContent = sol;
+          if(els.total) els.total.textContent = sol;
+          if(els.avail) els.avail.textContent = sol;
         }
-        refresh();
+        
+        updateWalletDisplay();
 
-        els.btn?.addEventListener('click', (e)=>{ e.stopPropagation(); els.dd?.classList.toggle('hidden'); });
-        document.addEventListener('click', (e)=>{ if(!e.target.closest('#wallet-dd') && !e.target.closest('#wallet-btn')) els.dd?.classList.add('hidden'); });
+        els.btn?.addEventListener('click', (e)=>{ e.stopPropagation(); updateWalletDisplay(); els.modal?.classList.remove('hidden'); });
+        els.modal?.addEventListener('click', (e)=>{ if(e.target===els.modal) els.modal?.classList.add('hidden'); });
 
-        document.getElementById('dp-open')?.addEventListener('click', ()=>{ if(els.dp) els.dp.style.display='grid'; els.dd?.classList.add('hidden'); });
-        document.getElementById('wd-open')?.addEventListener('click', ()=>{ if(els.wd) els.wd.style.display='grid'; els.dd?.classList.add('hidden'); });
+        document.getElementById('dp-open')?.addEventListener('click', ()=>{ if(els.dp) els.dp.classList.remove('hidden'); els.modal?.classList.add('hidden'); });
+        document.getElementById('wd-open')?.addEventListener('click', ()=>{ if(els.wd) els.wd.classList.remove('hidden'); els.modal?.classList.add('hidden'); });
+        
+        // Wallet connect/disconnect
+        document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+          const prov = (window.phantom?.solana) || window.solana;
+          try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+        });
+        document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+          const prov = (window.phantom?.solana) || window.solana;
+          try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+        });
+        
+        // Copy address
+        els.dpCopy?.addEventListener('click', ()=>{
+          const addr = els.dpAddr?.textContent || '';
+          navigator.clipboard.writeText(addr).then(()=>{ els.dpCopy.textContent='Copied!'; setTimeout(()=>{ els.dpCopy.textContent='Copy Address'; },2000); });
+        });
 
-        document.querySelectorAll('[data-close]')?.forEach(b=> b.addEventListener('click', (ev)=>{
-          const t = document.querySelector(ev.currentTarget.getAttribute('data-close'));
-          if(t) t.style.display='none';
-        }));
-        [els.dp, els.wd].forEach(m=> m?.addEventListener('click', (ev)=>{ if(ev.target===m) m.style.display='none'; }));
+        [els.dp, els.wd].forEach(m=> m?.addEventListener('click', (ev)=>{ if(ev.target===m) m.classList.add('hidden'); }));
+        
+        // Listen for balance changes
+        window.addEventListener('nebula:sol:changed',(e)=>{ if(!els.modal?.classList.contains('hidden')) updateWalletDisplay(); });
 
         document.addEventListener('click', (ev)=>{
           const vb = ev.target.closest('.val-btn'); if(!vb) return;
@@ -811,20 +941,6 @@
           const fill = vb.getAttribute('data-fill');
           if(fill==='MAX'){ setVal(state.avail); return; }
           if(fill.endsWith('%')){ setVal(state.avail * (parseFloat(fill)/100)); return; }
-        });
-
-        document.getElementById('dp-copy')?.addEventListener('click', ()=>{
-          navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');
-          alert('Address copied (mock)');
-        });
-
-        document.getElementById('wd-submit')?.addEventListener('click', ()=>{
-          const amt = parseFloat(document.getElementById('wd-amount')?.value||'0');
-          if(amt>0 && amt<=state.avail){
-            state.avail-=amt; refresh();
-            alert('Withdrawal submitted (mock): '+fmt(amt)+' SOL');
-            if(els.wd) els.wd.style.display='none';
-          } else { alert('Invalid amount'); }
         });
       })();
     </script>
@@ -893,19 +1009,6 @@
         });
         window.addEventListener('keydown', (e)=>{ if(e.key==='/' && document.activeElement!==input){ e.preventDefault(); input.focus(); }});
       })();
-document.addEventListener('click',(e)=>{
-  if(!sWrap.contains(e.target)){
-    sDD.classList.add('hidden');
-    sDD.innerHTML='';
-    activeIndex=-1; currentHits=[];
-  }
-});
-sIn.addEventListener('keydown',(e)=>{
-  if(e.key==='Escape'){
-    sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
-  }
-});
-
     </script>
 
     <!-- Clickable rows + CAP (30) + set height to 5 rows -->

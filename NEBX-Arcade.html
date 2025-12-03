@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX • NEBX Arcade</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  // Sync profile picture from platform avatar or store state
+  function updatePfp() {
+    try {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(!pfpImg) {
+        setTimeout(updatePfp, 500);
+        return;
+      }
+
+      let avatarSrc = localStorage.getItem('nx_platform_avatar');
+      if (!avatarSrc) {
+        const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+        avatarSrc = storeState.profile?.avatar;
+      }
+      if (!avatarSrc) avatarSrc = 'NebulaX-logo.png';
+      
+      pfpImg.src = avatarSrc;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    } catch(e) {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(pfpImg) pfpImg.src = 'NebulaX-logo.png';
+    }
+  }
+  setTimeout(updatePfp, 100);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    const pfpImg = document.getElementById('nx-pfp');
+    if(pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    }
+  });
+
+  const btn = document.getElementById("wallet-btn");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
+    } else {
+      const s = sol.toFixed(3);
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${s} SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+});
+</script>
+    <style>
+      :root{
+        --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a; --nx-border:#1e2747; --nx-text:#e0e7ff;
+        --page-max: 1400px;
+        --bulb-size:14px; --bulb-off:#2b325a; --bulb-on:#ffd25f; --bulb-glow:rgba(255,210,95,.6);
+      }
+      html,body{height:100%; background:var(--nx-dark); color:var(--nx-text); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace;}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+      .nx-panel{ background:rgba(16,20,40,.92); border:1px solid var(--nx-border); box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08); backdrop-filter: blur(8px); border-radius: 16px; }
+      .nx-btn{ border-radius:14px; padding:.42rem .72rem; font-weight:700; transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);}
+      .nx-btn:hover{opacity:.95} .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#07101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+      .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+      .tabnums{font-variant-numeric: tabular-nums;}
+
+      /* ===== Marquee ===== */
+      .marquee-wrap{
+        position: relative;
+        margin: 8px auto 14px auto;
+        width: min(700px, 70vw);
+        aspect-ratio: 10 / 4;
+        display: grid; place-items: center;
+        filter: drop-shadow(0 6px 24px rgba(0,0,0,.55));
+      }
+      .marquee-plate{
+        position:absolute; inset:0;
+        background:
+          radial-gradient(70% 110% at 30% 20%, rgba(0,0,0,.0), rgba(0,0,0,.35)),
+          linear-gradient(180deg,#0c1022,#0a0d1b);
+        border-radius: 20px;
+        border: 2px solid #2a2f55;
+        box-shadow: inset 0 0 20px rgba(0,0,0,.6);
+      }
+      .marquee-title{
+        position: relative; z-index: 2;
+        font-size: clamp(36px, 6.4vw, 64px);
+        color: #9af6ff;
+        text-shadow: 0 0 3px #9af6ff, 0 0 8px #55eaff, 0 0 22px #00e6ff, 0 0 38px rgba(0,230,255,.8);
+        letter-spacing: .02em;
+      }
+      .marquee-sub{
+        position:absolute; bottom:10%; left:0; right:0; text-align:center; z-index:2;
+        font-size: clamp(11px, 1.6vw, 13px); color:#eeca73; opacity:.9; text-shadow:0 0 4px rgba(255,210,95,.5);
+      }
+
+      /* ===== Bulbs (fixed in place; clockwise chase via staggered delays) ===== */
+      .bulb-ring{ position:absolute; inset:0; pointer-events:none; }
+      .bulb{
+        position:absolute; width:var(--bulb-size); height:var(--bulb-size); border-radius:50%;
+        background: var(--bulb-off);
+        box-shadow: 0 0 0 2px rgba(0,0,0,.35) inset;
+        transform: translate(-50%, -50%);
+        animation: bulbOn 1.35s linear infinite;
+        animation-delay: calc(var(--i) * .06s); /* increasing delay = clockwise trailing */
+      }
+      /* trailing "on" window so multiple bulbs glow at once */
+      @keyframes bulbOn{
+        0%, 60%  { background:var(--bulb-off); box-shadow:0 0 0 2px rgba(0,0,0,.35) inset;}
+        10%, 30% { background:var(--bulb-on); box-shadow:0 0 8px var(--bulb-glow), 0 0 16px var(--bulb-glow), 0 0 0 2px rgba(80,60,10,.55) inset;}
+      }
+
+      /* Game cards */
+      .game-card{ position:relative; overflow:hidden; border-radius:14px; border:1px solid var(--nx-border); background:linear-gradient(180deg, rgba(18,22,42,.95), rgba(12,16,32,.9)); }
+      .game-card .thumb{ height:120px; border-bottom:1px solid var(--nx-border); background:
+        radial-gradient(140px 100px at 28% 30%, rgba(0,230,255,.18), transparent),
+        radial-gradient(120px 90px at 75% 20%, rgba(255,210,95,.14), transparent),
+        linear-gradient(180deg,#0d1224,#0a0f1f); }
+      .game-card .meta{ padding:10px; }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:var(--nx-dark-2);border:1px solid #1b2450;border-radius:6px;box-shadow:inset 0 0 8px rgba(0,230,255,.12)}
+      ::-webkit-scrollbar-thumb{border-radius:6px;background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);border:2px solid var(--nx-dark-2)}
+      ::-webkit-scrollbar-thumb:hover{background:#6ff3ff}
+      *{scrollbar-width:thin; scrollbar-color: var(--nx-cyan) var(--nx-dark-2)}
+
+      /* Respect OS reduced-motion */
+      @media (prefers-reduced-motion: reduce){ .bulb{ animation:none } }
+
+      /* ========= Force-lights override (keeps bulbs animating even on restricted machines) ========= */
+      html[data-motion="force"] .bulb{ animation: bulbOn 1.35s linear infinite !important; }
+      /* ============================================================================================ */
+    </style>
+<style id="nx-arcade-theme">
+  /* Activate with: <html data-theme="arcade"> */
+  html[data-theme="arcade"]{
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#0f1430;
+    --nx-border:#263067; --nx-text:#e6f1ff;
+  }
+  /* Panels: deeper space-blue with neon edges */
+  html[data-theme="arcade"] .nx-panel{
+    background: linear-gradient(180deg, rgba(16,20,48,.94), rgba(10,14,34,.92));
+    border-color: var(--nx-border);
+    box-shadow: inset 0 0 12px rgba(0,230,255,.16), 0 0 14px rgba(0,230,255,.10);
+  }
+  /* Headings: arcade gold glow (keeps your existing .nx-title spots) */
+  html[data-theme="arcade"] .nx-title{
+    color:#ffd65b; text-shadow:0 0 3px #ffd65b, 0 0 10px rgba(255,214,91,.45);
+  }
+  /* Buttons: coin-op vibe */
+  html[data-theme="arcade"] .nx-btn{
+    background: var(--nx-dark-2);
+    border-color: var(--nx-border);
+    box-shadow: inset 0 0 0 1px rgba(0,230,255,.08);
+  }
+  html[data-theme="arcade"] .nx-btn-cyan{
+    background: linear-gradient(90deg,#25e6ff,#8ff3ff);
+    color:#041018; border-color:#0d3540;
+    box-shadow: 0 0 10px rgba(0,230,255,.35);
+  }
+  /* Table header: high-score marquee yellow */
+  html[data-theme="arcade"] thead .nx-th{
+    background: rgba(24,28,64,.96);
+    color:#ffd65b; text-shadow:0 0 3px #ffd65b;
+    border-bottom:1px solid var(--nx-border);
+  }
+  /* Rows: subtle game-room hover */
+  html[data-theme="arcade"] tbody tr:hover{
+    background: rgba(12,16,38,.6);
+    box-shadow: inset 0 0 0 1px rgba(0,230,255,.10);
+  }
+  /* Chips → tokens: use existing lucide icons wherever you already render them */
+  html[data-theme="arcade"] i[data-lucide]{ filter: drop-shadow(0 0 4px rgba(0,230,255,.45)); }
+
+  /* Scrollbars: neon */
+  html[data-theme="arcade"] ::-webkit-scrollbar-track{
+    background: var(--nx-dark-2); border:1px solid #1b2450; border-radius:6px;
+    box-shadow: inset 0 0 8px rgba(0,230,255,.12);
+  }
+  html[data-theme="arcade"] ::-webkit-scrollbar-thumb{
+    background: var(--nx-cyan); border:2px solid var(--nx-dark-2); border-radius:6px;
+    box-shadow: 0 0 8px rgba(0,230,255,.35);
+  }
+
+  /* Optional: faint scanline overlay without touching layout */
+  html[data-theme="arcade"] body::after{
+    content:""; pointer-events:none; position:fixed; inset:0; z-index:0;
+    background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 100% 3px; opacity:.07; mix-blend-mode: soft-light;
+  }
+
+      /* Keep all existing spacing & layout intact */
+
+      /* Modal overlay (Deposit / Withdraw) */
+      .modal-fx{
+        position:fixed; inset:0; display:grid; place-items:center; z-index:2100;
+        background:rgba(0,0,0,.55); padding:12px;
+      }
+      .modal-fx.hidden{ display:none !important; }
+
+      .nx-input{ width:100%; border-radius:12px; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none; }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+    </style>  </head>
+  <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+            <a class="nx-btn nx-btn-cyan px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
+          </nav>
+        </div>
+
+        <!-- Points Pill + Wallet + Profile -->
+        <div class="flex items-center gap-2">
+          <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-[var(--nx-border)] bg-[rgba(18,22,42,.9)] text-sm"><span style="width:6px; height:6px; border-radius:50%; background:#a7f3d0; box-shadow:0 0 8px rgba(52,211,153,.6); display:inline-block"></span><span>Points:</span><strong id="arcade-points" class="tabnums">0</strong></div>
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet</button>
+          <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+                  style="border-color:var(--nx-border)">
+            <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <!-- Hero marquee -->
+      <section class="mt-3">
+        <div class="marquee-wrap" id="marquee">
+          <div class="marquee-plate" id="marqueePlate"></div>
+
+          <h1 class="marquee-title">Arcade</h1>
+          <div class="marquee-sub">NEBX Arcade • Win cosmetics, XP, and weekly glory</div>
+
+          <!-- bulbs sit above the plate, below the title -->
+          <div class="bulb-ring" id="bulbRing" aria-hidden="true"></div>
+        </div>
+
+        <div class="text-center text-sm text-zinc-400">
+          Play games to earn <span class="text-amber-300 font-semibold">XP</span>, unlock <span class="text-cyan-300 font-semibold">themes</span>, and top the <span class="text-emerald-300 font-semibold">weekly leaderboard</span>.
+        </div>
+      </section>
+
+      <!-- Main layout -->
+      <main class="mt-3 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-3">
+        <!-- LEFT: Games -->
+        <section class="space-y-3">
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xl nx-title">Games</div>
+              <div class="flex items-center gap-2">
+                <button class="nx-btn">Daily Quests</button>
+                <button class="nx-btn">How Rewards Work</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <!-- Demo cards -->
+              <article class="game-card"><div class="thumb" style="background: url('games/Nebby%20Run/assets/nebby_run_preview.png') center/cover, linear-gradient(180deg, rgba(0,230,255,.12), rgba(16,20,40,.8));"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Nebby Runner</div><span class="text-xs text-zinc-400">Arcade</span></div><p class="text-xs text-zinc-400 mt-1">Dodge asteroids. Earn XP + backgrounds.</p><div class="mt-2 flex items-center gap-2"><a href="Arcadegamepanel.html?game=nebby-runner" class="nx-btn nx-btn-cyan w-full text-center">Play</a><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+              <article class="game-card"><div class="thumb" style="background: url('games/Nebby%20Defender/nebby_defender_preview.png') center/cover, linear-gradient(180deg, rgba(0,230,255,.12), rgba(16,20,40,.8));"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Nebby Defender</div><span class="text-xs text-zinc-400">Arcade</span></div><p class="text-xs text-zinc-400 mt-1">Tower defense. Protect Nebby from waves.</p><div class="mt-2 flex items-center gap-2"><a href="Arcadegamepanel.html?game=nebby-defender" class="nx-btn nx-btn-cyan w-full text-center">Play</a><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+              <article class="game-card"><div class="thumb"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Mock Portfolio Battle</div><span class="text-xs text-zinc-400">Strategy</span></div><p class="text-xs text-zinc-400 mt-1">Grow demo SOL. Cosmetic frames for winners.</p><div class="mt-2 flex items-center gap-2"><a href="Arcadegamepanel.html?game=portfolio-battle" class="nx-btn nx-btn-cyan w-full text-center">Play</a><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+              <article class="game-card"><div class="thumb"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Nebula Match-3</div><span class="text-xs text-zinc-400">Puzzle</span></div><p class="text-xs text-zinc-400 mt-1">Match tokens to clear the board.</p><div class="mt-2 flex items-center gap-2"><button class="nx-btn nx-btn-cyan w-full">Play</button><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+              <article class="game-card"><div class="thumb"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Whale Hunter</div><span class="text-xs text-zinc-400">Reflex</span></div><p class="text-xs text-zinc-400 mt-1">Catch simulated whale buys just-in-time.</p><div class="mt-2 flex items-center gap-2"><button class="nx-btn nx-btn-cyan w-full">Play</button><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+              <article class="game-card"><div class="thumb"></div><div class="meta"><div class="flex items-center justify-between"><div class="font-semibold">Token Merge</div><span class="text-xs text-zinc-400">Strategy</span></div><p class="text-xs text-zinc-400 mt-1">Merge ups the tiers. Unlock borders.</p><div class="mt-2 flex items-center gap-2"><button class="nx-btn nx-btn-cyan w-full">Play</button><button class="nx-btn"><i data-lucide="info" class="w-3 h-3"></i></button></div></div></article>
+            </div>
+          </div>
+          <div class="nx-panel p-3 text-xs text-zinc-400">
+            <div class="flex items-center justify-between">
+              <div>All games are for entertainment and rewards (XP/cosmetics). NEBX payouts optional & configurable.</div>
+              <div class="flex items-center gap-2">
+                <span class="pill inline-flex items-center gap-1 px-2 py-1 rounded-full border border-[var(--nx-border)] bg-[rgba(18,22,42,.9)] text-emerald-300">Fair-Play</span>
+                <span class="pill inline-flex items-center gap-1 px-2 py-1 rounded-full border border-[var(--nx-border)] bg-[rgba(18,22,42,.9)] text-amber-300">Beta</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Leaderboard -->
+        <aside class="space-y-3">
+          <div class="nx-panel p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold">Weekly Leaderboard</div>
+              <div class="text-xs text-zinc-400">Resets in <span id="lb-reset">—</span></div>
+            </div>
+            <ol id="lb" class="space-y-2"></ol>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Daily Quests</div>
+            <ul class="space-y-1 text-sm">
+              <li><label class="flex items-center gap-2"><input type="checkbox"> Play any game once</label></li>
+              <li><label class="flex items-center gap-2"><input type="checkbox"> Reach 500 pts in Nebby Runner</label></li>
+              <li><label class="flex items-center gap-2"><input type="checkbox"> Check the leaderboard</label></li>
+            </ul>
+            <button class="nx-btn nx-btn-cyan w-full mt-2">Claim XP</button>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span class="text-emerald-400">Idle (mock)</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX • NEBX Arcade</div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* ===== Bulb layout: clockwise index, start at top-center for a true chase ===== */
+      (function(){
+        const plate = document.getElementById('marqueePlate');
+        const ring  = document.getElementById('bulbRing');
+        const BULBS = 72;         // more bulbs = smoother spacing
+        const INSET = 8;          // pixels inside the plate edge so bulbs don’t clip
+        const size  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bulb-size')) || 14;
+
+        function layout(){
+          ring.innerHTML = '';
+          const rect = plate.getBoundingClientRect();
+          const w = rect.width, h = rect.height;
+          const style = getComputedStyle(plate);
+          const r = parseFloat(style.borderTopLeftRadius) || 20; // assume uniform radius
+
+          // working area (inside edge + inset)
+          const W = w - (INSET + size/2)*2;
+          const H = h - (INSET + size/2)*2;
+          const R = Math.min(r, W/2, H/2);
+
+          // Perimeter length of rounded rect
+          const straightW = W - 2*R, straightH = H - 2*R;
+          const P = 2*(straightW + straightH) + 2*Math.PI*R;
+
+          // Start at mid-top so the chase looks clean
+          const startOffset = straightW / 2;
+
+          // sample along perimeter, clockwise starting mid-top
+          function pointAt(s){
+            let rem = s % P; if(rem < 0) rem += P;
+            // Top straight: left→right
+            if(rem <= straightW) return [INSET+size/2+R+rem, INSET+size/2];
+            rem -= straightW;
+            // Top-right arc (0→90)
+            if(rem <= Math.PI/2*R){ const a=rem/R; return [INSET+size/2+R+straightW + Math.sin(a)*R, INSET+size/2 + R - Math.cos(a)*R]; }
+            rem -= Math.PI/2*R;
+            // Right straight: top→bottom
+            if(rem <= straightH) return [INSET+size/2+R+straightW+R, INSET+size/2+R+rem];
+            rem -= straightH;
+            // Bottom-right arc (90→180)
+            if(rem <= Math.PI/2*R){ const a=rem/R; return [INSET+size/2+R+straightW + R - Math.cos(a)*R, INSET+size/2+R+straightH + Math.sin(a)*R]; }
+            rem -= Math.PI/2*R;
+            // Bottom straight: right→left
+            if(rem <= straightW) return [INSET+size/2+R+straightW - rem, INSET+size/2+R+straightH+R];
+            rem -= straightW;
+            // Bottom-left arc (180→270)
+            if(rem <= Math.PI/2*R){ const a=rem/R; return [INSET+size/2+R - Math.sin(a)*R, INSET+size/2+R+straightH + R - Math.cos(a)*R]; }
+            rem -= Math.PI/2*R;
+            // Left straight: bottom→top
+            if(rem <= straightH) return [INSET+size/2, INSET+size/2+R+straightH - rem];
+            rem -= straightH;
+            // Top-left arc (270→360)
+            const a=rem/R;
+            return [INSET+size/2 + Math.cos(a)*R, INSET+size/2 + R - Math.sin(a)*R];
+          }
+
+          for(let i=0;i<BULBS;i++){
+            const s = (i / BULBS) * P + startOffset;
+            const [x,y] = pointAt(s);
+            const b = document.createElement('div');
+            b.className = 'bulb';
+            b.style.left = x+'px';
+            b.style.top  = y+'px';
+            b.style.setProperty('--i', i);
+            ring.appendChild(b);
+          }
+        }
+
+        // initial + after layout settles
+        window.addEventListener('load', ()=>{ setTimeout(layout, 0); setTimeout(layout, 120); });
+        window.addEventListener('resize', ()=>{ clearTimeout(layout._t); layout._t=setTimeout(layout, 80); });
+      })();
+
+      /* ===== Leaderboard (from localStorage) ===== */
+      (function(){
+        const lb = document.getElementById('lb');
+        const STORAGE='nebx:arcade:points';
+        
+        function renderLeaderboard(){
+          try{
+            const allPoints = JSON.parse(localStorage.getItem(STORAGE)||'{}');
+            const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3')||'{}');
+            
+            // Convert to array and sort by score descending
+            const sorted = Object.entries(allPoints).map(([addr, score])=>{
+              const displayName = addr === 'guest' ? '@Guest' : (addr.substring(0,4) + '...' + addr.substring(addr.length-4));
+              // Use store avatar or default
+              const avatar = storeState.profile?.avatar || 'NebulaX-logo.png';
+              return { name: displayName, score: Math.floor(score||0), fullAddr: addr, avatar };
+            }).sort((a,b) => b.score - a.score).slice(0, 3);
+            
+            if(sorted.length === 0){
+              lb.innerHTML = '<li class="text-center text-xs text-zinc-400 py-2">No scores yet. Play a game to get on the board!</li>';
+            } else {
+              lb.innerHTML = sorted.map((p,i)=>`
+                <li class="flex items-center justify-between p-2 rounded-lg border border-[var(--nx-border)] bg-[rgba(18,22,42,.9)] ${i===0?'shadow-[0_0_12px_rgba(255,235,59,.2)]':''}">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-md ${i===0?'bg-amber-400 text-black':'bg-[var(--nx-dark-2)]'} text-xs font-bold">${i+1}</span>
+                    <img src="${p.avatar}" alt="avatar" class="w-5 h-5 rounded-md object-cover" onerror="this.src='NebulaX-logo.png'"/>
+                    <span class="font-semibold text-xs">${p.name}</span>
+                  </div>
+                  <span class="tabnums text-xs">${p.score.toLocaleString()} pts</span>
+                </li>
+              `).join('');
+            }
+          } catch(e){
+            console.error('Leaderboard render error:', e);
+          }
+        }
+        
+        renderLeaderboard();
+        
+        // Listen for storage changes to update leaderboard in real-time
+        window.addEventListener('storage', (e)=>{
+          if(e.key === STORAGE) renderLeaderboard();
+        });
+
+        function nextSundayMidnight(){
+          const d=new Date(); const day=d.getDay();
+          const diff=(7-day)%7; const end=new Date(d.getFullYear(),d.getMonth(),d.getDate()+diff,24,0,0,0);
+          return end;
+        }
+        const target=nextSundayMidnight();
+        const tick=()=>{ const ms=Math.max(0,target-new Date()); const h=String(Math.floor(ms/3_600_000)).padStart(2,'0'); const m=String(Math.floor((ms%3_600_000)/60_000)).padStart(2,'0'); const s=String(Math.floor((ms%60_000)/1000)).padStart(2,'0'); document.getElementById('lb-reset').textContent=`${h}:${m}:${s}`; };
+        tick(); setInterval(tick,1000);
+      })();
+      
+      /* ===== Points display (from localStorage) ===== */
+      (function(){
+        const STORAGE='nebx:arcade:points';
+        const pointsEl = document.getElementById('arcade-points');
+        
+        function updatePoints(){
+          try{
+            const allPoints = JSON.parse(localStorage.getItem(STORAGE)||'{}');
+            const userAddr = (window.NX?.wallet?.getAddress?.()||'').toString() || 'guest';
+            const userPoints = Math.floor(allPoints[userAddr]||0);
+            pointsEl.textContent = userPoints.toLocaleString();
+          } catch(e){
+            console.error('Points update error:', e);
+          }
+        }
+        
+        updatePoints();
+        window.addEventListener('storage', (e)=>{
+          if(e.key === STORAGE) updatePoints();
+        });
+      })();
+    </script>
+
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <div class="grid grid-cols-3 gap-2">
+            <input class="nx-input col-span-2" placeholder="Amount"/>
+            <select class="nx-input"><option>SOL</option><option>USD</option></select>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Force lights on when reduced-motion is detected -->
+    <script>
+      (function(){
+        try{
+          const KEY='nx:motion';
+          const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (localStorage.getItem(KEY)==='force' || prefersReduced){
+            document.documentElement.setAttribute('data-motion','force');
+          }
+        }catch(e){}
+      })();
+    </script>
+
+    <!-- Wallet modal event handlers -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const wBtn = document.getElementById('wallet-btn');
+        const wModal = document.getElementById('wallet-modal');
+        
+        // Update wallet display with real balance
+        function updateWalletDisplay(){
+          const balance = window.NXWallet?.getBalance?.();
+          const sol = balance ? balance.toFixed(3) : '0.000';
+          document.getElementById('wallet-total').textContent = sol + ' SOL';
+          document.getElementById('wallet-available').textContent = sol + ' SOL';
+        }
+        
+        wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
+        wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
+        document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+        document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
+        
+        // Wallet connect/disconnect
+        document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+          const prov = (window.phantom?.solana) || window.solana;
+          try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+        });
+        document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+          const prov = (window.phantom?.solana) || window.solana;
+          try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+        });
+        
+        // Deposit address copy
+        const copyBtn = document.getElementById('copy-deposit-btn');
+        const depositAddr = document.getElementById('deposit-addr');
+        copyBtn?.addEventListener('click',()=>{ 
+          const addr = depositAddr.textContent;
+          navigator.clipboard.writeText(addr).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>{ copyBtn.textContent='Copy Address'; },2000); }); 
+        });
+        
+        // Close modals on click outside
+        document.getElementById('deposit')?.addEventListener('click',(e)=>{ if(e.target.id==='deposit') e.target.classList.add('hidden'); });
+        document.getElementById('withdraw')?.addEventListener('click',(e)=>{ if(e.target.id==='withdraw') e.target.classList.add('hidden'); });
+        
+        // Listen for balance changes
+        window.addEventListener('nebula:sol:changed',(e)=>{ if(!wModal.classList.contains('hidden')) updateWalletDisplay(); });
+      });
+    </script>
+  </body>
+</html>

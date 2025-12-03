@@ -1,0 +1,1500 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>NEBULAX €¢ Trending</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+<script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<script src="trending-engine.js"></script>
+<script>
+const debugLog = (() => {
+  let lines = [];
+  return (msg) => {
+    lines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    const debugEl = document.getElementById('debug-output');
+    if (debugEl) {
+      debugEl.innerHTML = lines.slice(-20).map(l => `<div>${l}</div>`).join('');
+    }
+    console.log(msg);
+  };
+})();
+window.debugLog = debugLog;
+
+/**
+ * Render trending tokens from trending-engine into the table
+ */
+function renderTrendingTokens() {
+  const tbody = document.getElementById('trend-body');
+  if (!tbody) {
+    console.warn('[RENDER] Table body #trend-body not found');
+    return;
+  }
+  
+  const tokens = window.NX?.getTrendingTokens?.() || window.NX?.trendingTokens || [];
+  console.log(`[RENDER] Rendering ${tokens.length} tokens`);
+  if (!tokens.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#999;">Loading trending tokens...</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = tokens.slice(0, 100).map(token => {
+    const symbol = token.symbol || '???';
+    const name = token.name || 'Unknown';
+    const price = token.jupiterPrice || token.gtPrice || token.dsPrice || 0;
+    const mc = token.dsMarketCap || token.dsFdv || 0;
+    const liq = Math.max(token.dsLiquidityUsd || 0, token.gtLiquidityUsd || 0);
+    const vol24h = token.dsVolumeUsd_24h || token.gtVolumeUsd_24h || 0;
+    const change24h = token.dsPriceChange_24h || 0;
+    const txns_5m = token.gtTxns_5m || token.dsTxns_5m || 0;
+    const score = token.score || 0;
+    const tier = token.tier || 'B';
+    const pair = `${symbol}/SOL`;
+    const logoUrl = token.logoURI || null;
+    
+    // Calculate age from pool creation date
+    let ageText = '-';
+    if (token.gtPoolCreatedAt) {
+      const createdDate = new Date(token.gtPoolCreatedAt);
+      const now = new Date();
+      const diffMs = now - createdDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      
+      if (diffDays > 0) ageText = `${diffDays}d`;
+      else if (diffHours > 0) ageText = `${diffHours}h`;
+      else ageText = `${diffMins}m`;
+    }
+    
+    // Format functions
+    const fmt = (v) => {
+      if (!v || isNaN(v)) return '$0';
+      if (v === 0) return '$0';
+      if (Math.abs(v) < 0.01) return '$' + v.toExponential(2);
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(2) + 'K';
+      return '$' + v.toFixed(2);
+    };
+    
+    const fmtPrice = (p) => {
+      if (!p || isNaN(p)) return '$0';
+      if (p === 0) return '$0';
+      if (p < 0.001) return '$' + p.toExponential(2);
+      if (p < 0.01) return '$' + p.toFixed(6);
+      return '$' + p.toFixed(4);
+    };
+    
+    const tierClass = tier === 'S' ? 'green' : (tier === 'A' ? 'pill' : 'red');
+    const tierColor = tier === 'S' ? '#34d399' : (tier === 'A' ? '#fbbf24' : '#f87171');
+    const pctClass = change24h >= 0 ? 'green' : 'red';
+    const pctIcon = change24h >= 0 ? 'ðŸ“ˆ' : 'ðŸ“‰';
+    
+    return `
+      <tr style="cursor: pointer;" data-mint="${token.mint}">
+        <td class="nx-td" style="padding:10px; max-width:220px;">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+            ${token.dsImage ? `<img src="${token.dsImage}" style="width:32px; height:32px; border-radius:4px; flex-shrink:0;" alt="${symbol}">` : `<div style="width:32px; height:32px; border-radius:4px; background:#333; flex-shrink:0;"></div>`}
+            <div style="min-width:0; flex:1;">
+              <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${symbol}</div>
+              <div style="font-size:11px; color:#8b97c9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+            </div>
+          </div>
+        </td>
+        <td class="nx-td">${fmtPrice(price)} / ${fmt(mc)}</td>
+        <td class="nx-td"><span class="pill ${pctClass}">${pctIcon} ${change24h.toFixed(2)}%</span></td>
+        <td class="nx-td">${fmt(vol24h)}</td>
+        <td class="nx-td">${txns_5m || '-'}</td>
+        <td class="nx-td"><span class="pill" style="background:rgba(${tier === 'S' ? '16,185,129' : tier === 'A' ? '251,191,36' : '239,68,68'},.18); color:${tierColor};">${tier} (${score.toFixed(1)})</span></td>
+        <td class="nx-td" style="width:190px;">
+          <button class="mini-btn" onclick="goToCoin('${token.mint}', '${symbol}')">View</button>
+          <button class="mini-btn star-btn" onclick="toggleWatchlist('${token.mint}', '${symbol}')">˜…</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Navigate to coin page
+function goToCoin(mint, symbol) {
+  if (!window.NX) window.NX = {};
+  window.NX.currentCoin = { mint, symbol };
+  window.location.href = `Coinpage-Official.html?mint=${encodeURIComponent(mint)}`;
+}
+
+// Make it available on global NX object too
+if (!window.NX) window.NX = {};
+window.NX.goToCoin = goToCoin;
+
+// Toggle watchlist
+function toggleWatchlist(mint, symbol) {
+  let wl = JSON.parse(localStorage.getItem('nx_watchlist') || '{}');
+  if (wl[mint]) {
+    delete wl[mint];
+  } else {
+    wl[mint] = { symbol, addedAt: Date.now() };
+  }
+  localStorage.setItem('nx_watchlist', JSON.stringify(wl));
+  updateWatchlistDisplay();
+}
+
+// Update watchlist display
+function updateWatchlistDisplay() {
+  const wl = JSON.parse(localStorage.getItem('nx_watchlist') || '{}');
+  const watchlistEl = document.getElementById('watchlist');
+  if (!watchlistEl) return;
+  
+  const items = Object.entries(wl);
+  if (!items.length) {
+    watchlistEl.innerHTML = '<div class="text-zinc-400 text-xs">No pairs saved yet.</div>';
+    return;
+  }
+  
+  watchlistEl.innerHTML = items.map(([mint, data]) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px; border-bottom:1px solid #333;">
+      <div class="text-sm">${data.symbol}</div>
+      <button class="mini-btn" style="padding:2px 6px; font-size:10px;" onclick="NX.goToCoin('${mint}', '${data.symbol}')">View</button>
+    </div>
+  `).join('');
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  debugLog('Page loaded, ready to debug');
+
+  // Listen for trending engine updates
+  window.addEventListener('nebula:trending:updated', (e) => {
+    debugLog(`[TRENDING] Received ${e.detail?.count || 0} tokens, rendering...`);
+    renderTrendingTokens();
+  });
+
+  // Initial render (will show "Loading..." until engine finishes first fetch)
+  renderTrendingTokens();
+
+  // Sync profile picture from platform avatar or store state
+  function updatePfp() {
+    try {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(!pfpImg) {
+        setTimeout(updatePfp, 500);
+        return;
+      }
+
+      let avatarSrc = localStorage.getItem('nx_platform_avatar');
+      if (!avatarSrc) {
+        const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+        avatarSrc = storeState.profile?.avatar;
+      }
+      if (!avatarSrc) avatarSrc = 'NebulaX-logo.png';
+      
+      pfpImg.src = avatarSrc;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    } catch(e) {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(pfpImg) pfpImg.src = 'NebulaX-logo.png';
+    }
+  }
+  setTimeout(updatePfp, 100);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    const pfpImg = document.getElementById('nx-pfp');
+    if(pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    }
+  });
+
+  const btn = document.getElementById("wallet-btn");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
+    } else {
+      const s = sol.toFixed(3);
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${s} SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+
+  // Watchlist event handlers
+  const clearWatchlistBtn = document.getElementById('btn-clear-watchlist');
+  if (clearWatchlistBtn) {
+    clearWatchlistBtn.addEventListener('click', () => {
+      localStorage.removeItem('nx_watchlist');
+      updateWatchlistDisplay();
+      debugLog('Watchlist cleared');
+    });
+  }
+
+  // Alerts event handlers
+  const clearAlertsBtn = document.getElementById('btn-clear-alerts');
+  if (clearAlertsBtn) {
+    clearAlertsBtn.addEventListener('click', () => {
+      localStorage.removeItem('nx_alerts');
+      debugLog('Alerts cleared');
+    });
+  }
+
+  // Initialize watchlist display on page load
+  setTimeout(() => {
+    updateWatchlistDisplay();
+  }, 100);
+});
+</script>
+<script> window.NX_BIRDEYE_KEY = '267367afba5b44f2b7398e53aba49f5f'; </script>
+<script>window.NX_USE_BIRDEYE_ONLY = true;</script>
+<script>window.NX_MODE = 'prodegen';</script>
+
+    <style>
+      :root{
+        --nx-cyan:#00e6ff;
+        --nx-dark:#0a0d1b;
+        --nx-dark-2:#12152a;
+        --nx-border:#1e2747;
+        --nx-text:#e0e7ff;
+        --page-max: 1400px; /* match other pages */
+      }
+      html,body{height:100%; background:var(--nx-dark); font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace; color:var(--nx-text);}
+      .page-wrap{max-width:var(--page-max); margin:18px auto; padding:0 12px;}
+
+      /* Panels */
+      .nx-panel{
+        background:rgba(16,20,40,.92);
+        border:1px solid var(--nx-border);
+        box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08);
+        backdrop-filter: blur(8px);
+        border-radius: 16px;
+      }
+      .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+      .tabnums{font-variant-numeric: tabular-nums;}
+
+      /* Buttons */
+      .nx-btn{
+        border-radius:14px; padding:.42rem .72rem; font-weight:700;
+        transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease;
+        border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);
+      }
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:var(--nx-cyan); color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+
+      /* Inputs */
+      .nx-input{
+        width:100%; border-radius:12px; border:1px solid var(--nx-border);
+        background:var(--nx-dark-2); color:var(--nx-text); padding:.55rem .7rem; outline:none;
+      }
+      .nx-input:focus{border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14)}
+
+      /* Scrollbar */
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:var(--nx-dark-2);border:1px solid #1b2450;border-radius:6px;box-shadow:inset 0 0 8px rgba(0,230,255,.12)}
+      ::-webkit-scrollbar-thumb{border-radius:6px;background:var(--nx-cyan);box-shadow:0 0 8px rgba(0,230,255,.35);border:2px solid var(--nx-dark-2)}
+      ::-webkit-scrollbar-thumb:hover{background:#6ff3ff}
+      *{scrollbar-width:thin; scrollbar-color: var(--nx-cyan) var(--nx-dark-2)}
+
+      /* Popovers / Modals */
+      .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
+      .modal-fx{ position:fixed; inset:0; display:grid; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx.hidden{ display:none !important; }
+
+      /* SEARCH dropdown (homepage/coin style) */
+      #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
+      .search-row{ display:flex; align-items:center; gap:.75rem; padding:.45rem .6rem; border-radius:10px; }
+      .search-row:hover{ background: var(--nx-dark-2); }
+      .search-icon{ height:2rem; width:2rem; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--nx-dark-2); }
+      .search-grid{ display:grid; grid-template-columns: 1fr auto auto auto; gap:.75rem; align-items:center; min-width:0; }
+      .search-name{ min-width:0; }
+      .search-name .ticker{ font-size:11px; color:#8b97c9; }
+      .search-metric{ font-size:11px; color:#9fb3ff; white-space:nowrap; }
+      .search-active{ outline:2px solid var(--nx-cyan); outline-offset:2px; }
+
+      /* Table */
+      .nx-table{ width:100%; border-collapse:separate; border-spacing:0; }
+      .nx-th, .nx-td{ padding:10px 10px; text-align:left; border-bottom:0; }
+      thead .nx-th{
+        position:sticky; top:0; z-index:20; user-select:none;
+        background:rgba(32,36,64,.95); color:#ffeb3b; text-shadow:0 0 3px #ffeb3b; border-bottom:1px solid var(--nx-border);
+      }
+      tbody tr{ position:relative; }
+      tbody tr::after{
+        content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:#333a66; pointer-events:none;
+      }
+      tbody tr:hover{ background:rgba(10,14,28,.6); box-shadow: inset 0 0 0 1px rgba(0,230,255,.08); }
+
+      .pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; }
+      .pill.green{ background:rgba(16,185,129,.18); color:#34d399; }
+      .pill.red{ background:rgba(239,68,68,.18); color:#f87171; }
+
+      /* Small row buttons (match NewPairs) */
+      .mini-btn{ padding:.38rem .6rem; border:1px solid var(--nx-border); border-radius:12px; background:var(--nx-dark-2); color:#fff; font-weight:700; }
+      .mini-btn.alert{ background:#FF1493; border-color:#7a1b5a; }
+      .star-btn{ padding:.38rem .6rem; border:1px solid var(--nx-border); border-radius:12px; background:var(--nx-dark-2); color:#fff; font-weight:700; }
+      .star-btn.active{ background:#ffd54a; color:#000; border-color:#a37c00; }
+    </style>
+<style>
+  :root {
+    --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a;
+    --nx-border:#1e2747; --nx-text:#e0e7ff;
+  }
+  html[data-theme="amber"]{ --nx-cyan:#ffb020; --nx-dark:#0b0b14; --nx-dark-2:#15162a; --nx-border:#2a2647; --nx-text:#ffeccc; }
+  html[data-theme="violet"]{ --nx-cyan:#b69cff; --nx-dark:#0a0a16; --nx-dark-2:#131329; --nx-border:#27224a; --nx-text:#eae4ff; }
+  html[data-theme="neon"]{ --nx-cyan:#55ffda; --nx-dark:#070b12; --nx-dark-2:#0d1220; --nx-border:#1a243a; --nx-text:#dbfff7; }
+
+  .nx-tab { padding:.4rem .6rem; border-radius:.7rem; border:1px solid transparent; font-size:.85rem; }
+  .nx-tab.active { border-color:var(--nx-border); background:rgba(255,255,255,.03); color:var(--nx-cyan); }
+  .nx-btn { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px solid var(--nx-border); }
+  .nx-btn-outline { font-size:.8rem; padding:.35rem .6rem; border-radius:.6rem; border:1px dashed var(--nx-border); background:transparent; }
+  input::placeholder { color: #7a86a8; }
+</style>
+  </head>
+ 
+
+ <body>
+    <!-- Header -->
+    <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+      <div class="page-wrap h-7 px-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="NebulaX.html" class="flex items-center gap-2">
+            <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+            <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+          </a>
+          <nav class="hidden sm:flex items-center gap-2 ml-2">
+            <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
+          </nav>
+        </div>
+
+        <!-- SEARCH -->
+        <div id="search-wrap" class="relative w-[26rem] max-w-[60vw]">
+          <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
+          <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
+        </div>
+
+        <!-- Wallet -->
+        <div class="flex items-center gap-2">
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet</button>
+        </div>
+      <!-- Profile picture -->
+      <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+              style="border-color:var(--nx-border)">
+        <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+      </button>
+    </div>
+  </div>
+
+
+</header>
+
+    <div class="page-wrap">
+      <!-- Main grid (left table + right widgets) -->
+      <main class="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+        <!-- LEFT PANEL -->
+        <section class="nx-panel p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-xl nx-title">Trending Coins</div>
+              <div class="text-xs text-zinc-400">Currently most active tokens by volume & hype.</div>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="themed-scroll max-h-[520px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
+            <table class="nx-table" id="trend-table">
+              <thead>
+                <tr>
+                  <th class="nx-th" style="width:220px;">Pair</th>
+                  <th class="nx-th">Price/MC</th>
+                  <th class="nx-th">24h Change</th>
+                  <th class="nx-th">Vol</th>
+                  <th class="nx-th">Holders</th>
+                  <th class="nx-th">Age</th>
+                  <th class="nx-th" style="width:190px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="trend-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- RIGHT PANEL (widgets) -->
+        <aside class="nx-panel p-3">
+          <!-- Debug Panel -->
+          <div class="nx-panel p-3 mb-3" style="background: #111; border: 1px solid #333;">
+            <div class="text-sm font-semibold mb-2" style="color: #666;">Debug Output</div>
+            <div id="debug-output" style="font-size: 10px; font-family: monospace; color: #888; max-height: 200px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- Watchlist -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Watchlist</div>
+            <div class="flex gap-2 mb-2">
+              <button id="btn-clear-watchlist" class="nx-btn">Remove from Watchlist</button>
+            </div>
+            <div id="watchlist"><div class="text-zinc-400 text-xs">No pairs saved yet.</div></div>
+          </div>
+
+          <!-- Alerts Preview -->
+          <div class="nx-panel p-3 mb-3">
+            <div class="text-sm font-semibold mb-2">Alerts Preview</div>
+            <div class="flex gap-2 mb-2">
+              <button id="btn-clear-alerts" class="nx-btn">Clear All Alerts</button>
+            </div>
+            <div id="alerts-mini"><div class="text-zinc-400 text-xs">No triggers yet.</div></div>
+          </div>
+
+          <!-- Feed Status -->
+          <div class="nx-panel p-3">
+            <div class="text-sm font-semibold mb-2">Feed Status</div>
+            <div class="text-sm">Status: <span class="text-emerald-400">Connected (mock)</span></div>
+            <div class="text-sm">Latency: 38 ms</div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="mt-3 mb-4">
+        <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-zinc-400">Status:</span>
+            <span class="text-emerald-400">Idle (mock)</span>
+          </div>
+          <div>&copy; <span id="year"></span> NebulaX €¢ Trending €¢ Front-end mock</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Alerts Modal (per-coin rules) -->
+    <div id="alertsModal" class="popover hidden fixed right-4 top-16 w-80 p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-semibold">ENABLE ALERTS</div>
+        <button id="alert-cancel" class="nx-btn nx-btn-cyan px-2 py-1 text-xs">Close</button>
+      </div>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Whale buy</span><input type="checkbox" value="whale_buy">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Whale sell</span><input type="checkbox" value="whale_sell">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Volume +</span><input type="checkbox" value="volume_spike">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Buys &gt; Sells</span><input type="checkbox" value="buys_sells_ratio">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>Holders +</span><input type="checkbox" value="holders_delta">
+        </label>
+        <label class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-[var(--nx-dark-2)]">
+          <span>LP change</span><input type="checkbox" value="lp_change">
+        </label>
+      </div>
+      <button id="alert-save" class="nx-btn nx-btn-cyan w-full mt-3">Save</button>
+    </div>
+
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deposit / Withdraw modals -->
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
+        <div class="space-y-2">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <div class="grid grid-cols-3 gap-2">
+            <input class="nx-input col-span-2" placeholder="Amount"/>
+            <select class="nx-input"><option>SOL</option><option>USD</option></select>
+          </div>
+          <button class="nx-btn nx-btn-cyan w-full">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* Icons + Year */
+      if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons(); }
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* Back */
+      document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
+
+      /* ===== SEARCH (same as other pages) ===== */
+      const SEARCH_DATA = [
+        {icon:'—Ž', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
+        {icon:'—ˆ', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
+        {icon:'—ˆ', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
+      ];
+      const sWrap=document.getElementById('search-wrap');
+      const sIn=document.getElementById('search-input');
+      const sDD=document.getElementById('search-dd');
+      let activeIndex=-1, currentHits=[];
+      const debounce=(fn,ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+
+      function renderSearch(q){
+        const query=(q||'').trim().toLowerCase();
+        currentHits = query? SEARCH_DATA.filter(o => (o.name+o.ticker).toLowerCase().includes(query)) : [];
+        sDD.innerHTML=''; activeIndex=-1;
+        if(!currentHits.length){ sDD.classList.add('hidden'); return; }
+        sDD.classList.remove('hidden');
+        sDD.insertAdjacentHTML('beforeend','<div class="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-400 border-b border-[var(--nx-border)]">Results</div>');
+        currentHits.forEach((o,i)=>{
+          const row=document.createElement('button');
+          row.type='button'; row.className='search-row w-full'; row.dataset.index=i;
+          row.innerHTML=`
+            <div class="search-icon">${o.icon}</div>
+            <div class="search-grid min-w-0 flex-1">
+              <div class="search-name min-w-0">
+                <div class="truncate">${o.name}</div>
+                <div class="ticker">${o.ticker}</div>
+              </div>
+              <div class="search-metric tabnums">MC <span class="font-semibold">${o.mc}</span></div>
+              <div class="search-metric tabnums">V <span class="font-semibold">${o.v}</span></div>
+              <div class="search-metric tabnums">L <span class="font-semibold">${o.l}</span></div>
+            </div>`;
+          row.addEventListener('click',()=>selectHit(i));
+          sDD.appendChild(row);
+        });
+      }
+      const doRender = debounce(()=>renderSearch(sIn.value),120);
+      sIn.addEventListener('input', doRender);
+      sIn.addEventListener('focus', doRender);
+      document.addEventListener('click', (e)=>{ if(!sWrap.contains(e.target)) sDD.classList.add('hidden'); });
+      sIn.addEventListener('keydown',(e)=>{
+        if(sDD.classList.contains('hidden')) return;
+        const rows=[...sDD.querySelectorAll('.search-row')]; if(!rows.length) return;
+        if(e.key==='ArrowDown'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex+1)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
+        else if(e.key==='ArrowUp'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex-1+rows.length)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
+        else if(e.key==='Enter'){ e.preventDefault(); if(activeIndex<0) activeIndex=0; selectHit(activeIndex); }
+        else if(e.key==='Escape'){ sDD.classList.add('hidden'); }
+      });
+function selectHit(i){
+  const hit = currentHits[i]; if(!hit) return;
+  sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
+  sIn.value='';
+  const pair = hit.name.replace(/\s+/g,'');   // "WIF/SOL"
+  NX.goToCoin({ pair, mint: hit.mint || '' });
+}
+
+      /* ===== Wallet modal + modals ===== */
+      const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
+      
+      // Update wallet display with real balance
+      function updateWalletDisplay(){
+        const balance = window.NXWallet?.getBalance?.();
+        const sol = balance ? balance.toFixed(3) : '0.000';
+        document.getElementById('wallet-total').textContent = sol + ' SOL';
+        document.getElementById('wallet-available').textContent = sol + ' SOL';
+      }
+      
+      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
+      wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+      document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
+      
+      // Wallet connect/disconnect
+      document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+      });
+      document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+      });
+      
+      // Deposit address copy
+      const copyBtn = document.getElementById('copy-deposit-btn');
+      const depositAddr = document.getElementById('deposit-addr');
+      copyBtn?.addEventListener('click',()=>{ 
+        const addr = depositAddr.textContent;
+        navigator.clipboard.writeText(addr).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>{ copyBtn.textContent='Copy Address'; },2000); }); 
+      });
+      
+      // Close modals on click outside
+      document.getElementById('deposit')?.addEventListener('click',(e)=>{ if(e.target.id==='deposit') e.target.classList.add('hidden'); });
+      document.getElementById('withdraw')?.addEventListener('click',(e)=>{ if(e.target.id==='withdraw') e.target.classList.add('hidden'); });
+      
+      // Listen for balance changes
+      window.addEventListener('nebula:sol:changed',(e)=>{ if(!wModal.classList.contains('hidden')) updateWalletDisplay(); });
+
+
+
+      // Initial render handled by Pro-Degen trending logic below
+      // renderTable();
+      // redrawWatchlist() - handled by Pro-Degen logic
+    </script>
+<script>
+/** ===== NebulaX Click-to-Coin Utilities ===== */
+window.NX = window.NX || {};
+NX.saveSelectedCoin = function(coin){
+  try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
+};
+NX.goToCoin = function(coin){
+  NX.saveSelectedCoin(coin);
+  const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
+  const mint = encodeURIComponent(coin.mint || '');
+  const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}`;
+  location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+};
+</script>
+
+<script>
+function nxOpenCoin({ pair, mint = '' }) {
+  const url = `Coinpage-Official.html?pair=${encodeURIComponent(pair)}&mint=${encodeURIComponent(mint)}`;
+  location.href = url;
+}
+</script>
+<script>
+document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
+  row.addEventListener('click', (e)=>{
+    // Allow inner buttons (copy, alert, star) to work without navigating
+    if (e.target.closest('button, .copy-btn')) return;
+    const sym = row.dataset.symbol.trim().toUpperCase(); // e.g. WIF
+    const mint = row.dataset.mint || '';                  // add data-mint="..." if you have it
+    nxOpenCoin({ pair: `${sym}/SOL`, mint });
+  });
+});
+</script>
+
+<script>
+/* === NebulaX Core (themes, header hydrate, routing hooks) === */
+(function(){
+  const UserStore={
+    key:'nx_user',
+    state:{ wallet:null, theme:'default', pfp:{type:'builtin',url:'/pfp/default.png'} },
+    load(){ try{ Object.assign(this.state, JSON.parse(localStorage.getItem(this.key)||'{}')); }catch{} },
+    save(){ localStorage.setItem(this.key, JSON.stringify(this.state)); }
+  };
+  UserStore.load();
+
+  const Theme={
+    init(){
+      const t = UserStore.state.theme || 'default';
+      document.documentElement.setAttribute('data-theme', t);
+      const sel = document.getElementById('nx-theme');
+      if (sel) sel.value = t;
+      sel?.addEventListener('change', (e)=>{
+        const v=e.target.value;
+        document.documentElement.setAttribute('data-theme', v);
+        UserStore.state.theme=v; UserStore.save();
+      });
+    }
+  };
+
+  const Header={
+    initActiveTab(){
+      const here = location.pathname.replace(/\/+$/,'') || '/NebulaX.html';
+      document.querySelectorAll('.nx-tab').forEach(a=>{
+        const route = a.getAttribute('data-route');
+        if (!route) return;
+        if (route===here) a.classList.add('active');
+        else a.classList.remove('active');
+        a.addEventListener('click',(e)=>{
+          // allow normal navigation
+        });
+      });
+    },
+    initSearch(){
+      const input = document.getElementById('nx-search');
+      const btn   = document.getElementById('nx-search-btn');
+      if(!input||!btn) return;
+      const go = ()=>{
+        const q = (input.value||'').trim();
+        if(!q) return;
+        // Route to coin page convention: /Coinpage-Official.html?query=...
+        location.href = `/Coinpage-Official.html?query=${encodeURIComponent(q)}`;
+      };
+      btn.addEventListener('click', go);
+      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') go(); });
+    },
+    initPfp(){
+      const img = document.getElementById('nx-pfp');
+      if(img) img.src = (UserStore.state.pfp?.url)||'/pfp/default.png';
+      const btn = document.getElementById('nx-profile');
+      btn?.addEventListener('click',()=>{
+        // simple MVP: cycle built-ins; later open profile modal
+        const choices=['/pfp/default.png','/pfp/nx01.png','/pfp/nx02.png'];
+        const idx = Math.max(0, choices.indexOf(UserStore.state.pfp?.url));
+        const next = choices[(idx+1)%choices.length];
+        UserStore.state.pfp={type:'builtin',url:next}; UserStore.save();
+        if(img) img.src=next;
+      });
+    },
+    initStore(){
+      const a = document.getElementById('nx-store');
+      if(!a) return;
+      // keep as a link; if you make a modal later, hydrate here
+    },
+    initWallet(){
+      const w = document.getElementById('nx-wallet');
+      w?.addEventListener('click', ()=>{
+        // hook your wallet adapter here
+        alert('Connect wallet (hook your adapter)');
+      });
+    },
+    mount(){ this.initActiveTab(); this.initSearch(); this.initPfp(); this.initStore(); this.initWallet(); }
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    Theme.init();
+    Header.mount();
+  });
+})();
+</script>
+
+<script>
+/* Legacy Trending temporarily disabled while Pro-Degen is active. */
+(function () {
+  if (window.NX_MODE === 'prodegen') return;
+  // (If you want to re-enable the legacy list later, paste it back here
+  //  *inside* this IIFE so there€™s no top-level `return`.)
+})();
+</script>
+
+<script>
+(() => {
+  // ========= NebulaX Pro-Degen v1 (Starter-friendly) =========
+const BIRDEYE_KEY =
+  window.NX_BIRDEYE_KEY ||
+  window.NX?.BIRDEYE_KEY ||
+  localStorage.getItem('BIRDEYE_KEY') ||
+  '';
+  const CHAIN = 'solana';
+ // ------------- put near the top of Pro-Degen block -------------
+const STARTER_MODE = true;
+const CANDIDATE_SIZE = 10;       // Number of trending tokens to display
+const REFRESH_PRICES_MS = 60000; // <= slower loop on Starter
+const REFRESH_SLOW_MS   = 300000;
+
+// ============ DEX & LAUNCHPAD FILTERING CONFIGURATION ============
+// Toggle to enable/disable trusted source filtering
+// NOTE: Set to FALSE to see all trending coins, not just from specific sources
+const ENABLE_TRUSTED_SOURCE_FILTER = false; // Set to true to only show tokens from trusted DEXes/launchpads
+
+// DEX addresses and identifiers to whitelist (comment out ones you don't want)
+const TRUSTED_DEXES = {
+  'jupiter': 'Jupiter',
+  'bonk': 'Bonk',
+};
+
+// Launchpad creators to whitelist (comment out ones you don't want)
+const TRUSTED_LAUNCHPADS = {
+  'pump': 'Pump.fun',
+  'moonshot': 'Moonshot',
+  'believe': 'Believe',
+  'nebulax': 'NebulaX',
+};
+
+// Minimum criteria for tokens (can be adjusted)
+const TOKEN_QUALITY_GATES = {
+  minVerified: false,           // Require verified badge? (strict)
+  minHolders: 10,               // Minimum unique holders
+  minAge: 0,                    // Minimum age in minutes (0 = any age)
+  maxHolder: 0.20,              // Max % held by single holder (0 = no limit)
+};
+// ===============================================================
+
+// Global throttle (‰ˆ1 req/sec) + gentle 429 backoff
+let lastReqTs = 0;
+async function throttled(url, opts={}) {
+  const elapsed = Date.now() - lastReqTs;
+  const wait = Math.max(0, 100 - elapsed); // Reduced from 300ms to 100ms
+  if (wait) await new Promise(r=>setTimeout(r, wait));
+  const r = await fetch(url, { ...opts, headers: { ...HEADERS, ...(opts.headers||{}) }});
+  lastReqTs = Date.now();
+
+  if (r.status === 429) {
+    // simple backoff + retry
+    await new Promise(r=>setTimeout(r, 2000));
+    return throttled(url, opts);
+  }
+  return r;
+}
+
+
+
+  const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
+
+  // GeckoTerminal API (no key required, free)
+  const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2';
+
+  // --- DOM targets (adjust if your IDs differ)
+const tableBody =
+  document.querySelector('#trend-body') ||
+  document.querySelector('#trending-tbody') ||
+  document.querySelector('tbody');  const statusEl = ensureStatus();
+
+  // --- Simple cache (sessionStorage) ----------------------------------------
+  const SS_KEY = 'nx_trending_cache_v1';
+  const cache = JSON.parse(sessionStorage.getItem(SS_KEY) || '{}');
+  function saveCache() { sessionStorage.setItem(SS_KEY, JSON.stringify(cache)); }
+  function getCached(mint) { return cache[mint]; }
+  function setCached(mint, data) { cache[mint] = {...(cache[mint]||{}), ...data, _ts: Date.now()}; }
+
+  // --- Utils ----------------------------------------------------------------
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  function zscores(arr, key) {
+    const vals = arr.map(o => Number(o[key] ?? 0));
+    const mean = vals.reduce((a,b)=>a+b,0)/Math.max(1,vals.length);
+    const sd = Math.sqrt(vals.reduce((a,b)=>a + Math.pow(b-mean,2),0)/Math.max(1,vals.length));
+    const denom = sd || 1;
+    const map = new Map(arr.map((o,i)=>[o.mint, clamp((vals[i]-mean)/denom, -3, 3)]));
+    return (mint) => map.get(mint) || 0;
+  }
+  function ewma(values, lambda=0.7) {
+    // most recent last
+    let prev = values[0] || 0;
+    for (let i=1;i<values.length;i++) prev = lambda*values[i] + (1-lambda)*prev;
+    return prev;
+  }
+  function nowIso() { return new Date().toISOString(); }
+  function minutesAgo(m) { return new Date(Date.now() - m*60000).toISOString(); }
+
+  // --- Fetch helpers ---------------------------------------------------------
+
+async function jget(url, opts = {}) {
+  const r = await throttled(url, opts);   // <-- use the throttle!
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  const j = await r.json();
+  return j?.data ?? j;
+}
+  // 1) Candidate pool: Birdeye trending (cheap) OR markets page
+let lastCandidatesFallback = false;
+
+// Simple heuristic: check if mint matches known launchpad/DEX patterns
+// Pump.fun tokens have 'pump' in the mint address
+// Jupiter, Moonshot, Believe, Bonk are typically in symbol or verified
+function isFromTrustedSourceByMint(mint, symbol = '') {
+  if (!ENABLE_TRUSTED_SOURCE_FILTER) return true; // Skip if disabled
+  
+  const lowerMint = (mint || '').toLowerCase();
+  const lowerSymbol = (symbol || '').toLowerCase();
+  
+  // Pump.fun tokens contain 'pump' in the mint
+  if (lowerMint.includes('pump')) {
+    for (const key of Object.keys(TRUSTED_LAUNCHPADS)) {
+      if (key === 'pump') return true;
+    }
+  }
+  
+  // Check symbol against trusted names
+  for (const [key, name] of Object.entries(TRUSTED_DEXES)) {
+    if (lowerSymbol.includes(key)) return true;
+  }
+  for (const [key, name] of Object.entries(TRUSTED_LAUNCHPADS)) {
+    if (lowerSymbol.includes(key)) return true;
+  }
+  
+  // Default: accept (let scoring algorithm rank them)
+  return true;
+}
+
+// Filter a list of mints by simple heuristics (no API calls = no 404 errors)
+function filterByTrustedSources(mints) {
+  if (!ENABLE_TRUSTED_SOURCE_FILTER) return mints;
+  return mints.filter(mint => isFromTrustedSourceByMint(mint));
+}
+
+// Fetch GeckoTerminal Solana trending pools
+async function fetchGeckoTerminalTrending(limit = 30) {
+  try {
+    const response = await fetch(`${GECKOTERMINAL_BASE}/networks/solana/trending_pools?include=base_token`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    
+    const pools = data?.data || [];
+    const mints = [];
+    const poolMap = {}; // Store pool addresses for later use
+    
+    for (const pool of pools) {
+      const baseToken = pool?.relationships?.base_token?.data?.id?.split('_')[1];
+      if (baseToken) {
+        mints.push(baseToken);
+        poolMap[baseToken] = pool.id.split('_')[1]; // Pool address
+      }
+    }
+    
+    // Store pool addresses in sessionStorage for chart embedding
+    if (Object.keys(poolMap).length > 0) {
+      sessionStorage.setItem('gt_pool_map', JSON.stringify(poolMap));
+    }
+    
+    return [...new Set(mints)].slice(0, limit);
+  } catch (e) {
+    console.warn('GeckoTerminal fetch failed:', e);
+    return [];
+  }
+}
+
+// Fetch DexScreener data for Market Cap and FDV
+async function fetchDexScreenerData(mint) {
+  try {
+    // DexScreener searches by token address on Solana with 3s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) return null;
+    const data = await response.json();
+    
+    const pairs = data?.pairs || [];
+    if (pairs.length === 0) return null;
+    
+    // Get the pair with highest volume (most reliable data)
+    const pair = pairs.reduce((best, p) => 
+      (p.volume?.h24 || 0) > (best.volume?.h24 || 0) ? p : best
+    );
+    
+    // Calculate age from pairCreatedAt (milliseconds)
+    const createdAt = pair.pairCreatedAt || null;
+    const ageMin = createdAt ? Math.floor((Date.now() - createdAt) / 60000) : null;
+    
+    return {
+      mint,
+      symbol: pair.baseToken?.symbol || null,
+      name: pair.baseToken?.name || null,
+      logoURI: pair.info?.imageUrl || pair.baseToken?.logo || null,
+      marketCap: pair.marketCap || null,
+      fdv: pair.fdv || null,
+      price: pair.priceUsd || null,
+      priceChange24h: pair.priceChange?.h24 || null,
+      volume24h: pair.volume?.h24 || null,
+      liquidity: pair.liquidity?.usd || null,
+      pairAddress: pair.pairAddress || null,
+      ageMin: ageMin // Age in minutes
+    };
+  } catch (e) {
+    // Silently fail - DexScreener data is optional
+    return null;
+  }
+}
+
+// 1) Candidate pool: Combine Birdeye + GeckoTerminal for better reliability
+// Cache for trending candidates
+let cachedCandidates = null;
+let cachedCandidatesTime = 0;
+const CANDIDATES_CACHE_MS = 120000; // 2 minutes
+
+async function fetchCandidates(limit = CANDIDATE_SIZE) {
+  // Return cached candidates if fresh
+  if (cachedCandidates && (Date.now() - cachedCandidatesTime) < CANDIDATES_CACHE_MS) {
+    debugLog(`Using cached candidates (${cachedCandidates.length} tokens)`);
+    return cachedCandidates;
+  }
+  
+  debugLog('Fetching fresh candidates...');
+  try {
+    // Fetch from both sources in parallel
+    const [birdeyeMints, geckoMints] = await Promise.all([
+      // Birdeye: try multiple endpoints for volume data
+      (async () => {
+        try {
+          // Try token overview endpoint with sort by volume
+          const response = await throttled(
+            `https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=${limit * 2}`,
+            { headers: HEADERS }
+          );
+          
+          if (!response.ok) {
+            // Fallback to market data endpoint
+            const fallbackRes = await throttled(
+              `https://public-api.birdeye.so/defi/token_trending?limit=${limit * 2}`,
+              { headers: HEADERS }
+            );
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              const items = data?.data?.tokens || data?.data?.items || data?.data || [];
+              let mints = items.map(x => x.address || x.mint).filter(Boolean);
+              if (ENABLE_TRUSTED_SOURCE_FILTER) mints = filterByTrustedSources(mints);
+              return mints;
+            }
+            return [];
+          }
+          
+          const data = await response.json();
+          const items = data?.data?.tokens || data?.data?.items || data?.data || [];
+          let mints = items.map(x => x.address || x.mint).filter(Boolean);
+          if (ENABLE_TRUSTED_SOURCE_FILTER) {
+            mints = filterByTrustedSources(mints);
+          }
+          return mints;
+        } catch (e) {
+          console.warn('Birdeye fetch failed, using GeckoTerminal only:', e.message);
+          return [];
+        }
+      })(),
+      // GeckoTerminal: trending pools
+      fetchGeckoTerminalTrending(limit)
+    ]);
+    
+    // Combine and deduplicate: GeckoTerminal first (trending), then Birdeye (volume)
+    const combined = [...geckoMints, ...birdeyeMints];
+    const unique = [...new Set(combined)].slice(0, limit);
+    
+    // Cache the results
+    cachedCandidates = unique;
+    cachedCandidatesTime = Date.now();
+    
+    debugLog(`Fetched ${geckoMints.length} GeckoTerminal + ${birdeyeMints.length} Birdeye = ${unique.length} unique`);
+    
+    return unique;
+  } catch (e) {
+    console.warn('Failed to fetch market data:', e);
+    // Fallback: try the trending endpoint
+    try {
+      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit * 2}`);
+      const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit * 2);
+      let mints = rows.map(x => x.address || x.mint).filter(Boolean);
+      
+      if (ENABLE_TRUSTED_SOURCE_FILTER) {
+        mints = filterByTrustedSources(mints);
+      }
+      
+      return [...new Set(mints)].slice(0, limit);
+    } catch (e2) {
+      console.error('All trending endpoints failed:', e2);
+      return [];
+    }
+  }
+}
+
+async function sequenceHydrate(need) {
+  if (!need.length) return [{}, {}, {}, {}, {}];
+
+  // Phase 1: parallel fetch for speed
+  const [md, ps] = await Promise.all([
+    hydrateMarketData(need),
+    hydratePriceStats(need)
+  ]);
+
+  // Phase 2: skip holders initially for fast display
+  const o5 = {};   // await hydrateOhlcv5m(need)
+  const tr15 = {}; // await hydrateTrades15m(need)
+  const hh = {};   // Skip holders initially - too slow
+
+  return [md, ps, o5, tr15, hh];
+}
+
+  // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
+  async function hydrateMarketData(mints) {
+    const out = {};
+
+    if (!STARTER_MODE) {
+      try {
+        const chunk = mints.join(',');
+        const md = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data/multiple?addresses=${chunk}`);
+        Object.entries(md||{}).forEach(([mint, v]) => out[mint] = {
+          symbol: v.symbol || v.token_symbol || '',
+          name: v.name || v.token_name || '',
+          logoURI: v.logoURI || v.logo_uri || v.image || null,
+          mcapUsd: v.market_cap ?? null,
+          liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
+          vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
+          price: v.price ?? null,
+          verified: !!v.verified
+        });
+        return out;
+      } catch(e) { console.warn('market-data multiple not available, single fallback', e); }
+    }
+    // Single fallback (respect Starter limits: stagger)
+    for (const mint of mints) {
+      try {
+        const v = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data?address=${mint}`);
+        out[mint] = {
+          symbol: v.symbol || v.token_symbol || '',
+          name: v.name || v.token_name || '',
+          logoURI: v.logoURI || v.logo_uri || v.image || null,
+          mcapUsd: v.market_cap ?? null,
+          liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
+          vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
+          price: v.price ?? null,
+          verified: !!v.verified
+        };
+        await sleep(120); // be gentle on 1 rps
+      } catch(e) { 
+        // Silently handle missing market data (some tokens may not have data)
+        out[mint] = { symbol: '', name: '', mcapUsd: null, liqUsd: null, vol24h: null, price: null, verified: false };
+      }
+    }
+    return out;
+  }
+
+  async function hydratePriceStats(mints) {
+    const out = {};
+    if (!STARTER_MODE) {
+      try {
+        const ps = await jget(`https://public-api.birdeye.so/defi/v3/price/stats/multiple?addresses=${mints.join(',')}`);
+        Object.entries(ps||{}).forEach(([mint, v]) => out[mint] = {
+          pct24h: v.price_change_24h ?? null
+        });
+        return out;
+      } catch(e) { console.warn('price-stats multiple not available, single fallback', e); }
+    }
+    for (const mint of mints) {
+      try {
+        const v = await jget(`https://public-api.birdeye.so/defi/v3/price/stats?address=${mint}`);
+        out[mint] = { pct24h: v.price_change_24h ?? null };
+        await sleep(30);
+      } catch(e) { 
+        // Silently handle missing price stats (some tokens may not have data)
+        out[mint] = { pct24h: null };
+      }
+    }
+    return out;
+  }
+
+  // Light OHLCV to derive 5m change + EWMA burst
+  async function hydrateOhlcv5m(mints) {
+    const out = {};
+    await sleep(1100);
+    // Starter: we€™ll request a small window per token (e.g., 30m of 1m candles)
+    for (const mint of mints) {
+      try {
+        const to = nowIso();
+        const from = minutesAgo(30);
+        const o = await jget(`https://public-api.birdeye.so/defi/ohlcv?address=${mint}&type=1m&time_from=${from}&time_to=${to}`);
+        const candles = Array.isArray(o) ? o : (o.items || []);
+        // last 6 candles ~ 5-6m
+        const last6 = candles.slice(-6);
+        const closes = last6.map(c => Number(c.close || c.c || 0));
+        const vols = last6.map(c => Number(c.volume || c.v || 0));
+        const open5m = last6[0]?.open ?? last6[0]?.o ?? closes[0];
+        const last = closes[closes.length-1] || 0;
+        const pct5m = (open5m && last) ? ((last-open5m)/open5m)*100 : 0;
+        const vol5mEWMA = ewma(vols, 0.7);
+        out[mint] = { pct5m, vol5mEWMA };
+        await sleep(60);
+      } catch(e) { 
+        // Silently handle missing OHLCV data
+        out[mint] = { pct5m: 0, vol5mEWMA: 0 };
+      }
+    }
+    return out;
+  }
+
+  // Recent trades snapshot to approximate trades/buyers imbalance
+  async function hydrateTrades15m(mints) {
+    const out = {};
+    await sleep(1100);
+    for (const mint of mints) {
+      try {
+        const to = Date.now();
+        const from = to - 15*60*1000;
+        const tr = await jget(`https://public-api.birdeye.so/defi/txs/token?address=${mint}&time_from=${Math.floor(from/1000)}&time_to=${Math.floor(to/1000)}&page=1&page_size=100`);
+        const items = tr?.items || tr || [];
+        const buyers = new Set();
+        let buys=0, sells=0;
+        items.forEach(tx => {
+          const side = (tx.side || tx.trade || '').toLowerCase();
+          if (side.includes('buy')) { buys++; buyers.add(tx.trader || tx.user || tx.source || ''); }
+          else if (side.includes('sell')) { sells++; }
+        });
+        const trades15m = items.length;
+        const uniqBuyers15m = buyers.has('') ? buyers.size-1 : buyers.size;
+        const imbalance15m = (buys + sells) ? buys / (buys + sells) : 0.5;
+        out[mint] = { trades15m, uniqBuyers15m, imbalance15m };
+        await sleep(60);
+      } catch(e) { 
+        // Silently handle missing trades data
+        out[mint] = { trades15m: 0, uniqBuyers15m: 0, imbalance15m: 0.5 };
+      }
+    }
+    return out;
+  }
+
+  // Holders (free on Standard Solana). Peek first page and read total.
+  async function hydrateHolders(mints) {
+    const out = {};
+    if (!mints.length) return out;
+    
+    debugLog(`Fetching holders for ${mints.length} tokens sequentially`);
+    
+    // Sequential fetch to avoid overwhelming the API
+    for (const mint of mints) {
+      try {
+        const response = await throttled(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`, {});
+        if (response.ok) {
+          const json = await response.json();
+          const d = json?.data ?? json;
+          const total = d?.total ?? d?.count ?? d?.pagination?.total ?? null;
+          if (total && total > 0) {
+            out[mint] = { holders: Number(total) };
+          }
+        }
+      } catch(e) {
+        // Skip on error
+      }
+    }
+    
+    debugLog(`Holders fetched: ${Object.keys(out).length} tokens`);
+    return out;
+  }
+
+  // 3) Score, gates, and compose --------------------------------------------
+  const DEFAULT_GATES = {
+    minLiq: 25000,
+    minTrades15m: 0,
+    minBuyers15m: 0,
+    maxImpact1k: 0.15, // not used in v1 (needs exit-liquidity), left for future
+    minAgeMin: 0
+  };
+
+  function computeScore(rows) {
+    // Build zscore getters for each metric we have
+    const zVol5 = zscores(rows, 'vol5mEWMA');
+    const zBuyers = zscores(rows, 'uniqBuyers15m');
+    const zImbal = zscores(rows, 'imbalance15m');
+    const zPct5 = zscores(rows, 'pct5m');
+    const zVol60 = zscores(rows, 'vol24h'); // proxy if no 60m
+    const zLiq = zscores(rows, 'liqUsd');
+    const zMC = zscores(rows, 'mcapUsd');
+    const zH = zscores(rows, 'holders');
+    const zT = zscores(rows, 'trades15m');
+    const zVolty = zscores(rows, 'volatilityScore'); // optional
+
+    for (const r of rows) {
+      const rugRisk = Number(r.rugRiskScore || 0);
+      r.score =
+        0.28 * zVol5(r.mint) +
+        0.16 * zBuyers(r.mint) +
+        0.14 * zImbal(r.mint) +
+        0.12 * zPct5(r.mint) +
+        0.10 * zVol60(r.mint) +
+        0.08 * zLiq(r.mint) +
+        0.06 * zH(r.mint) +
+        0.04 * zT(r.mint) +
+        0.02 * zVolty(r.mint) -
+        0.06 * rugRisk;
+    }
+    return rows.sort((a,b)=>b.score - a.score);
+  }
+
+  function hardGate(r, gates=DEFAULT_GATES) {
+    if ((r.liqUsd ?? 0) < gates.minLiq) return false;
+    if ((r.trades15m ?? 0) < gates.minTrades15m) return false;
+    if ((r.uniqBuyers15m ?? 0) < gates.minBuyers15m) return false;
+    if ((r.ageMin ?? 9999) < gates.minAgeMin) return false;
+    if (r.paused) return false;
+    if (r.blocked) return false;
+    return true;
+  }
+
+  // 4) Orchestrator -----------------------------------------------------------
+  async function renderProDegen() {
+    // DISABLED: Legacy Pro-Degen rendering system
+    // Now using trending-engine.js with renderTrendingTokens()
+    debugLog('renderProDegen() called but disabled - using trending-engine.js instead');
+    return;
+  }
+  // 5) Minimal rowHTML fallback (use your own if present) ---------------------
+  const rowHTML = (() => {
+    let renderCount = 0;
+    return function(r) {
+      const n = (x, d=0) => (x||x===0) ? Number(x).toLocaleString(undefined,{maximumFractionDigits:d}) : '€”';
+      const pc = (x) => (x||x===0) ? `${(x>0?'+':'')}${x.toFixed(2)}%` : '€”';
+      // Compact number format: K/M/B
+      const compact = (x) => {
+        if (!x && x !== 0) return '€”';
+        const num = Number(x);
+        if (num >= 1e9) return `${(num/1e9).toFixed(2)}B`;
+        if (num >= 1e6) return `${(num/1e6).toFixed(2)}M`;
+        if (num >= 1e3) return `${(num/1e3).toFixed(2)}K`;
+        return num.toFixed(2);
+      };
+      // Format age: minutes -> hours/days
+      const formatAge = (min) => {
+        if (!min && min !== 0) return '€”';
+        if (min < 60) return `${min}m`;
+        if (min < 1440) return `${Math.floor(min/60)}h`;
+        return `${Math.floor(min/1440)}d`;
+      };
+      
+      // Format values with proper fallbacks
+      const pair = `${r.symbol || r.name || 'TOKEN'}/SOL`;
+      const price = n(r.price, 4);
+      const change24h = pc(r.pct24h || 0);
+      const mc = compact(r.mcapUsd); // Use compact format
+      const vol = compact(r.vol24h); // Use compact format
+      const holders = r.holders || r.holders === 0 ? compact(r.holders) : '€”'; // Show 0 if that's the value
+      const age = formatAge(r.ageMin); // Format age
+      
+      // Combined Price/MC display with MC larger and bolder (just show number, no "MC" text)
+      const priceMc = `<div class="text-right"><div class="font-bold text-base">${mc}</div><div class="text-xs text-zinc-400">$${price}</div></div>`;
+      
+      // Log first 3 rows being rendered
+      if (renderCount < 3) {
+        debugLog(`[ROW ${renderCount}] ${r.symbol}: price=${r.price}, mc=${r.mcapUsd}, vol=${r.vol24h}, holders=${r.holders}`);
+        renderCount++;
+      }
+      
+      // Color for 24h change
+      const changeClass = (r.pct24h || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+      
+      return `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition cursor-pointer" data-mint="${r.mint}" data-symbol="${r.symbol || ''}" data-price="${r.price || 0}">
+          <td class="py-2 px-3">
+            <div class="flex items-center gap-2">
+              ${r.logoURI ? `<img src="${r.logoURI}" class="w-6 h-6 rounded-full" onerror="this.style.display='none'" alt="${r.symbol}"/>` : '<div class="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600"></div>'}
+              <div class="w-2 h-2 rounded-full ${r.verified?'bg-cyan-400':'bg-zinc-500'}"></div>
+              <span class="font-semibold">${pair}</span>
+            </div>
+          </td>
+          <td class="py-2 px-3">${priceMc}</td>
+          <td class="py-2 px-3 text-right ${changeClass}">${change24h}</td>
+          <td class="py-2 px-3 text-right">${vol}</td>
+          <td class="py-2 px-3 text-right">${holders}</td>
+          <td class="py-2 px-3 text-right text-xs">${age}</td>
+          <td class="py-2 px-3 text-center">
+            <button class="nx-btn nx-btn-cyan text-xs px-2 py-1">Buy</button>
+          </td>
+        </tr>
+      `;
+    };
+  })();
+
+  // 6) Status helper ----------------------------------------------------------
+  function ensureStatus() {
+    let el = document.getElementById('trending-status');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'trending-status';
+      el.className = 'text-xs text-white/60 px-3 py-1';
+      (document.querySelector('#trending-head') || document.body).prepend(el);
+    }
+    return el;
+  }
+  function status(msg){ try{ statusEl.textContent = msg; }catch{} }
+
+  // Add click handler to table rows
+  if (tableBody) {
+    tableBody.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-mint]');
+      if (!tr) return;
+      
+      const mint = tr.getAttribute('data-mint');
+      const symbol = tr.getAttribute('data-symbol') || '';
+      const price = tr.getAttribute('data-price') || '';
+      
+      if (!mint) return;
+      
+      // Save coin data and navigate to coin page
+      try {
+        const coinData = {
+          mint: mint,
+          symbol: symbol,
+          pair: symbol ? `${symbol.toUpperCase()}/SOL` : '',
+          price: parseFloat(price) || 0
+        };
+        localStorage.setItem('nebula_selected_coin', JSON.stringify(coinData));
+      } catch (err) {
+        console.error('Error saving coin data:', err);
+      }
+      
+      // Navigate to coin page
+      const pair = symbol ? `${symbol.toUpperCase()}/SOL` : '';
+      const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${encodeURIComponent(mint)}` : ''}`;
+      location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+    });
+  }
+
+  // 7) Boot + refresh loops ---------------------------------------------------
+  // OLD PRO-DEGEN CODE DISABLED - Now using trending-engine.js
+  // The trending-engine auto-initializes and renderTrendingTokens() is called from DOMContentLoaded
+  debugLog('Pro-Degen legacy code disabled - using trending-engine.js');
+
+})();
+</script>
+
+   
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

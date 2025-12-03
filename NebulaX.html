@@ -40,8 +40,64 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Wallet Panel (Phantom) -->
-<div id="wallet-panel" style="position:fixed; top:16px; right:16px; z-index:9999; font-family:ui-sans-serif,system-ui; color:#e0e7ff;">
+
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel" style="width: 380px; max-width: 90vw; padding: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+          <div style="font-size: 1.125rem; font-weight: 600;">Wallet</div>
+          <button class="nx-btn nx-btn-cyan" style="padding: 0.5rem 0.5rem; font-size: 0.75rem;" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.875rem; margin-bottom: 0.75rem;">
+          <div class="nx-panel" style="padding: 0.75rem;">
+            <div style="font-size: 0.75rem; color: #a1a5b7; margin-bottom: 0.25rem;">Total Balance</div>
+            <div style="font-weight: 600; font-size: 1rem;" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel" style="padding: 0.75rem;">
+            <div style="font-size: 0.75rem; color: #a1a5b7; margin-bottom: 0.25rem;">Available</div>
+            <div style="font-weight: 600; font-size: 1rem;" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+    <div id="deposit" class="modal-fx hidden">
+      <div class="nx-panel" style="width: 360px; max-width: 90vw; padding: 0.75rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <div style="font-weight: 600;">Deposit</div>
+          <button class="nx-btn nx-btn-cyan" style="padding: 0.5rem 0.5rem; font-size: 0.75rem;" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button>
+        </div>
+        <div style="font-size: 0.875rem; color: #a1a5b7; margin-bottom: 0.5rem;">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel" style="padding: 0.5rem; font-size: 0.75rem; word-break: break-all;" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan" style="width: 100%; margin-top: 0.75rem;" id="copy-deposit-btn">Copy Address</button>
+      </div>
+    </div>
+    <div id="withdraw" class="modal-fx hidden">
+      <div class="nx-panel" style="width: 360px; max-width: 90vw; padding: 0.75rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <div style="font-weight: 600;">Withdraw</div>
+          <button class="nx-btn nx-btn-cyan" style="padding: 0.5rem 0.5rem; font-size: 0.75rem;" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <input class="nx-input" placeholder="Destination SOL address"/>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
+            <input class="nx-input" placeholder="Amount"/>
+            <select class="nx-input"><option>SOL</option><option>USD</option></select>
+          </div>
+          <button class="nx-btn nx-btn-cyan" style="width: 100%;">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wallet Panel (Phantom) - HIDDEN, moved to header -->
+<div id="wallet-panel" style="display:none; position:fixed; top:16px; right:16px; z-index:9999; font-family:ui-sans-serif,system-ui; color:#e0e7ff;">
   <button id="connectBtn" style="background:#111827;border:1px solid #1e2747;border-radius:12px;padding:10px 14px;box-shadow:0 0 8px rgba(0,240,255,.2);cursor:pointer;">
     <span id="connectLabel">Connect Phantom</span>
   </button>
@@ -82,6 +138,7 @@
     <script>
   window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
 </script>
+<script src="trending-engine.js"></script>
 <script src="assets/js/inline-11.js"></script>
 <script src="assets/js/portfolio-card.js"></script>
     
@@ -96,6 +153,250 @@
 
   <script type="text/babel" data-presets="env,react">
 
+</script>
+
+<!-- Wallet Modal Styles -->
+<style>
+  .modal-fx {
+    position: fixed;
+    inset: 0;
+    display: grid !important;
+    place-items: center;
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 12px;
+  }
+  .modal-fx.hidden {
+    display: none !important;
+  }
+  .nx-input {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--nx-border, #1e2747);
+    background: var(--nx-dark-2, #12152a);
+    color: var(--nx-text, #e0e7ff);
+    padding: 0.55rem 0.7rem;
+    outline: none;
+    font-size: 0.875rem;
+  }
+  .nx-input:focus {
+    border-color: var(--nx-cyan, #00e6ff);
+    box-shadow: 0 0 0 2px rgba(0, 230, 255, 0.14);
+  }
+  .nx-panel {
+    background: rgba(16, 20, 40, 0.92);
+    border: 1px solid var(--nx-border, #1e2747);
+    box-shadow: inset 0 0 10px rgba(0, 230, 255, 0.18), 0 0 12px rgba(0, 230, 255, 0.08);
+    backdrop-filter: blur(8px);
+    border-radius: 16px;
+  }
+  .nx-btn {
+    border-radius: 14px;
+    padding: 0.42rem 0.72rem;
+    font-weight: 700;
+    transition: transform 0.05s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+    border: 1px solid var(--nx-border, #1e2747);
+    background: var(--nx-dark-2, #12152a);
+    color: var(--nx-text, #e0e7ff);
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+  .nx-btn:hover {
+    opacity: 0.95;
+  }
+  .nx-btn:active {
+    transform: translateY(1px);
+  }
+  .nx-btn-cyan {
+    background: var(--nx-cyan, #00e6ff);
+    color: #07101b;
+    border-color: #0d3540;
+    box-shadow: 0 0 10px rgba(0, 230, 255, 0.3);
+  }
+</style>
+
+<!-- PFP Sync & Wallet Modal Handlers -->
+<script>
+  // Wait for wallet-btn to appear in the DOM, then attach handlers
+  function initWalletModals() {
+    const wBtn = document.getElementById('wallet-btn');
+    const wModal = document.getElementById('wallet-modal');
+    
+    if (!wBtn || !wModal) {
+      console.log('Wallet button or modal not found yet, retrying...');
+      setTimeout(initWalletModals, 500);
+      return;
+    }
+
+    console.log('Wallet modal initialized');
+    
+    // Update wallet display with real balance
+    function updateWalletDisplay() {
+      const balance = window.NXWallet?.getBalance?.();
+      const sol = balance ? balance.toFixed(3) : '0.000';
+      const totalEl = document.getElementById('wallet-total');
+      const availEl = document.getElementById('wallet-available');
+      if (totalEl) totalEl.textContent = sol + ' SOL';
+      if (availEl) availEl.textContent = sol + ' SOL';
+    }
+    
+    wBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateWalletDisplay();
+      wModal.classList.remove('hidden');
+    });
+    
+    wModal.addEventListener('click', (e) => {
+      if (e.target === wModal) wModal.classList.add('hidden');
+    });
+
+    const dpBtn = document.getElementById('dp-open');
+    const wdBtn = document.getElementById('wd-open');
+    const depositModal = document.getElementById('deposit');
+    const withdrawModal = document.getElementById('withdraw');
+
+    if (dpBtn && depositModal) {
+      dpBtn.addEventListener('click', () => {
+        wModal.classList.add('hidden');
+        depositModal.classList.remove('hidden');
+      });
+    }
+    if (wdBtn && withdrawModal) {
+      wdBtn.addEventListener('click', () => {
+        wModal.classList.add('hidden');
+        withdrawModal.classList.remove('hidden');
+      });
+    }
+    
+    // Wallet connect/disconnect
+    const connectBtn = document.getElementById('wallet-connect');
+    const disconnectBtn = document.getElementById('wallet-disconnect');
+
+    if (connectBtn) {
+      connectBtn.addEventListener('click', async () => {
+        const prov = (window.phantom?.solana) || window.solana;
+        try {
+          await prov?.connect?.();
+        } catch(e) {
+          console.log('Connect cancelled');
+        }
+      });
+    }
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener('click', async () => {
+        const prov = (window.phantom?.solana) || window.solana;
+        try {
+          await prov?.disconnect?.();
+        } catch(e) {
+          console.log('Disconnect error');
+        }
+      });
+    }
+    
+    // Deposit address copy
+    const copyBtn = document.getElementById('copy-deposit-btn');
+    const depositAddr = document.getElementById('deposit-addr');
+    if (copyBtn && depositAddr) {
+      copyBtn.addEventListener('click', () => {
+        const addr = depositAddr.textContent;
+        navigator.clipboard.writeText(addr).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy Address';
+          }, 2000);
+        });
+      });
+    }
+    
+    // Close modals on click outside
+    if (depositModal) {
+      depositModal.addEventListener('click', (e) => {
+        if (e.target.id === 'deposit') e.target.classList.add('hidden');
+      });
+    }
+    if (withdrawModal) {
+      withdrawModal.addEventListener('click', (e) => {
+        if (e.target.id === 'withdraw') e.target.classList.add('hidden');
+      });
+    }
+    
+    // Listen for balance changes
+    window.addEventListener('nebula:sol:changed', (e) => {
+      if (wModal && !wModal.classList.contains('hidden')) {
+        updateWalletDisplay();
+      }
+    });
+  }
+
+  // Start initialization after DOMContentLoaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWalletModals);
+  } else {
+    initWalletModals();
+  }
+
+  // Sync profile picture - create/update PFP element after wallet button
+  function updatePfp() {
+    try {
+      let pfpContainer = document.getElementById('nx-pfp-container');
+      
+      if (!pfpContainer) {
+        // Create PFP container and insert BEFORE wallet-btn (so it appears on the right when flex-direction is row)
+        const wBtn = document.getElementById('wallet-btn');
+        if (!wBtn || !wBtn.parentElement) {
+          console.log('Wallet button parent not found, retrying...');
+          setTimeout(updatePfp, 500);
+          return;
+        }
+        
+        pfpContainer = document.createElement('div');
+        pfpContainer.id = 'nx-pfp-container';
+        pfpContainer.style.cssText = 'width: 32px; height: 32px; border-radius: 8px; overflow: hidden; border: 1px solid var(--cyberpunk-border, #1e2747); cursor: pointer; order: 1000;';
+        
+        const pfpImg = document.createElement('img');
+        pfpImg.id = 'nx-pfp';
+        pfpImg.alt = 'profile';
+        pfpImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+        
+        pfpContainer.appendChild(pfpImg);
+        // Insert after all existing elements to push it to the far right
+        wBtn.parentElement.appendChild(pfpContainer);
+        console.log('PFP container created');
+      }
+
+      const pfpImg = document.getElementById('nx-pfp');
+      if (pfpImg) {
+        let avatarSrc = localStorage.getItem('nx_platform_avatar');
+        if (!avatarSrc) {
+          const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+          avatarSrc = storeState.profile?.avatar;
+        }
+        
+        if (avatarSrc && avatarSrc !== 'NebulaX-logo.png') {
+          pfpImg.src = avatarSrc;
+          console.log('Avatar set to:', avatarSrc);
+        } else {
+          pfpImg.src = 'NebulaX-logo.png';
+        }
+        
+        pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+      }
+    } catch(e) {
+      console.log('PFP sync error:', e);
+    }
+  }
+  
+  setTimeout(updatePfp, 1000);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    const pfpImg = document.getElementById('nx-pfp');
+    if (pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+      console.log('Avatar updated to:', e.detail.avatar);
+    }
+  });
 </script>
 </body>
 </html>

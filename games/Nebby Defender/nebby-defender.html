@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NebulaX Arcade — Nebby Defender</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#060914;
+      --star1:#8aa4ff;
+      --star2:#6ff3ff;
+      --star3:#ffffff;
+      --laser:#23ff76;
+      --ui:#e0e7ff;
+      --ui-dim:#8aa4ff99;
+      --accent:#00f0ff;
+      --accent2:#ff00e6;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--ui);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      overflow:hidden;
+    }
+    #wrap{
+      height:100%;
+      display:grid;
+      place-items:center;
+    }
+    canvas{
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      width:min(100vw, 860px);
+      height: calc(min(100vw, 860px) * 9/16); /* maintain 16:9 */
+      border: 1px solid #1e2747;
+      box-shadow: 0 0 40px #00f0ff22, inset 0 0 20px #ff00e622;
+      background:#000; /* starfield draws on top */
+      cursor: crosshair;
+    }
+    /* Start overlay */
+    #overlay{
+      position: fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: linear-gradient(180deg, #060914ee, #03060e88);
+      backdrop-filter: blur(4px);
+      z-index:10;
+    }
+    .panel{
+      text-align:center;
+      padding:28px 28px 22px;
+      border:1px solid #1e2747;
+      background:#0a0d1bcc;
+      box-shadow: 0 0 40px #00f0ff22, inset 0 0 16px #ff00e612;
+      border-radius:16px;
+    }
+    h1{
+      margin:0 0 4px 0;
+      letter-spacing: 0.04em;
+      font-weight:800;
+      font-size: clamp(20px, 4vw, 34px);
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 12px #00f0ff55;
+    }
+    p{ margin: 8px 0 16px; color:var(--ui-dim); }
+    .btn{
+      display:inline-block;
+      padding:10px 18px;
+      border:1px solid #1e2747;
+      background:#0d1328;
+      color:var(--ui);
+      text-decoration:none;
+      border-radius:12px;
+      font-weight:700;
+      letter-spacing: .03em;
+      box-shadow: 0 0 16px #00f0ff33, inset 0 0 8px #ff00e611;
+      transition: transform .06s ease, box-shadow .2s ease;
+      user-select:none;
+    }
+    .btn:hover{ transform: translateY(-1px); box-shadow: 0 0 22px #00f0ff55; }
+    .hud{
+      position:fixed; left:10px; top:8px; font-size:12px; color:#8aa4ff99; z-index:2;
+      text-shadow: 0 0 6px #00f0ff44;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="960" height="540" aria-label="Nebby Defender"></canvas>
+    <div class="hud">A/D: move · LMB: shoot</div>
+    <div id="overlay">
+      <div class="panel">
+        <h1>Nebby Defender</h1>
+        <p>Top-down 8-bit scroller. <b>A/D</b> to move, <b>Left Click</b> to shoot.<br/>Click Start to lock the mouse and begin.</p>
+        <button id="startBtn" class="btn">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ========= Config =========
+  const SPRITE_SRC = "nebby-ship.png"; // <- put your Nebby ship PNG here (same folder). Fallback draws pixel placeholder.
+  const CANVAS = document.getElementById("game");
+  const CTX = CANVAS.getContext("2d");
+
+  // Pixel scale for crisp art when we draw fallback
+  const PX = 2;
+
+  // ========= Starfield (3-layer parallax like your runner) =========
+  const stars = [];
+  const STAR_LAYERS = [
+    { count: 110, speed: 0.20, color: getCSS("--star1"), size: 1 },
+    { count: 70,  speed: 0.35, color: getCSS("--star2"), size: 1.5 },
+    { count: 40,  speed: 0.60, color: getCSS("--star3"), size: 2.2 },
+  ];
+  function getCSS(varName){
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+  function initStars(){
+    stars.length = 0;
+    STAR_LAYERS.forEach((layer, li) => {
+      for(let i=0;i<layer.count;i++){
+        stars.push({
+          x: Math.random()*CANVAS.width,
+          y: Math.random()*CANVAS.height,
+          v: layer.speed,
+          s: layer.size,
+          c: layer.color,
+        });
+      }
+    });
+  }
+
+  // ========= Player =========
+  const player = {
+    x: CANVAS.width/2,
+    y: CANVAS.height - 60,
+    w: 44,
+    h: 44,
+    speed: 360, // px/s
+    vx: 0,
+    img: new Image(),
+    imgReady: false,
+  };
+
+  // Load sprite (fallback if missing)
+  player.img.onload = () => { player.imgReady = true; };
+  player.img.onerror = () => { player.imgReady = false; };
+  player.img.src = SPRITE_SRC;
+
+  // ========= Controls =========
+  const keys = { a:false, d:false };
+  window.addEventListener("keydown", (e) => {
+    if(e.key === "a" || e.key === "A") keys.a = true;
+    if(e.key === "d" || e.key === "D") keys.d = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    if(e.key === "a" || e.key === "A") keys.a = false;
+    if(e.key === "d" || e.key === "D") keys.d = false;
+  });
+
+  // ========= Shooting =========
+  const lasers = [];
+  const LASER_SPEED = 680; // px/s
+  const FIRE_COOLDOWN = 140; // ms
+  let canFireAt = 0;
+
+  function shoot(){
+    const now = performance.now();
+    if(now < canFireAt) return;
+    canFireAt = now + FIRE_COOLDOWN;
+
+    lasers.push({
+      x: player.x,
+      y: player.y - player.h/2,
+      w: 4,
+      h: 14,
+      vy: -LASER_SPEED
+    });
+  }
+
+  // Mouse to shoot
+  CANVAS.addEventListener("mousedown", (e) => {
+    if(document.pointerLockElement === CANVAS){
+      if(e.button === 0) shoot();
+    }
+  });
+
+  // ========= Start / Pointer lock =========
+  const overlay = document.getElementById("overlay");
+  const startBtn = document.getElementById("startBtn");
+
+  startBtn.addEventListener("click", async () => {
+    overlay.style.display = "none";
+    try{
+      await CANVAS.requestPointerLock({ unadjustedMovement: true });
+    }catch(e){
+      // Some browsers ignore the error; continue anyway
+    }
+    last = performance.now();
+    loop(last);
+  });
+
+  document.addEventListener("pointerlockchange", () => {
+    // If lock is lost (ESC), bring back overlay so the user can resume
+    if(document.pointerLockElement !== CANVAS){
+      overlay.style.display = "flex";
+      cancelAnimationFrame(anim);
+    }
+  });
+
+  // ========= Resize handling (keeps gameplay resolution fixed while CSS scales) =========
+  addEventListener("resize", () => {
+    // Canvas backing resolution stays fixed at 960x540 for consistent physics; CSS scales it visually.
+  });
+
+  // ========= Game Loop =========
+  let last = 0, anim;
+  initStars();
+
+  function loop(ts){
+    const dt = Math.min(0.033, (ts-last)/1000); // clamp delta
+    last = ts;
+
+    update(dt);
+    render();
+
+    anim = requestAnimationFrame(loop);
+  }
+
+  function update(dt){
+    // Starfield
+    for(const s of stars){
+      s.y += s.v * 60 * dt; // scale for feel
+      if(s.y > CANVAS.height){
+        s.y = -2;
+        s.x = Math.random()*CANVAS.width;
+      }
+    }
+
+    // Movement
+    player.vx = 0;
+    if(keys.a && !keys.d) player.vx = -player.speed;
+    if(keys.d && !keys.a) player.vx =  player.speed;
+
+    player.x += player.vx * dt;
+    // Lock to bottom + horizontal clamp
+    player.y = CANVAS.height - 50;
+    const halfW = player.w/2;
+    player.x = Math.max(halfW, Math.min(CANVAS.width - halfW, player.x));
+
+    // Lasers
+    for(let i=lasers.length-1;i>=0;i--){
+      const L = lasers[i];
+      L.y += L.vy * dt;
+      if(L.y + L.h < 0) lasers.splice(i,1);
+    }
+  }
+
+  function render(){
+    // Clear
+    CTX.clearRect(0,0,CANVAS.width,CANVAS.height);
+
+    // Background gradient subtle glow
+    const g = CTX.createRadialGradient(CANVAS.width/2, CANVAS.height*0.8, 80, CANVAS.width/2, CANVAS.height*0.9, CANVAS.height);
+    g.addColorStop(0, "#080d20");
+    g.addColorStop(1, "#01030a");
+    CTX.fillStyle = g;
+    CTX.fillRect(0,0,CANVAS.width,CANVAS.height);
+
+    // Stars
+    for(const s of stars){
+      CTX.fillStyle = s.c;
+      CTX.fillRect(s.x|0, s.y|0, s.s, s.s);
+    }
+
+    // Lasers
+    for(const L of lasers){
+      // Core
+      CTX.fillStyle = getCSS("--laser");
+      CTX.fillRect((L.x-2)|0, (L.y)|0, L.w, L.h);
+      // Glow
+      CTX.globalAlpha = 0.4;
+      CTX.fillRect((L.x-3)|0, (L.y-2)|0, L.w+2, L.h+4);
+      CTX.globalAlpha = 1.0;
+    }
+
+    // Player
+    const px = (player.x - player.w/2)|0;
+    const py = (player.y - player.h/2)|0;
+
+    if(player.imgReady){
+      CTX.imageSmoothingEnabled = false;
+      CTX.drawImage(player.img, px, py, player.w, player.h);
+    }else{
+      // Fallback: quick neon pixel ship (so you can run immediately)
+      drawFallbackShip(px, py, player.w, player.h);
+    }
+  }
+
+  function drawFallbackShip(px, py, w, h){
+    // simple chunky pixels approximating Nebby colors
+    const cols = 16, rows = 16;
+    const cellW = w/cols, cellH = h/rows;
+
+    // tiny 16x16 map (X = cyan hull, M = magenta gills, D = dark face, O = empty)
+    const map =
+    [
+      "OOOOOOXXOOXXOOOO",
+      "OOOOOXXXXXXOOOOO",
+      "OOOOXXXXXXXXOOOO",
+      "OOOXXXXDDXXXXOOO",
+      "OOXXXXDDDDXXXXOO",
+      "OXXXXXDDDDXXXXXO",
+      "OXXXXXDDDDXXXXXO",
+      "OOOXXXXDDXXXXOOO",
+      "OOOOXXXXXXXXOOOO",
+      "OOOOOXXXXXXOOOOO",
+      "OOOMOOXXXXOOMOOO",
+      "OOMMMOXXXXOMMMOO",
+      "OOOMOOXXXXOOMOOO",
+      "OOOOOOXXXXOOOOOO",
+      "OOOOOOOXXOOOOOOO",
+      "OOOOOOOXXOOOOOOO",
+    ];
+    CTX.imageSmoothingEnabled = false;
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const ch = map[r][c];
+        if(ch === "O") continue;
+        CTX.fillStyle = ch==="X" ? "#00eaff" : (ch==="M" ? "#ff00e6" : "#0a1024");
+        CTX.fillRect(px + c*cellW, py + r*cellH, Math.ceil(cellW), Math.ceil(cellH));
+      }
+    }
+    // exhaust glow
+    CTX.globalAlpha=0.7;
+    CTX.fillStyle = "#ff9a00";
+    CTX.fillRect(px + w*0.46, py + h*0.88, w*0.08, h*0.18);
+    CTX.globalAlpha=1;
+  }
+
+  // Optional: spacebar also fires (handy for laptop testing)
+  window.addEventListener("keydown", (e)=>{ if(e.code==="Space" && document.pointerLockElement===CANVAS) shoot(); });
+
+  // Start with overlay showing; loop begins after Start is clicked.
+  </script>
+</body>
+</html>

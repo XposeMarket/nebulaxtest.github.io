@@ -276,7 +276,7 @@ async function refreshBalance(force=false){
     if(document.getElementById('nxw-menu')) return;
     const div = document.createElement('div');
     div.id='nxw-menu';
-    div.className='hidden fixed z-[2500] w-80 popover p-3';
+    div.className='hidden fixed z-[1500] w-80 popover p-3';
     div.style.border='1px solid var(--nx-border)';
     div.style.background='rgba(13,16,34,.98)';
     div.style.borderRadius='12px';

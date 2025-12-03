@@ -68,7 +68,8 @@
 
       /* Popovers / Modals */
       .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
-      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx{ position:fixed; inset:0; display:grid; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx.hidden{ display:none !important; }
 
       /* SEARCH dropdown (shared style) */
       #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
@@ -197,36 +198,51 @@
       </footer>
     </div>
 
-    <!-- Wallet dropdown (same as other pages) -->
-    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
-      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
-      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-        <div class="nx-panel p-2">Total<br/><strong>0.314 SOL</strong></div>
-        <div class="nx-panel p-2">Available<br/><strong>0.214 SOL</strong></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="wd-open" class="nx-btn">Withdraw</button>
-        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
       </div>
     </div>
-    <div id="deposit" class="modal-fx">
+    <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
-        <div class="nx-panel p-2 text-xs break-words">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
-        <button class="nx-btn nx-btn-cyan w-full mt-3" onclick="navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');alert('Copied! (mock)')">Copy Address</button>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
       </div>
     </div>
-    <div id="withdraw" class="modal-fx">
+    <div id="withdraw" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button></div>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
         <div class="space-y-2">
           <input class="nx-input" placeholder="Destination SOL address"/>
           <div class="grid grid-cols-3 gap-2">
             <input class="nx-input col-span-2" placeholder="Amount"/>
             <select class="nx-input"><option>SOL</option><option>USD</option></select>
           </div>
-          <button class="nx-btn nx-btn-cyan w-full">Submit (mock)</button>
+          <button class="nx-btn nx-btn-cyan w-full">Submit</button>
         </div>
       </div>
     </div>
@@ -289,14 +305,46 @@
       });
       function selectHit(i){ const hit=currentHits[i]; if(!hit) return; sDD.classList.add('hidden'); sIn.value=''; alert('Navigate to '+hit.name+' (mock)'); }
 
-      /* ===== Wallet dropdown + modals ===== */
-      const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
-      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
-      document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
-      document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
-      document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
-      document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
-      ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+      /* ===== Wallet modal + modals ===== */
+      const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
+      
+      // Update wallet display with real balance
+      function updateWalletDisplay(){
+        const balance = window.NXWallet?.getBalance?.();
+        const sol = balance ? balance.toFixed(3) : '0.000';
+        document.getElementById('wallet-total').textContent = sol + ' SOL';
+        document.getElementById('wallet-available').textContent = sol + ' SOL';
+      }
+      
+      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
+      wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+      document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
+      
+      // Wallet connect/disconnect
+      document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+      });
+      document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+      });
+      
+      // Deposit address copy
+      const copyBtn = document.getElementById('copy-deposit-btn');
+      const depositAddr = document.getElementById('deposit-addr');
+      copyBtn?.addEventListener('click',()=>{ 
+        const addr = depositAddr.textContent;
+        navigator.clipboard.writeText(addr).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>{ copyBtn.textContent='Copy Address'; },2000); }); 
+      });
+      
+      // Close modals on click outside
+      document.getElementById('deposit')?.addEventListener('click',(e)=>{ if(e.target.id==='deposit') e.target.classList.add('hidden'); });
+      document.getElementById('withdraw')?.addEventListener('click',(e)=>{ if(e.target.id==='withdraw') e.target.classList.add('hidden'); });
+      
+      // Listen for balance changes
+      window.addEventListener('nebula:sol:changed',(e)=>{ if(!wModal.classList.contains('hidden')) updateWalletDisplay(); });
 
       /* ===== Watchlist state (localStorage) ===== */
       const STORAGE_KEY='nebula_watchlist_v1';

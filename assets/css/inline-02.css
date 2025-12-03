@@ -12,7 +12,7 @@
         /* keep this equal to Tailwind gap-3 (0.75rem) so the seam lines up */
         --grid-gap: 0.75rem;
       }
-      html,body,#root{height:100%;background:var(--cyberpunk-dark);font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace;}
+      html,body,#root{height:100%;background:var(--cyberpunk-dark);font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace;color:var(--cyberpunk-text);}
 
       #err{position:fixed;inset:0;background:rgba(10,10,20,.95);color:#ff6b6b;padding:16px;display:none;z-index:9999}
       #err pre{white-space:pre-wrap}
@@ -26,6 +26,16 @@
       .neon-text{color:var(--cyberpunk-text);text-shadow:0 0 2px var(--cyberpunk-neon-blue),0 0 4px var(--cyberpunk-neon-pink)}
       .active-glow{box-shadow:0 0 8px var(--cyberpunk-neon-blue), inset 0 0 4px var(--cyberpunk-neon-blue)}
       .noselect{user-select:none}
+
+      /* Button styling - ensure proper text color */
+      .nx-btn{
+        border-radius:14px; padding:.42rem .72rem; font-weight:700;
+        transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease;
+        border:1px solid var(--cyberpunk-border); background:var(--cyberpunk-dark-secondary); color:var(--cyberpunk-text);
+      }
+      .nx-btn:hover{opacity:.95}
+      .nx-btn:active{transform:translateY(1px)}
+      .nx-btn-cyan{ background:#00e6ff; color:#0b101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
 
       /* Edit mode adorners */
       .edit-outline{outline:1px dashed rgba(0,240,255,.45);outline-offset:4px}
@@ -128,4 +138,29 @@
   opacity:1;
   animation-duration: 2.2s; /* slightly faster pulse on hover */
 }
+
+/* Arcade Bulb Animation */
+.arcade-bulb-ring{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bulb{
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6ff3ff;
+  box-shadow: 0 0 4px #6ff3ff, 0 0 8px #00e6ff;
+  opacity: 0;
+  animation: bulbOn 1.35s infinite;
+}
+@keyframes bulbOn{
+  0%, 60%{opacity:0;}
+  61%, 65%{opacity:1;}
+  66%, 70%{opacity:0.3;}
+  71%, 85%{opacity:1;}
+  86%, 100%{opacity:0;}
+}
+
 

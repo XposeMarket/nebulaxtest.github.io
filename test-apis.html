@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+  <style>
+    body { font-family: monospace; background: #1a1a1a; color: #0f0; padding: 20px; }
+    pre { background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    .pass { color: #0f0; }
+    .fail { color: #f00; }
+    .info { color: #0ff; }
+  </style>
+</head>
+<body>
+  <h1>Testing NebulaX APIs</h1>
+  <pre id="log"></pre>
+
+  <script>
+    const log = (msg, status = 'info') => {
+      const el = document.getElementById('log');
+      const className = status === 'pass' ? 'pass' : (status === 'fail' ? 'fail' : 'info');
+      el.innerHTML += `<span class="${className}">[${status.toUpperCase()}] ${msg}</span>\n`;
+      console.log(`[${status}] ${msg}`);
+    };
+
+    (async () => {
+      log('Starting API tests...', 'info');
+
+      // Test 1: GeckoTerminal Trending
+      try {
+        log('Testing GeckoTerminal /trending_pools...', 'info');
+        const res = await fetch('https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1&page_size=10&include=base_token,quote_token,dex');
+        if (res.ok) {
+          const data = await res.json();
+          const pools = data?.data || [];
+          log(`✓ GeckoTerminal returned ${pools.length} trending pools`, 'pass');
+          if (pools.length > 0) {
+            const pool = pools[0];
+            log(`  Sample: ${pool.attributes?.name || 'N/A'} (ID: ${pool.id})`, 'info');
+          }
+        } else {
+          log(`✗ GeckoTerminal returned ${res.status}`, 'fail');
+        }
+      } catch (e) {
+        log(`✗ GeckoTerminal error: ${e.message}`, 'fail');
+      }
+
+      // Test 2: GeckoTerminal New Pools
+      try {
+        log('Testing GeckoTerminal /new_pools...', 'info');
+        const res = await fetch('https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1&page_size=10&include=base_token,quote_token,dex');
+        if (res.ok) {
+          const data = await res.json();
+          const pools = data?.data || [];
+          log(`✓ GeckoTerminal returned ${pools.length} new pools`, 'pass');
+        } else {
+          log(`✗ GeckoTerminal returned ${res.status}`, 'fail');
+        }
+      } catch (e) {
+        log(`✗ GeckoTerminal new_pools error: ${e.message}`, 'fail');
+      }
+
+      // Test 3: DexScreener Batch Token Data
+      try {
+        log('Testing DexScreener /tokens/v1/solana...', 'info');
+        const mints = ['EPjFWaJQbGjsFtXjZC54j5Vb8KqZbJjdNSfn9LjZN5g', 'So11111111111111111111111111111111111111112'];
+        const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${mints.join(',')}`);
+        if (res.ok) {
+          const data = await res.json();
+          const pairs = data?.pairs || [];
+          log(`✓ DexScreener returned data for ${pairs.length} tokens`, 'pass');
+        } else {
+          log(`✗ DexScreener returned ${res.status}`, 'fail');
+        }
+      } catch (e) {
+        log(`✗ DexScreener error: ${e.message}`, 'fail');
+      }
+
+      // Test 4: Check if trending-engine.js loaded
+      try {
+        log('Checking trending-engine...', 'info');
+        if (window.initTrendingEngine) {
+          log('✓ initTrendingEngine is available', 'pass');
+        } else {
+          log('✗ initTrendingEngine not found', 'fail');
+        }
+      } catch (e) {
+        log(`✗ Error checking engine: ${e.message}`, 'fail');
+      }
+
+      log('API tests complete!', 'info');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NebulaX Runner – Demo</title>
+  <style>
+    :root{
+      --bg:#050710;
+      --bg-2:#0b0f22;
+      --neon:#00f0ff;
+      --neon-pink:#ff00e6;
+      --text:#e7ecff;
+      --orange:#ff7a1a;
+      --border:#1a2244;
+      --shadow:0 0 20px rgba(0,240,255,.35); 
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; background: radial-gradient(1200px 800px at 50% -200px, #0f1733 0%, var(--bg) 55%, #02040a 100%);
+      color:var(--text); font: 500 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif;
+      overflow:hidden;
+    }
+    #hud{
+      position:fixed; inset:0; pointer-events:none; display:grid; grid-template-rows:auto 1fr auto;
+    }
+    .topbar{
+      display:flex; align-items:center; gap:.75rem; padding:.6rem .8rem; backdrop-filter: blur(6px);
+      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.15)); border-bottom:1px solid var(--border);
+      box-shadow:0 4px 30px rgba(0,0,0,.3);
+    }
+    .badge{ padding:.25rem .5rem; border:1px solid var(--border); border-radius:999px; background:rgba(12,16,35,.7); box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); }
+    .glow{ color:var(--neon); text-shadow:0 0 8px rgba(0,240,255,.7); letter-spacing:.3px; }
+    .title{ font-weight:700; text-transform:uppercase; letter-spacing:.12em; font-size:12px; opacity:.9 }
+    .spacer{ flex:1 }
+    .btn{
+      pointer-events:auto; appearance:none; background: linear-gradient(180deg, #111831, #0b1126);
+      color:var(--text); border:1px solid var(--border); border-radius:10px; padding:.55rem .8rem; font-weight:700; letter-spacing:.04em; cursor:pointer;
+      box-shadow: 0 8px 25px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .btn.primary{ border-color:#0b3244; box-shadow: var(--shadow); color:#001315; background:linear-gradient(180deg, var(--neon), #06a2ad);}    
+    .legend{ position:fixed; left:.75rem; bottom:.75rem; pointer-events:none; opacity:.85; background:rgba(4,6,14,.65); border:1px solid var(--border); border-radius:12px; padding:.6rem .75rem; }
+    canvas{ display:block; width:100vw; height:100vh; }
+    #centerMsg{ position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; font-weight:800; letter-spacing:.04em; text-transform:uppercase; text-align:center; }
+    #centerMsg .card{ background:rgba(0,0,0,.5); border:1px solid var(--border); padding:18px 22px; border-radius:14px; box-shadow:0 20px 80px rgba(0,0,0,.6);}    
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div class="topbar">
+      <span class="title">NebulaX Runner · Demo</span>
+      <span class="badge"><span class="glow">Score</span> <span id="score">0</span></span>
+      <span class="badge">Best <span id="best">0</span></span>
+      <span class="badge">Speed <span id="speed">1.0x</span></span>
+      <div class="spacer"></div>
+      <button class="btn" id="pauseBtn" title="P">Pause</button>
+      <button class="btn primary" id="playBtn" title="Enter">Play</button>
+    </div>
+  </div>
+  <div id="centerMsg"></div>
+  <div class="legend">
+    ←/→ Rotate &nbsp;•&nbsp; P Pause &nbsp;•&nbsp; R Restart
+  </div>
+  <script>
+  (()=>{
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    let w=0,h=0,dpr=1; const DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const speedEl = document.getElementById('speed');
+    const centerMsg = document.getElementById('centerMsg');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+
+    const STATE = { Idle:0, Playing:1, Paused:2, GameOver:3 };
+    let state = STATE.Idle;
+    let dtGlobal = 0;
+    let rafId = 0; // keep at most one RAF live
+
+    // ===== Tunnel world (360° tube) =====
+    const TWO_PI = Math.PI*2;
+    const ANG_SEGS = 16;           // visual grid around the tube
+    const RADIUS_NORM = 0.42;      // tube radius relative to min(viewport)
+
+    // Speed & physics (no jump; you fall only through holes)
+    let speed = 1.0;               // multiplier (stays 1.0 for 30s, then +0.05 per 10s)
+    const BASE_ZSPEED = 1.5;       // units/sec towards camera
+    const GRAVITY = 22;            // softer gravity for smoother arcs
+    const MAX_FALL_V = 9.5;      // terminal fall speed (smooth descent)
+    const JUMP1_V = -11.0;        // first jump = -11.0;        // first jump
+    const JUMP2_V = -9.5;         // double jump (second jump)
+    const DEATH_Y = 1.0;           // how far you can fall before game over
+    const GROUND_NEAR = 0.08, GROUND_FAR = -0.04; // tighter window near camera
+    const FALL_LOCK_Y = 0.25;     // once you fall this far, you can't be "rescued" until restart
+
+    // Spawning
+    const MIN_LEN = 0.30, MAX_LEN = 0.90;     // band length along z
+    const MIN_GAPZ = 0.22, MAX_GAPZ = 0.55;   // distance between bands along z
+    const AHEAD_Z = 7.0;                      // keep world spawned this far ahead
+
+    // Angular gap sizing (holes)
+    const GAP_MIN = TWO_PI*0.08;  // ~29°
+    const GAP_MAX = TWO_PI*0.22;  // ~79°
+
+    // Player angle (we snap to segment centers for now, but smooth)
+    let seg = 0, targetSeg = 0;   // 0..ANG_SEGS-1, wraps
+    let ang = 0;                  // current angle (radians)
+    let y = 0, vy = 0, grounded = true; // vertical fall state for visuals
+    let usedDouble = false;         // one double-jump allowed per airtime
+    let fallLocked = false; // prevents mid-air "rescue" landings after deep fall
+
+    // Bands are arrays of safe arcs (complements of gaps)
+    // plat: {z, len, arcs:[{a1,a2}]}
+    const plats = [];
+
+    // Stars (background)
+    const stars = [];
+    const rnd = (a,b)=>a+Math.random()*(b-a);
+    const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+    function resize(){
+      dpr = DPR; w = Math.floor(innerWidth*dpr); h=Math.floor(innerHeight*dpr);
+      cvs.width = w; cvs.height = h; cvs.style.width=innerWidth+'px'; cvs.style.height=innerHeight+'px';
+    }
+    addEventListener('resize', resize); resize();
+
+    function reset(){
+      targetSeg = seg = 0; // bottom
+      ang = segCenter(seg);
+      y = 0; vy = 0; grounded = true; fallLocked = false; usedDouble = false;
+      plats.length=0; score=0; elapsed=0; baseTick=0; bonusTick=0; speedTick=0; last=undefined; speed=1.0; speedEl.textContent=speed.toFixed(1)+'x';
+
+      // Start ring (full safe) directly under player so you don't insta-fall
+      spawnFullRing(0.05, 0.6);
+      ensureAhead();
+
+      if(stars.length===0){
+        for(let i=0;i<140;i++) stars.push({
+          x:rnd(-1,1),
+          y:rnd(-1,1),
+          phase:rnd(0,Math.PI*2),
+          w:rnd(0.2,0.5),     // slow twinkle frequency
+          amp:rnd(0.3,0.7),   // twinkle amplitude
+          size:rnd(0.8,1.6),  // pixel size
+          driftX:rnd(-0.02,0.02),
+          driftY:rnd(-0.01,0.01)
+        });
+      }
+    }
+
+    // ===== Input =====
+    addEventListener('keydown', e=>{
+      if(['ArrowLeft','ArrowRight','Space','KeyR','KeyP','Enter'].includes(e.code)) e.preventDefault();
+      if(e.code==='ArrowLeft'){ targetSeg=(targetSeg+1)%ANG_SEGS; }
+      if(e.code==='ArrowRight'){ targetSeg=(targetSeg-1+ANG_SEGS)%ANG_SEGS; }
+      if(e.code==='Space'){ doJump(); }
+      if(e.code==='KeyR'){ startGame(); }
+      if(e.code==='KeyP'){ togglePause(); }
+      if(e.code==='Enter'){ if(state!==STATE.Playing) startGame(); }
+    });
+
+    // keyup (no hold behavior)
+    addEventListener('keyup', ()=>{});
+
+    playBtn.onclick = ()=> startGame();
+    pauseBtn.onclick = ()=> togglePause();
+
+    function cancelLoop(){ if(rafId){ cancelAnimationFrame(rafId); rafId=0; } }
+
+    function togglePause(){
+      if(state===STATE.Playing){ state=STATE.Paused; cancelLoop(); showMsg('Paused'); }
+      else if(state===STATE.Paused){ state=STATE.Playing; centerMsg.innerHTML=''; last=performance.now(); rafId=requestAnimationFrame(loop); }
+    }
+
+    function startGame(){ cancelLoop(); reset(); state = STATE.Playing; centerMsg.innerHTML=''; last=performance.now(); rafId=requestAnimationFrame(loop); }
+
+    function doJump(){
+      if(grounded){
+        vy = JUMP1_V; grounded = false; fallLocked = false; usedDouble = false;
+      } else if(!usedDouble){
+        vy = JUMP2_V; usedDouble = true;
+      }
+    }
+
+    // ===== Spawning bands (safe arcs with random gaps) =====
+    function spawnFullRing(z,len){ plats.push({z,len,arcs:[{a1:0,a2:TWO_PI}]}); }
+
+    function spawnBand(z){
+      const gapsN = Math.random()<0.55?1:(Math.random()<0.6?2:3);
+      // evenly seed gap centers and jitter them, then widths
+      const centers=[]; for(let i=0;i<gapsN;i++){ centers.push(i*TWO_PI/gapsN + rnd(-0.25,0.25)*(TWO_PI/gapsN)); }
+      centers.sort((a,b)=>a-b);
+      const gaps = centers.map(c=>{
+        const w = rnd(GAP_MIN, GAP_MAX);
+        return {a1:wrap(c-w/2), a2:wrap(c+w/2)};
+      });
+      // Build safe arcs as complement
+      const arcs=[];
+      for(let i=0;i<gaps.length;i++){
+        const cur=gaps[i], nxt=gaps[(i+1)%gaps.length];
+        const a1 = cur.a2; const a2 = nxt.a1; // region between gaps
+        arcs.push({a1, a2});
+      }
+      plats.push({z, len:rnd(MIN_LEN, MAX_LEN), arcs});
+    }
+
+    function farthestEndZ(){ let far=0; for(const p of plats) far=Math.max(far, p.z+p.len); return far; }
+    function ensureAhead(){
+      let far=farthestEndZ();
+      while(far < AHEAD_Z){ const nextZ = far + rnd(MIN_GAPZ, MAX_GAPZ); spawnBand(nextZ); far=farthestEndZ(); }
+    }
+
+    // ===== Projection helpers =====
+    const FOV = 1.8; // logical focal length
+    function project(z){ return FOV/(FOV+z); } // 0..1
+    function cx(){ return (w/dpr)/2; }
+    function cy(){ return (h/dpr)/2; }
+    function radiusAt(scale){ return Math.min(w/dpr, h/dpr)*RADIUS_NORM*scale; }
+    function wrap(a){ a%=TWO_PI; if(a<0) a+=TWO_PI; return a; }
+    function segCenter(i){ return wrap(Math.PI/2 + i*(TWO_PI/ANG_SEGS)); }
+    function angleLerp(a,b,t){ // shortest-path interpolation
+      let d = wrap(b - a);
+      if(d>Math.PI) d -= TWO_PI;
+      return wrap(a + d*t);
+    }
+    function angleInArc(a,a1,a2){
+      a=wrap(a); a1=wrap(a1); a2=wrap(a2);
+      const span = (a2 - a1 + TWO_PI) % TWO_PI;
+      if(span < 1e-4) return true; // treat as full ring
+      return (a1<=a2) ? (a>=a1 && a<=a2) : (a>=a1 || a<=a2);
+    }
+
+    // ===== Game loop / scoring =====
+    let last, score=0, elapsed=0, baseTick=0, bonusTick=0, speedTick=0, zScroll=0;
+    const BEST_KEY='nx_runner_best_points';
+    const formatInt = n=>Math.floor(n).toLocaleString();
+    const best = +localStorage.getItem(BEST_KEY)||0; bestEl.textContent=formatInt(best);
+
+    function hasGround(){
+      // Check any band near the camera with an arc covering player's angle
+      for(const p of plats){
+        if(p.z < GROUND_NEAR && (p.z+p.len) > GROUND_FAR){
+          for(const a of p.arcs){ if(angleInArc(ang, a.a1, a.a2)) return true; }
+        }
+      }
+      return false;
+    }
+
+    function loop(ts){
+      if(state!==STATE.Playing) return; 
+      const dt = Math.min(0.032, (ts-(last??ts))/1000); last=ts; dtGlobal = dt; // clamp delta
+
+      // Speed ramp: hold 1.0 for 30s, then +0.05 every 10s
+      if(elapsed >= 30){
+        speedTick += dt; while(speedTick>=10){ speed += 0.05; speedTick -= 10; }
+      }
+      speedEl.textContent = speed.toFixed(1)+'x';
+
+      // Smooth rotate towards target segment
+      ang = angleLerp(ang, segCenter(targetSeg), Math.min(1, dt*10));
+
+      // Falling when there is no ground under you
+      vy += GRAVITY*dt;
+      if(vy > MAX_FALL_V) vy = MAX_FALL_V; // clamp fall speed for smoothness
+      y += vy*dt;
+      // (double-jump only; no hold extension)
+      if(y > FALL_LOCK_Y) fallLocked = true; // commit to the fall
+
+      const onGround = hasGround();
+      if(onGround && !fallLocked && vy > 0 && y >= 0){
+        y = 0; vy = 0; grounded = true; usedDouble = false; // landed only when descending and at/below floor
+      } else {
+        grounded = false;
+        if (y > DEATH_Y) { return gameOver(); }
+      }
+      // Move world & spawn
+      ensureAhead();
+      const zspeed = BASE_ZSPEED*speed;
+      zScroll += zspeed*dt; // animate tunnel grid too
+      for(let i=plats.length-1;i>=0;i--){ const p=plats[i]; p.z -= zspeed*dt; if(p.z+p.len<-0.2) plats.splice(i,1); }
+
+      // Scoring over time
+      elapsed += dt; baseTick += dt; bonusTick += dt;
+      while(baseTick >= 4.5){ score += 5; baseTick -= 4.5; }
+      while(bonusTick >= 20){ score += 10; bonusTick -= 20; }
+      scoreEl.textContent = formatInt(score);
+
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    function gameOver(){
+      state = STATE.GameOver; cancelLoop();
+      const newBest=Math.max(+localStorage.getItem(BEST_KEY)||0, Math.floor(score));
+      if(newBest!==(+localStorage.getItem(BEST_KEY)||0)) localStorage.setItem(BEST_KEY,newBest);
+      bestEl.textContent = formatInt(newBest);
+      showMsg(`GAME OVER<br><small>Time ${Math.max(0,elapsed).toFixed(1)}s • Points ${formatInt(score)}<br>Press Enter or R to restart</small>`);
+    }
+
+    function showMsg(html){ centerMsg.innerHTML = `<div class="card"><div class="glow" style="font-size:28px">${html}</div></div>`; }
+
+    // ===== Drawing =====
+    function draw(){
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      // background
+      const g = ctx.createLinearGradient(0,0,0,h/dpr); g.addColorStop(0,'#050815'); g.addColorStop(1,'#02040a');
+      ctx.fillStyle=g; ctx.fillRect(0,0,w/dpr,h/dpr);
+
+      // stars
+      ctx.save(); ctx.translate(cx(), cy());
+      for(const s of stars){
+        // gentle drift
+        s.x += s.driftX * dtGlobal; s.y += s.driftY * dtGlobal;
+        if(s.x < -1) s.x = 1; if(s.x > 1) s.x = -1;
+        if(s.y < -1) s.y = 1; if(s.y > 1) s.y = -1;
+        // slow twinkle
+        s.phase += s.w * dtGlobal;
+        const a = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(s.phase)) * s.amp;
+        const sx = s.x * (w/dpr) * 0.48; const sy = s.y * (h/dpr) * 0.48;
+        ctx.globalAlpha = a; ctx.fillStyle = '#e7f9ff';
+        ctx.fillRect(sx, sy, s.size, s.size);
+      }
+      ctx.globalAlpha = 1; ctx.restore();
+
+      // tunnel grid rings
+      const R = Math.min(w/dpr,h/dpr)*RADIUS_NORM;
+      const rot = ang - Math.PI/2; // rotate world so player stays at bottom
+      for(let step=0; step<18; step++){
+        const base = (zScroll % 0.14);
+        const zNear=0.12 + step*0.14 - base, zFar=zNear+0.14; const s1=project(zNear), s2=project(zFar);
+        const r1=R*s1, r2=R*s2; const aStep=TWO_PI/ANG_SEGS;
+        for(let j=0;j<ANG_SEGS;j++){
+          const a1=j*aStep - rot, a2=(j+1)*aStep - rot;
+          const p1x=cx()+Math.cos(a1)*r1, p1y=cy()+Math.sin(a1)*r1;
+          const p2x=cx()+Math.cos(a2)*r1, p2y=cy()+Math.sin(a2)*r1;
+          const p3x=cx()+Math.cos(a2)*r2, p3y=cy()+Math.sin(a2)*r2;
+          const p4x=cx()+Math.cos(a1)*r2, p4y=cy()+Math.sin(a1)*r2;
+          ctx.fillStyle = step%2 ? '#0b0f1f' : '#0a0e1b'; ctx.globalAlpha=0.35;
+          ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p2x,p2y); ctx.lineTo(p3x,p3y); ctx.lineTo(p4x,p4y); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha=0.5; ctx.strokeStyle='#00e5ff'; ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p4x,p4y); ctx.moveTo(p2x,p2y); ctx.lineTo(p3x,p3y); ctx.stroke(); ctx.globalAlpha=1;
+        }
+      }
+
+      // platforms (safe arcs)
+      for(const p of plats){
+        const s1=project(p.z), s2=project(p.z+p.len); const r1=R*s1, r2=R*s2; 
+        for(const a of p.arcs){ drawArcQuad(a.a1 - rot, a.a2 - rot, r1, r2); }
+      }
+
+      // player indicator at near radius along angle
+      const sP=project(0.06), rP=R*sP; const px=cx(); const py=cy()+rP + y*22; const r=10+6*(1-sP);
+      // shadow ring highlight
+      ctx.globalAlpha=0.25; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(px, py, r*1.2, r*0.6, 0, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+      // body
+      const grad=ctx.createLinearGradient(px-r,py-r, px+r,py+r); grad.addColorStop(0,'#d0d5e8'); grad.addColorStop(1,'#8d96ac');
+      ctx.fillStyle=grad; ctx.beginPath(); ctx.ellipse(px, py, r, r*0.8, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#001'; ctx.beginPath(); ctx.arc(px-r*0.25, py, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(px+r*0.25, py, 2, 0, Math.PI*2); ctx.fill();
+    }
+
+    // === FIX: non-recursive arc drawing (prevents call-stack overflow) ===
+    function drawArcQuad(a1,a2,r1,r2){
+      // Work in an "unwrapped" space so a2 can be past a1 by >2π.
+      let start=a1, end=a2;
+      while(end < start) end += TWO_PI; // if it crosses 0, push end forward
+      const span = Math.max(1e-4, end - start);
+      const step = Math.max(TWO_PI/40, span/8);
+      for(let a=start; a<end; a+=step){
+        const b = Math.min(end, a+step);
+        quad((a)%TWO_PI, (b)%TWO_PI, r1, r2);
+      }
+    }
+    function quad(a1,a2,r1,r2){
+      const p1x=cx()+Math.cos(a1)*r1, p1y=cy()+Math.sin(a1)*r1;
+      const p2x=cx()+Math.cos(a2)*r1, p2y=cy()+Math.sin(a2)*r1;
+      const p3x=cx()+Math.cos(a2)*r2, p3y=cy()+Math.sin(a2)*r2;
+      const p4x=cx()+Math.cos(a1)*r2, p4y=cy()+Math.sin(a1)*r2;
+      ctx.fillStyle='#00f0ff'; ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p2x,p2y); ctx.lineTo(p3x,p3y); ctx.lineTo(p4x,p4y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='#bffaff'; ctx.globalAlpha=0.65; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(p1x,p1y); ctx.lineTo(p4x,p4y); ctx.moveTo(p2x,p2y); ctx.lineTo(p3x,p3y); ctx.stroke(); ctx.globalAlpha=1;
+    }
+
+    // Minimal self-test to ensure wrap-around arcs don't recurse
+    ;(function selfTestArcs(){
+      try{
+        ctx.save(); ctx.globalAlpha = 0; // invisible
+        drawArcQuad(5.8, 0.2, 60, 80);     // crosses 2π -> 0
+        drawArcQuad(-1.0,  1.0, 80, 100);  // negative -> positive
+        drawArcQuad(0.0, TWO_PI, 40, 60);  // full ring
+        ctx.restore();
+      }catch(e){ console.error('[selftest] drawArcQuad failed', e); }
+    })();
+
+    // Idle message
+    showMsg('Press Enter to Play');
+  })();
+  </script>
+</body>
+</html>

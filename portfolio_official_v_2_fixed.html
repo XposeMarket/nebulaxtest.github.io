@@ -20,6 +20,70 @@
     
     <script>
 document.addEventListener("DOMContentLoaded", async () => {
+  // Sync profile picture from platform avatar or store state
+  function updatePfp() {
+    try {
+      const pfpImg = document.getElementById('nx-pfp');
+      console.log('PFP element found:', !!pfpImg);
+      
+      if(!pfpImg) {
+        console.log('PFP element not found, retrying...');
+        setTimeout(updatePfp, 500);
+        return;
+      }
+
+      // First try the platform avatar key (set by store when avatar changes)
+      let avatarSrc = localStorage.getItem('nx_platform_avatar');
+      console.log('nx_platform_avatar:', avatarSrc);
+      
+      // If not found, try to get from store state
+      if (!avatarSrc) {
+        const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+        avatarSrc = storeState.profile?.avatar;
+        console.log('from store state:', avatarSrc);
+      }
+      
+      // Default to logo if nothing found
+      if (!avatarSrc) {
+        console.log('Using default logo');
+        avatarSrc = 'NebulaX-logo.png';
+      }
+      
+      console.log('Setting avatar src to:', avatarSrc);
+      pfpImg.src = avatarSrc;
+      pfpImg.onerror = () => { 
+        console.log('Image failed to load, using fallback');
+        pfpImg.src = 'NebulaX-logo.png'; 
+      };
+      pfpImg.onload = () => {
+        console.log('Image loaded successfully:', avatarSrc);
+      };
+    } catch(e) {
+      console.error('Error updating PFP:', e);
+      const pfpImg = document.getElementById('nx-pfp');
+      if(pfpImg) pfpImg.src = 'NebulaX-logo.png';
+    }
+  }
+  
+  // Small delay to ensure DOM is ready
+  setTimeout(updatePfp, 100);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    console.log('Avatar changed event received:', e.detail?.avatar);
+    const pfpImg = document.getElementById('nx-pfp');
+    if(pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { 
+        console.log('Image failed to load, using fallback');
+        pfpImg.src = 'NebulaX-logo.png'; 
+      };
+      pfpImg.onload = () => {
+        console.log('Image loaded successfully:', e.detail.avatar);
+      };
+    }
+  });
+
   const btn  = document.getElementById("wallet-btn");
   const cash = document.getElementById("pv-cash"); // Cash (SOL) tile
 
@@ -28,7 +92,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (sol == null) {
       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
     } else {
-      const s = sol.toFixed(4);
+      const s = sol.toFixed(3);
       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${s} SOL`;
       if (cash) cash.textContent = s;
     }
@@ -108,8 +172,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     
       /* Modal overlay (Deposit / Withdraw) */
       .modal-fx{
-        position:fixed; inset:0; display:none; place-items:center; z-index:2100;
+        position:fixed; inset:0; display:grid; place-items:center; z-index:2100;
         background:rgba(0,0,0,.55); padding:12px;
+      }
+      .modal-fx.hidden{ display:none !important; }
 
       .search-dd{overflow:auto;border:1px solid var(--nx-border);background:rgba(13,16,34,.98);}
       .search-head{position:sticky;top:0;padding:8px 12px;font-size:12px;letter-spacing:.08em;color:#9aa6dc;border-bottom:1px solid var(--nx-border);background:rgba(18,22,40,.96)}
@@ -143,24 +209,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
             <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
             <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
           </nav>
         </div>
 
-  <!-- Center: SEARCH (keep if page already has it; otherwise comment out) -->
+  <!-- Center: SEARCH -->
   <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
     <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
     <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
   </div>
 
-<!-- Wallet -->
-<div class="flex items-center gap-2">
-  <button id="wallet-btn" class="nx-btn">
-    <i data-lucide="wallet" class="w-3 h-3 mr-2"></i>
-    Connect Wallet
-  </button>
+  <!-- Wallet + Profile -->
+  <div class="flex items-center gap-2">
+    <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+    <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
+            style="border-color:var(--nx-border)">
+      <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+    </button>
+  </div>
 </div>
-
-    </header>
+</header>
 
     <div class="page-wrap">
       <main class="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
@@ -195,13 +263,13 @@ document.addEventListener("DOMContentLoaded", async () => {
               <table class="nx-table" id="pos-table">
                 <thead>
                   <tr>
-                    <th class="nx-th">Token</th>
-                    <th class="nx-th">Qty</th>
-                    <th class="nx-th">Avg Cost</th>
-                    <th class="nx-th">Price</th>
-                    <th class="nx-th">Value</th>
-                    <th class="nx-th">Unrealized</th>
-                    <th class="nx-th">%</n>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="token" title="Click to sort">Token ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="qty" title="Click to sort">Qty ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="avgCost" title="Click to sort">Avg Cost ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="price" title="Click to sort">Price ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="value" title="Click to sort">Value ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="unrealized" title="Click to sort">Unrealized ▾</th>
+                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="pct" title="Click to sort">% ▾</th>
                     <th class="nx-th">Actions</th>
                   </tr>
                 </thead>
@@ -264,38 +332,51 @@ document.addEventListener("DOMContentLoaded", async () => {
       </footer>
     </div>
 
-    <!-- Wallet dropdown -->
-    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
-      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400"></span></div>
-      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-        <div class="nx-panel p-2">Total<br/><strong>0.000 SOL</strong></div>
-        <div class="nx-panel p-2">Available<br/><strong>0.000 SOL</strong></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="wd-open" class="nx-btn">Withdraw</button>
-        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
       </div>
     </div>
-
-    <!-- Deposit / Withdraw modals -->
-    <div id="deposit" class="modal-fx">
+    <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
-        <div class="nx-panel p-2 text-xs break-words">XXX</div>
-        <button class="nx-btn nx-btn-cyan w-full mt-3" onclick="navigator.clipboard.writeText('XXX');alert('Copied! (mock)')">Copy Address</button>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
       </div>
     </div>
-    <div id="withdraw" class="modal-fx">
+    <div id="withdraw" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button></div>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
         <div class="space-y-2">
           <input class="nx-input" placeholder="Destination SOL address"/>
           <div class="grid grid-cols-3 gap-2">
             <input class="nx-input col-span-2" placeholder="Amount"/>
             <select class="nx-input"><option>SOL</option><option>USD</option></select>
           </div>
-          <button class="nx-btn nx-btn-cyan w-full">Submit (mock)</button>
+          <button class="nx-btn nx-btn-cyan w-full">Submit</button>
         </div>
       </div>
     </div>
@@ -395,14 +476,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 }
 
-  /* ===== Wallet dropdown + modals ===== */
-  const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
-  wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
-  document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
-  document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
-  document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
-  document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
-  ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+  /* ===== Wallet modal + modals ===== */
+  const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
+  
+  // Update wallet display with real balance
+  function updateWalletDisplay(){
+    const balance = window.NXWallet?.getBalance?.();
+    const sol = balance ? balance.toFixed(3) : '0.000';
+    document.getElementById('wallet-total').textContent = sol + ' SOL';
+    document.getElementById('wallet-available').textContent = sol + ' SOL';
+  }
+  
+  wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
+  wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
+  document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+  document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
+  
+  // Wallet connect/disconnect
+  document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+  });
+  document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+  });
+  
+  // Deposit address copy
+  const copyBtn = document.getElementById('copy-deposit-btn');
+  const depositAddr = document.getElementById('deposit-addr');
+  copyBtn?.addEventListener('click',()=>{ 
+    const addr = depositAddr.textContent;
+    navigator.clipboard.writeText(addr).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>{ copyBtn.textContent='Copy Address'; },2000); }); 
+  });
+  
+  // Close modals on click outside
+  document.getElementById('deposit')?.addEventListener('click',(e)=>{ if(e.target.id==='deposit') e.target.classList.add('hidden'); });
+  document.getElementById('withdraw')?.addEventListener('click',(e)=>{ if(e.target.id==='withdraw') e.target.classList.add('hidden'); });
+  
+  // Listen for balance changes
+  window.addEventListener('nebula:sol:changed',(e)=>{ if(!wModal.classList.contains('hidden')) updateWalletDisplay(); });
 
   /* ===== LIVE Portfolio state (replaces mock) ===== */
   import { Connection, PublicKey } from "https://esm.sh/@solana/web3.js@1.95.3";
@@ -417,10 +530,12 @@ const connection = new Connection(NX_RPC, "confirmed");
   // UI handles (existing IDs)
   const posBody=document.getElementById('pos-body');
   const logBody=document.getElementById('log-body');
-  const pvTotal=document.getElementById('pv-total');
+  const pvTotalUsd=document.getElementById('pv-total-usd');
+  const pvTotalSol=document.getElementById('pv-total-sol');
   const pvUnrl=document.getElementById('pv-unrl');
   const pvRlz=document.getElementById('pv-rlzd');
   const pvCash=document.getElementById('pv-cash');
+  const pvCashUsd=document.getElementById('pv-cash-usd');
   const priceBox=document.getElementById('price-box');
   const snapBox=document.getElementById('snap-box');
 
@@ -433,10 +548,10 @@ const connection = new Connection(NX_RPC, "confirmed");
   function load(key, fb){ try{ return JSON.parse(localStorage.getItem(key)) ?? fb; }catch{return fb;} }
   function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 
-  // Runtime state
+  // Runtime state - load from localStorage to persist trades
  let POS = {};   // start clean; we'll overwrite with live SPL balances
- let LOG = [];   // (optional) keep empty unless you add a real trade feed
- let RLZ = 0;   // realized stays 0 (no trade history source yet)
+ let LOG = load(LOG_KEY, []);   // load saved trade history
+ let RLZ = load(RLZ_KEY, 0);   // load saved realized PnL
   let META = new Map();          // mint -> token metadata from Jupiter
   let PRICES = {};               // mint -> price in USD
   let SOL_BAL = 0;               // SOL balance numeric
@@ -459,23 +574,38 @@ let SOL_PRICE = 0; // <-- new: current SOL/USD
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY)||"null");
       if (cached && Date.now()-cached.time < TTL_MS) return cached.data;
     }catch{}
-    const res = await fetch(JUP_TOKENS_URL, { cache: "no-store" });
-    const data = await res.json();
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), data }));
-    return data;
+    try {
+      const res = await fetch(JUP_TOKENS_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), data }));
+      return data;
+    } catch(e) {
+      console.warn('[Portfolio] Token list fetch failed, using empty list:', e);
+      return [];
+    }
   }
 
-  async function getPrices(mints){
+  async function getPricesV6(mints){
     if(!mints.length) return {};
     const uniq=[...new Set(mints)];
     const chunk=(arr,n)=>arr.reduce((a,_,i)=>i%n? a : [...a,arr.slice(i,i+n)],[]);
     const out = {};
     for (const group of chunk(uniq, 180)){
-      const url = JUP_PRICE_URL + encodeURIComponent(group.join(","));
-      const r = await fetch(url);
-      const j = await r.json();
-      for (const [mint, obj] of Object.entries(j?.data||{})){
-        out[mint] = Number(obj?.price || 0);
+      try {
+        const url = JUP_PRICE_URL + encodeURIComponent(group.join(","));
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const j = await r.json();
+        for (const [mint, obj] of Object.entries(j?.data||{})){
+          out[mint] = Number(obj?.price || 0);
+        }
+      } catch(e) {
+        console.warn('[Portfolio] Price fetch failed for batch:', e);
+        // Set prices to 0 for failed mints
+        for (const mint of group) {
+          if (!(mint in out)) out[mint] = 0;
+        }
       }
     }
     return out;
@@ -513,28 +643,56 @@ let SOL_PRICE = 0; // <-- new: current SOL/USD
   }
 
 function recalc(){
-  // Total is SOL only for now (no SPL holdings in total until on-platform trades exist)
-  const totalUSD = (SOL_BAL || 0) * (SOL_PRICE || 0);
+  // Calculate SPL token value and unrealized PnL
+  let splValue = 0;
+  let unrealizedTotal = 0;
+  
+  Object.values(POS).forEach(p => {
+    const currentValue = (p.qty || 0) * (p.price || 0);
+    splValue += currentValue;
+    const costBasis = (p.qty || 0) * (p.avg || p.price || 0);
+    unrealizedTotal += (currentValue - costBasis);
+  });
+  
+  // Total portfolio value = SOL + SPL tokens
+  const solValue = (SOL_BAL || 0) * (SOL_PRICE || 0);
+  const totalUSD = solValue + splValue;
+  const totalSOL = SOL_PRICE > 0 ? (totalUSD / SOL_PRICE) : 0;
 
-  // Portfolio Value (USD)
-  pvTotal.textContent = fmtUSD(totalUSD);
-  pvTotal.classList.add('pos-yellow');
+  // Portfolio Value (USD + SOL equivalent)
+  if(pvTotalUsd) pvTotalUsd.textContent = fmtUSD(totalUSD).replace('$','');
+  if(pvTotalSol) pvTotalSol.textContent = totalSOL.toFixed(4);
 
-  // Unrealized/Realized PnL remain neutral until the platform creates trades
-  pvUnrl.textContent = `$0 (0%)`;
-  pvUnrl.classList.remove('pos-green','pos-red');
+  // Unrealized PnL
+  if(pvUnrl) {
+    const pct = splValue > 0 ? ((unrealizedTotal / (splValue - unrealizedTotal)) * 100) : 0;
+    pvUnrl.textContent = `${fmtUSD(unrealizedTotal)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+    pvUnrl.classList.remove('pos-green','pos-red');
+    pvUnrl.classList.add(unrealizedTotal >= 0 ? 'pos-green' : 'pos-red');
+  }
 
-  pvRlz.textContent = `$0`;
-  pvRlz.classList.remove('pos-green','pos-red');
+  // Realized PnL
+  if(pvRlz) {
+    pvRlz.textContent = fmtUSD(RLZ || 0);
+    pvRlz.classList.remove('pos-green','pos-red');
+    if(RLZ !== 0) pvRlz.classList.add(RLZ >= 0 ? 'pos-green' : 'pos-red');
+  }
 
   // Cash (SOL)
-  pvCash.textContent = (SOL_BAL||0).toFixed(3);
-  pvCash.classList.add('pos-cyan');
+  if(pvCash) pvCash.textContent = (SOL_BAL||0).toFixed(3);
+  if(pvCashUsd) pvCashUsd.textContent = fmtUSD(solValue).replace('$','');
 
-  // Do NOT render positions/prices/snapshot yet (they’ll be driven by trade logs later)
-  posBody.innerHTML = '';
-  priceBox.innerHTML = '';
-  snapBox.textContent = 'Add trades to see snapshot.';
+  // Draw positions and sidebar
+  drawPositions();
+  drawPrices();
+  
+  // Snapshot
+  if(snapBox) {
+    const posCount = Object.keys(POS).length;
+    snapBox.textContent = posCount > 0 
+      ? `${posCount} active position${posCount > 1 ? 's' : ''} • ${new Date().toLocaleTimeString()}`
+      : 'No positions. Connect wallet to view holdings.';
+  }
 }
 
 
@@ -545,6 +703,7 @@ function recalc(){
       const unrl=(p.price - (p.avg||p.price))*(p.qty||0); // ~0 by default
       const pct = (p.avg ? ((p.price/p.avg)-1)*100 : 0);
       const tr=document.createElement('tr'); tr.id = `row-${sym}`;
+      tr.style.cursor = 'pointer'; // Make it clear the row is clickable
       tr.innerHTML=`
         <td class="nx-td"><strong>${sym}</strong></td>
         <td class="nx-td tabnums">${(p.qty||0).toLocaleString()}</td>
@@ -571,21 +730,51 @@ function recalc(){
   });
 
   posBody.addEventListener('click',(e)=>{
-    const btn=e.target.closest('button[data-act]'); if(!btn) return;
-    const t=btn.getAttribute('data-tok');
-    if(btn.getAttribute('data-act')==='del'){ delete POS[t]; save(POS_KEY, POS); recalc(); return; }
-    if(btn.getAttribute('data-act')==='sell'){
-      const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
-      const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
-      const fee=0.001; // placeholder
-      const p=POS[t]||{qty:0,avg:POS[t]?.price||0,price};
-      const realized = (price - (p.avg||price)) * Math.min(qty, p.qty||0);
-      RLZ += realized - fee;
-      p.qty = Math.max(0, (p.qty||0) - qty);
-      if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
-      LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
-      save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ);
-      recalc(); renderLog();
+    // Check if clicking on a button first (Sell/Remove)
+    const btn=e.target.closest('button[data-act]');
+    if(btn){
+      const t=btn.getAttribute('data-tok');
+      if(btn.getAttribute('data-act')==='del'){ delete POS[t]; save(POS_KEY, POS); recalc(); return; }
+      if(btn.getAttribute('data-act')==='sell'){
+        const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
+        const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
+        const fee=0.001; // placeholder
+        const p=POS[t]||{qty:0,avg:POS[t]?.price||0,price};
+        const realized = (price - (p.avg||price)) * Math.min(qty, p.qty||0);
+        RLZ += realized - fee;
+        p.qty = Math.max(0, (p.qty||0) - qty);
+        if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
+        LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
+        save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ);
+        recalc(); renderLog();
+      }
+      return; // Don't navigate if clicking buttons
+    }
+    
+    // Check if clicking on input field
+    const inp=e.target.closest('input[data-tok]');
+    if(inp) return; // Don't navigate if clicking input
+    
+    // Otherwise, clicking anywhere on the row navigates to coin page
+    const row = e.target.closest('tr');
+    if(!row || !row.id) return;
+    
+    const sym = row.id.replace('row-', '');
+    const posData = POS[sym];
+    console.log('[Portfolio] Clicked row for token:', sym, 'POS data:', posData);
+    
+    if (posData && posData.mint) {
+      const coinData = { 
+        symbol: sym, 
+        mint: posData.mint, 
+        pair: sym.includes('/') ? sym : (sym + '/SOL') 
+      };
+      console.log('[Portfolio] Navigating with:', coinData);
+      NX.goToCoin(coinData);
+    } else {
+      const pair = sym.includes('/') ? sym : (sym + '/SOL');
+      console.warn('[Portfolio] No mint found for', sym, '- using pair only. POS:', POS);
+      NX.goToCoin({ pair });
     }
   });
 
@@ -642,17 +831,6 @@ function recalc(){
       `<div class='mt-2 flex justify-between border-t border-[var(--nx-border)] pt-1'><strong>Total</strong><strong class='tabnums'>${fmtUSD(total)}</strong></div>`;
   }
 
-  // Click the token name in Positions to open the coin page (kept)
-  document.getElementById('pos-body').addEventListener('click',(e)=>{
-    const cell = e.target.closest('td'); if(!cell) return;
-    const strong = cell.querySelector('strong');
-    if(strong && cell.cellIndex === 0){
-      const txt = strong.textContent.trim();
-      const pair = txt.includes('/') ? txt : (txt + '/SOL');
-      NX.goToCoin({ pair });
-    }
-  });
-
   /* ---------- Live loading pipeline ---------- */
   async function refreshLive(onlyPrices=false){
     try{
@@ -673,7 +851,7 @@ function recalc(){
       // write SOL balance on header button (existing text)
   const btn = document.getElementById('wallet-btn');
   if (btn) {
-    btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${SOL_BAL.toFixed(4)} SOL`;
+    btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${SOL_BAL.toFixed(3)} SOL`;
     try { window.lucide?.createIcons?.(); } catch {}
   }
 
@@ -688,7 +866,7 @@ function recalc(){
 
       // 3) Prices
       const mints = [WRAPPED_SOL, ...spl.map(t=>t.mint)];
-      PRICES = await getPrices(mints);
+      PRICES = await getPricesV6(mints);
       SOL_PRICE = PRICES[WRAPPED_SOL] || 0; 
 
       // 4) Map into your POS shape (symbol keyed)
@@ -718,7 +896,8 @@ function recalc(){
     }
   }
 
-  // Boot: if already connected, load; otherwise wait for connect event
+  // OLD Boot: DISABLED - using recompute() system instead
+  /*
   async function boot(){
     renderLog();
     if (window.NXWallet?.isConnected?.()){
@@ -726,8 +905,11 @@ function recalc(){
     }
   }
   boot();
+  */
 
-  // Integrate with your wallet flow (same events you use elsewhere)
+  // OLD Wallet events: DISABLED - using recompute() system instead
+  /*
+  /*
   window.addEventListener("nxwallet:connected", () => refreshLive(false));
   window.addEventListener("nxwallet:disconnected", () => {
     POS = {}; SOL_BAL = 0; PRICES = {}; save(POS_KEY, POS);
@@ -742,19 +924,23 @@ function recalc(){
 
   // Initial draw (empty until wallet connects / loads)
   recalc();
+  */
 </script>
 
 <script>
 /** ===== NebulaX Click-to-Coin Utilities ===== */
 window.NX = window.NX || {};
 NX.saveSelectedCoin = function(coin){
+  console.log('[Portfolio] Saving to localStorage:', coin);
   try { localStorage.setItem('nebula_selected_coin', JSON.stringify(coin)); } catch(e){}
 };
 NX.goToCoin = function(coin){
+  console.log('[Portfolio] goToCoin called with:', coin);
   NX.saveSelectedCoin(coin);
   const pair = coin.pair || (coin.symbol ? (coin.symbol.toUpperCase()+'/SOL') : '');
   const mint = encodeURIComponent(coin.mint || '');
   const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${mint}` : ''}`;
+  console.log('[Portfolio] Navigating to:', `Coinpage-Official.html${qp}`);
   location.href = `Coinpage-Official.html${pair ? qp : ''}`;
 };
 </script>
@@ -875,8 +1061,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (sol == null) {
       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
     } else {
-      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${sol.toFixed(4)} SOL`;
-      if (cash) cash.textContent = sol.toFixed(4); // keep the tile in sync too
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${sol.toFixed(3)} SOL`;
+      if (cash) cash.textContent = sol.toFixed(3); // keep the tile in sync too
     }
     try { window.lucide?.createIcons?.(); } catch {}
   }
@@ -983,7 +1169,7 @@ function paint(sol){ /* ...unchanged... */ }
     if (sol == null) {
       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
     } else {
-      const s = (+sol).toFixed(4);
+      const s = (+sol).toFixed(3);
       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${s} SOL`;
       if (cash) cash.textContent = s;
     }
@@ -1125,7 +1311,7 @@ function paintCash(solUsd){
   const cashSolEl = firstEl(ID_CANDIDATES.cashSol);
   const cashUsdEl = firstEl(ID_CANDIDATES.cashUsd);
   const btn       = document.getElementById('wallet-btn');
-  const s = (SOL_BAL||0).toFixed(4);
+  const s = (SOL_BAL||0).toFixed(3);
   if (btn)       btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Available: ${s} SOL`;
   if (cashSolEl) cashSolEl.textContent = s;
   if (cashUsdEl && solUsd!=null) cashUsdEl.textContent = (SOL_BAL*solUsd).toFixed(2);
@@ -1143,15 +1329,345 @@ function paintTotals({tradesUsd, solUsd}){
   const totalsSol = solUsd ? (totalsUsd/solUsd) : (SOL_BAL||0);
 
   if (totUsdEl) totUsdEl.textContent = totalsUsd.toFixed(2);
-  if (totSolEl) totSolEl.textContent = totalsSol.toFixed(4);
+  if (totSolEl) totSolEl.textContent = totalsSol.toFixed(3);
   if (posUsdEl) posUsdEl.textContent = (tradesUsd||0).toFixed(2);
-  if (posSolEl) posSolEl.textContent = (solUsd ? (tradesUsd/solUsd) : 0).toFixed(4);
+  if (posSolEl) posSolEl.textContent = (solUsd ? (tradesUsd/solUsd) : 0).toFixed(3);
 }
 
+/** Read SPL token holdings from the connected wallet (excludes native SOL) */
+async function readHoldingsFromWallet() {
+  // Try NXWallet first, then fallback to standard providers
+  let pubkeyStr = null;
+  
+  if (window.NXWallet?.isConnected?.()) {
+    pubkeyStr = window.NXWallet.getAddress?.();
+  } else {
+    const prov = window.phantom?.solana || window.solana;
+    pubkeyStr = prov?.publicKey?.toString();
+  }
+  
+  if (!pubkeyStr) {
+    console.warn('[Portfolio] No wallet address available');
+    return [];
+  }
+  
+  try {
+    const pubkey = new solanaWeb3.PublicKey(pubkeyStr);
+    const conn = new solanaWeb3.Connection((window.NX_RPC||'https://api.mainnet-beta.solana.com'),'confirmed');
+
+    const resp = await conn.getParsedTokenAccountsByOwner(pubkey, { 
+      programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') 
+    });
+    
+    const out = [];
+    for (const { account } of resp.value) {
+      const info = account?.data?.parsed?.info;
+      const mint = info?.mint;
+      const amt = info?.tokenAmount;
+      const ui = Number(amt?.uiAmount);
+      // filter dust; adjust threshold to taste
+      if (mint && isFinite(ui) && ui > 0) {
+        out.push({ mint, qty: ui });
+      }
+    }
+    console.log(`[Portfolio] Found ${out.length} SPL token holdings`);
+    return out;
+  } catch(e) {
+    console.error('[Portfolio] Error reading wallet holdings:', e);
+    return [];
+  }
+}
+
+/** Combine: (localStorage positions) + (wallet holdings) and de-dup by mint summing qty */
+async function getAllPositions() {
+  const fromLocal = readActivePositions();      // existing function we added earlier
+  const fromWallet = await readHoldingsFromWallet();
+  const map = new Map();
+  for (const p of [...fromLocal, ...fromWallet]) {
+    const prev = map.get(p.mint) || 0;
+    map.set(p.mint, prev + Number(p.qty || 0));
+  }
+  // Return [{mint, qty}] but exclude native SOL mint (we handle SOL cash separately)
+  return Array.from(map.entries())
+    .filter(([mint]) => mint !== 'So11111111111111111111111111111111111111112')
+    .map(([mint, qty]) => ({ mint, qty }));
+}
+
+/** Format price with dynamic precision */
+function formatPrice(price) {
+  if (price >= 1) return price.toFixed(2);
+  if (price >= 0.01) return price.toFixed(4);
+  if (price >= 0.00001) return price.toFixed(6);
+  // Use compact notation showing zeros count (e.g., 0.0^4 5 for 0.00005)
+  if (price > 0) {
+    const priceStr = price.toFixed(20); // Get enough decimals
+    const match = priceStr.match(/^0\.(0+)([1-9]\d*)/);
+    if (match) {
+      const zeros = match[1].length;
+      const digits = match[2].substring(0, 2); // Take first 2 significant digits
+      return `0.0^${zeros}${digits}`;
+    }
+  }
+  return '0';
+}
+
+/** Render positions table with token names, quantities, prices, and PnL */
+let currentSortColumn = null;
+let currentSortDirection = 'desc';
+let cachedPositionsData = [];
+
+async function renderPositionsTable(positions, prices) {
+  const tbody = document.getElementById('pos-body');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+  
+  if (!positions || positions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="nx-td text-center text-zinc-400">No positions found</td></tr>';
+    return;
+  }
+  
+  // Fetch token metadata for display names
+  let tokenMetadata = new Map();
+  
+  console.log('[Portfolio] Fetching metadata for', positions.length, 'tokens...');
+  
+  const metadataPromises = positions.map(async (pos) => {
+    try {
+      // Try DexScreener first (fast for tracked tokens)
+      const dsResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pos.mint}`);
+      if (dsResponse.ok) {
+        const dsData = await dsResponse.json();
+        if (dsData.pairs && dsData.pairs.length > 0) {
+          const pair = dsData.pairs[0];
+          return {
+            mint: pos.mint,
+            symbol: pair.baseToken?.symbol || pos.mint.slice(0, 6),
+            name: pair.baseToken?.name || 'Unknown Token'
+          };
+        }
+      }
+      
+      // Fallback: Use RPC to get mint account and try to parse metadata URI
+      const rpc = window.NX_RPC || 'https://api.mainnet-beta.solana.com';
+      const connection = new solanaWeb3.Connection(rpc);
+      const mintPubkey = new solanaWeb3.PublicKey(pos.mint);
+      
+      // Try to get metadata account (Metaplex standard)
+      const TOKEN_METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+      
+      // Derive metadata PDA
+      const seeds = [
+        new TextEncoder().encode('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBytes(),
+        mintPubkey.toBytes()
+      ];
+      
+      const [metadataPDA] = await solanaWeb3.PublicKey.findProgramAddress(seeds, TOKEN_METADATA_PROGRAM_ID);
+      const accountInfo = await connection.getAccountInfo(metadataPDA);
+      
+      if (accountInfo && accountInfo.data) {
+        // Simple parsing of Metaplex metadata
+        const data = new Uint8Array(accountInfo.data);
+        
+        // Skip first 1 + 32 + 32 bytes (key + update_authority + mint)
+        let offset = 1 + 32 + 32;
+        
+        // Read name length (4 bytes little endian)
+        const nameLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        offset += 4;
+        
+        // Read name string
+        const nameBytes = data.slice(offset, offset + nameLen);
+        const name = new TextDecoder().decode(nameBytes).replace(/\0/g, '').trim();
+        offset += nameLen;
+        
+        // Read symbol length
+        const symbolLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+        offset += 4;
+        
+        // Read symbol string
+        const symbolBytes = data.slice(offset, offset + symbolLen);
+        const symbol = new TextDecoder().decode(symbolBytes).replace(/\0/g, '').trim();
+        
+        if (symbol) {
+          return {
+            mint: pos.mint,
+            symbol: symbol,
+            name: name || symbol
+          };
+        }
+      }
+    } catch(e) {
+      console.warn('[Portfolio] Failed to fetch metadata for', pos.mint, ':', e.message);
+    }
+    
+    return {
+      mint: pos.mint,
+      symbol: pos.mint.slice(0, 6) + '...' + pos.mint.slice(-4),
+      name: 'Unknown Token'
+    };
+  });
+  
+  const metadataResults = await Promise.all(metadataPromises);
+  metadataResults.forEach(meta => {
+    tokenMetadata.set(meta.mint, meta);
+  });
+  
+  console.log('[Portfolio] Loaded metadata for', tokenMetadata.size, 'tokens');
+  
+  // Build rows data
+  cachedPositionsData = positions.map(pos => {
+    const meta = tokenMetadata.get(pos.mint);
+    const symbol = meta?.symbol || pos.mint.slice(0, 6) + '...' + pos.mint.slice(-4);
+    const name = meta?.name || 'Unknown Token';
+    const priceData = prices?.[pos.mint];
+    const price = priceData?.usdPrice || 0;
+    const qty = pos.qty || 0;
+    const value = price * qty;
+    const avgCost = price;
+    const unrealized = 0;
+    const pct = 0;
+    
+    return { symbol, name, qty, avgCost, price, value, unrealized, pct, mint: pos.mint };
+  });
+  
+  // Apply current sort if any
+  if (currentSortColumn) {
+    sortPositionsData(currentSortColumn);
+  }
+  
+  // Render rows
+  for (const row of cachedPositionsData) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="nx-td">
+        <strong>${row.symbol}</strong>
+        <div class="text-xs text-zinc-400">${row.name}</div>
+      </td>
+      <td class="nx-td tabnums">${row.qty.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+      <td class="nx-td tabnums">$${formatPrice(row.avgCost)}</td>
+      <td class="nx-td tabnums">$${formatPrice(row.price)}</td>
+      <td class="nx-td tabnums">$${row.value.toFixed(2)}</td>
+      <td class="nx-td tabnums ${row.unrealized >= 0 ? 'pos-green' : 'pos-red'}">$${row.unrealized.toFixed(2)}</td>
+      <td class="nx-td tabnums ${row.pct >= 0 ? 'pos-green' : 'pos-red'}">${row.pct.toFixed(2)}%</td>
+      <td class="nx-td">
+        <button class="nx-btn text-xs" onclick="NX.goToCoin({mint: '${row.mint}', symbol: '${row.symbol}', pair: '${row.symbol}/SOL'})">View</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+/** Sort positions data by column */
+function sortPositionsData(column) {
+  if (currentSortColumn === column) {
+    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSortColumn = column;
+    currentSortDirection = 'desc';
+  }
+  
+  cachedPositionsData.sort((a, b) => {
+    let valA, valB;
+    
+    switch(column) {
+      case 'token':
+        valA = a.symbol.toLowerCase();
+        valB = b.symbol.toLowerCase();
+        break;
+      case 'qty':
+        valA = a.qty;
+        valB = b.qty;
+        break;
+      case 'avgCost':
+        valA = a.avgCost;
+        valB = b.avgCost;
+        break;
+      case 'price':
+        valA = a.price;
+        valB = b.price;
+        break;
+      case 'value':
+        valA = a.value;
+        valB = b.value;
+        break;
+      case 'unrealized':
+        valA = a.unrealized;
+        valB = b.unrealized;
+        break;
+      case 'pct':
+        valA = a.pct;
+        valB = b.pct;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (typeof valA === 'string') {
+      return currentSortDirection === 'asc' 
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA);
+    } else {
+      return currentSortDirection === 'asc'
+        ? valA - valB
+        : valB - valA;
+    }
+  });
+  
+  // Update sort indicators
+  document.querySelectorAll('[data-sort]').forEach(th => {
+    const arrow = th.dataset.sort === currentSortColumn 
+      ? (currentSortDirection === 'asc' ? ' ▴' : ' ▾')
+      : ' ▾';
+    th.textContent = th.textContent.split(' ')[0] + arrow;
+  });
+  
+  // Re-render table with sorted data
+  const tbody = document.getElementById('pos-body');
+  tbody.innerHTML = '';
+  
+  for (const row of cachedPositionsData) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="nx-td">
+        <strong>${row.symbol}</strong>
+        <div class="text-xs text-zinc-400">${row.name}</div>
+      </td>
+      <td class="nx-td tabnums">${row.qty.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+      <td class="nx-td tabnums">$${formatPrice(row.avgCost)}</td>
+      <td class="nx-td tabnums">$${formatPrice(row.price)}</td>
+      <td class="nx-td tabnums">$${row.value.toFixed(2)}</td>
+      <td class="nx-td tabnums ${row.unrealized >= 0 ? 'pos-green' : 'pos-red'}">$${row.unrealized.toFixed(2)}</td>
+      <td class="nx-td tabnums ${row.pct >= 0 ? 'pos-green' : 'pos-red'}">${row.pct.toFixed(2)}%</td>
+      <td class="nx-td">
+        <button class="nx-btn text-xs" onclick="NX.goToCoin({mint: '${row.mint}', symbol: '${row.symbol}', pair: '${row.symbol}/SOL'})">View</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// Add click listeners to sortable headers
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      sortPositionsData(th.dataset.sort);
+    });
+  });
+});
+
 async function recompute(){
-  // 1) Balance → from NXWallet (already connected)
-  try { await window.NXWallet?.refreshBalance?.(false); } catch {}
-  SOL_BAL = +window.NXWallet?.getBalance?.() || 0;
+  // 1) Balance → from NXWallet (already connected) - use refreshBalance if needed
+  try {
+    if (window.NXWallet?.isConnected?.()) {
+      await window.NXWallet.refreshBalance?.(false); // false = don't force if recent
+    }
+    SOL_BAL = +window.NXWallet?.getBalance?.() || 0;
+  } catch(e) {
+    console.warn('[Portfolio] Balance read failed:', e);
+    SOL_BAL = 0;
+  }
 
   // 2) Load open positions from any known key(s)
   const positions = await getAllPositions(); // [{mint, qty}]
@@ -1170,8 +1686,11 @@ async function recompute(){
   // 5) Paint UI
   paintCash(LAST_SOL_USD);
   paintTotals({ tradesUsd, solUsd: LAST_SOL_USD });
+  
+  // 6) Render positions table
+  await renderPositionsTable(positions, prices);
 
-  // 6) Log diagnostics so you can see exactly what was read
+  // 7) Log diagnostics so you can see exactly what was read
   console.table({
     SOL_BAL,
     positions_found: positions.length,
@@ -1186,55 +1705,38 @@ async function recompute(){
 window.addEventListener('nebula:sol:changed', (e)=>{
   SOL_BAL = +(e.detail?.balance || 0);
   paintCash(LAST_SOL_USD);
-  recompute();
+  // Don't call recompute here - it causes refresh loop
+  // Just repaint totals with existing data
+  const tradesUsd = 0; // Keep last calculated value instead of recalculating
+  paintTotals({ tradesUsd, solUsd: LAST_SOL_USD });
 });
 
 // boot now and every 30s to refresh prices
+let RECOMPUTE_INTERVAL = null;
 (async function boot(){
   paintCash(LAST_SOL_USD);
-  await recompute();
-  setInterval(recompute, 30000);
+  
+  // Wait for NXWallet to be ready
+  if (window.NXWallet?.isConnected?.()) {
+    await recompute();
+  }
+  
+  // Clear any existing intervals to prevent stacking
+  if (RECOMPUTE_INTERVAL) clearInterval(RECOMPUTE_INTERVAL);
+  RECOMPUTE_INTERVAL = setInterval(recompute, 30000);
 })();
-</script>
-<script>
-// --- Add these helpers next to your portfolio script ---
 
-/** Read SPL token holdings from the connected wallet (excludes native SOL) */
-async function readHoldingsFromWallet() {
-  const prov = (window.phantom?.solana) || window.solana;
-  if (!prov?.publicKey) return [];
-  const pubkey = new solanaWeb3.PublicKey(prov.publicKey.toString());
-  const conn = new solanaWeb3.Connection((window.NX_RPC||'https://api.mainnet-beta.solana.com'),'confirmed');
+// Listen for wallet connection events
+window.addEventListener('nxwallet:connected', async () => {
+  console.log('[Portfolio] Wallet connected, refreshing data...');
+  await recompute();
+});
 
-  const resp = await conn.getParsedTokenAccountsByOwner(pubkey, { programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') });
-  const out = [];
-  for (const { account } of resp.value) {
-    const info = account?.data?.parsed?.info;
-    const mint = info?.mint;
-    const amt = info?.tokenAmount;
-    const ui = Number(amt?.uiAmount);
-    // filter dust; adjust threshold to taste
-    if (mint && isFinite(ui) && ui > 0) {
-      out.push({ mint, qty: ui });
-    }
-  }
-  return out;
-}
-
-/** Combine: (localStorage positions) + (wallet holdings) and de-dup by mint summing qty */
-async function getAllPositions() {
-  const fromLocal = readActivePositions();      // existing function we added earlier
-  const fromWallet = await readHoldingsFromWallet();
-  const map = new Map();
-  for (const p of [...fromLocal, ...fromWallet]) {
-    const prev = map.get(p.mint) || 0;
-    map.set(p.mint, prev + Number(p.qty || 0));
-  }
-  // Return [{mint, qty}] but exclude native SOL mint (we handle SOL cash separately)
-  return Array.from(map.entries())
-    .filter(([mint]) => mint !== 'So11111111111111111111111111111111111111112')
-    .map(([mint, qty]) => ({ mint, qty }));
-}
+window.addEventListener('nxwallet:disconnected', () => {
+  console.log('[Portfolio] Wallet disconnected');
+  const tbody = document.getElementById('pos-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="nx-td text-center text-zinc-400">Connect wallet to view positions</td></tr>';
+});
 </script>
 
 

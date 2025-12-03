@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>NebulaX • Launchpad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="nx-theme.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+  <script>
+    window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+  </script>
+  <script src="assets/nx-wallet.js"></script>
+  <script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    const btn = document.getElementById("wallet-btn");
+    const balSol = document.getElementById("bal-sol");
+    function paint(sol){
+      if (!btn) return;
+      if (sol == null) {
+        btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-1"></i> Connect Wallet`;
+        if (balSol) balSol.textContent = "0.000";
+      } else {
+        const s = sol.toFixed(3);
+        if (balSol) balSol.textContent = s;
+        btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-1"></i> <span id="bal-sol">${s}</span> SOL`;
+      }
+      try { window.lucide?.createIcons?.(); } catch {}
+    }
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      const prov = (window.phantom?.solana) || window.solana;
+      try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+      if (window.NXWallet?.isConnected?.()) {
+        try { await window.NXWallet.refreshBalance?.(true); } catch {}
+        paint(window.NXWallet?.getBalance?.());
+      } else {
+        paint(null);
+      }
+    }
+    window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+    window.addEventListener("nxwallet:connected", async ()=>{
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    });
+    window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+  });
+  </script>
+  <style>
+    :root{ --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a; --nx-border:#1e2747; --nx-text:#e0e7ff; --page-max:1200px; }
+    html,body{height:100%;background:var(--nx-dark);color:var(--nx-text);font-family:'Orbitron','ui-monospace','SFMono-Regular',monospace}
+    .page-wrap{max-width:var(--page-max); margin:14px auto; padding:0 12px;}
+    .nx-panel{background:rgba(16,20,40,.92); border:1px solid var(--nx-border); border-radius:16px; box-shadow: inset 0 0 10px rgba(0,230,255,.18), 0 0 12px rgba(0,230,255,.08);}
+    .nx-btn{ border-radius:14px; padding:.5rem .9rem; font-weight:700; transition:transform .05s ease, opacity .18s ease, box-shadow .18s ease; border:1px solid var(--nx-border); background:var(--nx-dark-2); color:var(--nx-text);}
+    .nx-btn:hover{opacity:.95} .nx-btn:active{transform:translateY(1px)}
+    .nx-btn-cyan{ background:var(--nx-cyan); color:#07101b; border-color:#0d3540; box-shadow:0 0 10px rgba(0,230,255,.3); }
+    .label{font-size:13px;color:#ffffff;margin-bottom:2px;display:block;font-weight:600}
+    .nx-input{width:100%;border-radius:12px;background:var(--nx-dark-2);border:1px solid var(--nx-border);padding:.5rem .7rem;color:var(--nx-text);font-size:14px}
+    .nx-input::placeholder{color:rgba(156,163,175,0.4)}
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
+    <div class="page-wrap h-10 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <a href="NebulaX.html" class="flex items-center gap-2">
+          <img src="NebulaX-logo.png" class="h-6 w-6 rounded-md" alt="NebulaX"/>
+          <span class="font-bold tracking-wide" style="text-shadow:0 0 2px var(--nx-cyan);">NEBULAX</span>
+        </a>
+        <nav class="hidden sm:flex items-center gap-2 ml-2">
+          <a class="nx-btn px-2 py-1 text-xs" href="NebulaX.html">Home</a>
+          <a class="nx-btn px-2 py-1 text-xs" href="NewPairs-official.html">New Pairs</a>
+          <a class="nx-btn px-2 py-1 text-xs" href="Trending.html">Trending</a>
+          <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
+          <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
+          <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+          <a class="nx-btn nx-btn-cyan px-2 py-1 text-xs" href="NebbyLauncher.html">Launchpad</a>
+        </nav>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="wallet-btn" class="nx-btn text-xs"><i data-lucide="wallet" class="w-3 h-3 mr-1"></i> <span id="bal-sol">0.000</span> SOL</button>
+        <a href="NEBX-Arcade.html" class="nx-btn text-xs">Arcade</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page content -->
+  <div class="page-wrap mt-5">
+    <div class="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4">
+      <!-- Left: Mint Form -->
+      <section class="nx-panel p-4">
+        <h2 class="text-lg font-bold mb-3" style="text-shadow:0 0 6px var(--nx-cyan);">Launch Rug-Proof Token</h2>
+        <form id="mint-form" class="grid gap-3">
+          <div>
+            <label class="label">Token Name</label>
+            <input type="text" class="nx-input" placeholder="NebulaX Coin" required/>
+          </div>
+          <div>
+            <label class="label">Symbol</label>
+            <input type="text" class="nx-input" placeholder="NEBX" required/>
+          </div>
+          <div>
+            <label class="label">Initial Supply</label>
+            <div class="flex gap-2">
+              <button type="button" class="nx-btn supply-btn" data-supply="1000000">1M</button>
+              <button type="button" class="nx-btn supply-btn" data-supply="500000000">500M</button>
+              <button type="button" class="nx-btn supply-btn" data-supply="1000000000">1B</button>
+            </div>
+            <input type="hidden" id="supply-input" name="supply" value="1000000000"/>
+          </div>
+
+          <div>
+            <label class="label">Logo (optional)</label>
+            <input type="file" accept="image/*" class="nx-input"/>
+          </div>
+
+          <div>
+            <label class="label">LP Lock Duration</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="nx-btn lock-btn" data-lock="3">3 Days</button>
+              <button type="button" class="nx-btn lock-btn" data-lock="7">1 Week</button>
+              <button type="button" class="nx-btn lock-btn" data-lock="14">2 Weeks</button>
+              <button type="button" class="nx-btn lock-btn" data-lock="30">1 Month</button>
+            </div>
+            <input type="hidden" id="lock-input" name="lock" value="14"/>
+            <p class="text-[11px] text-zinc-400 mt-1">How long your liquidity will be locked. Cannot be unlocked early.</p>
+          </div>
+
+          <div>
+            <label class="label">Description</label>
+            <textarea class="nx-input" rows="3" placeholder="Tell people what your token is about..."></textarea>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label class="label">Website (optional)</label>
+              <input type="url" class="nx-input" placeholder="https://example.com" />
+            </div>
+            <div>
+              <label class="label">X / Twitter (optional)</label>
+              <input type="url" class="nx-input" placeholder="https://x.com/yourhandle" />
+            </div>
+            <div>
+              <label class="label">Instagram (optional)</label>
+              <input type="url" class="nx-input" placeholder="https://instagram.com/yourhandle" />
+            </div>
+            <div>
+              <label class="label">TikTok (optional)</label>
+              <input type="url" class="nx-input" placeholder="https://tiktok.com/@yourhandle" />
+            </div>
+          </div>
+
+          <div>
+            <label class="label">Initial Liquidity Pool (SOL) - Required</label>
+            <input id="initial-sol" type="number" min="10" step="0.1" class="nx-input" placeholder="e.g. 2.0" required/>
+            <p class="text-[11px] text-zinc-400 mt-1">SOL to seed the trading pool (separate from $5 launch fee). Minimum: $10 USD equivalent.</p>
+          </div>
+
+          <button type="submit" class="nx-btn nx-btn-cyan w-full font-bold">Launch Token</button>
+        </form>
+        <div id="status" class="mt-3 text-sm text-zinc-400"></div>
+      </section>
+
+      <!-- Right: Safety & Economics Info -->
+      <aside class="space-y-3">
+        <!-- Launch Fee Breakdown -->
+        <div class="nx-panel p-3">
+          <div class="text-sm font-bold mb-2" style="color:#ffffff">Launch Details</div>
+          <div class="text-xs space-y-2 text-zinc-300">
+            <div class="border-b border-[var(--nx-border)] pb-2">
+              <div class="text-zinc-400 text-[10px] mb-1">Mandatory Launch Fee:</div>
+              <div class="flex justify-between font-semibold"><span>Platform Fee</span> <span class="text-cyan-400">$5 USD</span></div>
+            </div>
+            <div class="border-b border-[var(--nx-border)] pb-2">
+              <div class="text-zinc-400 text-[10px] mb-1">Fee Distribution:</div>
+              <div class="flex justify-between text-[10px]"><span>→ Burn NEBX</span> <span>30%</span></div>
+              <div class="flex justify-between text-[10px]"><span>→ NEBX Staker Rewards</span> <span>30%</span></div>
+              <div class="flex justify-between text-[10px]"><span>→ Auto Staking Pool</span> <span>20%</span></div>
+              <div class="flex justify-between text-[10px]"><span>→ Treasury</span> <span>20%</span></div>
+            </div>
+            <div>
+              <div class="text-zinc-400 text-[10px] mb-1">Minimum to Launch:</div>
+              <div class="flex justify-between font-semibold"><span>$5 Fee + $10 LP</span> <span class="text-emerald-400">$15 Total</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Creator Tier Preview -->
+        <div class="nx-panel p-3">
+          <div class="text-sm font-bold mb-2" style="color:#ffffff">Creator Rewards by Market Cap</div>
+          <div class="text-xs space-y-1 text-zinc-300">
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$0–50k</span> <span>15% fees</span></div>
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$50–200k</span> <span>25% fees</span></div>
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$200–400k</span> <span>40% fees</span></div>
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$400–600k</span> <span>55% fees</span></div>
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$600k–1M</span> <span>70% fees</span></div>
+            <div class="flex justify-between border-b border-[var(--nx-border)] pb-1"><span>$1M–5M</span> <span>85% fees</span></div>
+            <div class="flex justify-between"><span>$5M+</span> <span>90% fees</span></div>
+            <p class="text-[10px] text-zinc-400 mt-2">Earn trading fees as your token grows. Your liquidity shows commitment and traders feel safe.</p>
+          </div>
+        </div>
+
+        <!-- Safety Checklist -->
+        <div class="nx-panel p-3">
+          <div class="text-sm font-bold mb-2" style="color:#ffffff">✓ Safety Enabled</div>
+          <div class="text-xs space-y-1 text-emerald-400">
+            <div>✅ Mint Renounced</div>
+            <div>✅ Vesting Enforced</div>
+            <div>✅ Anti-Rug System Armed</div>
+            <div>✅ Staking Pool Auto-Created</div>
+            <div>✅ Anti-Bot Limits Active</div>
+          </div>
+          <p class="text-[10px] text-zinc-400 mt-2">Rug attempts are blocked and penalized (70% burned, 30% to stakers).</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    if (window.lucide?.createIcons) window.lucide.createIcons();
+
+    // Supply button selection
+    document.querySelectorAll('.supply-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('supply-input').value = btn.dataset.supply;
+        document.querySelectorAll('.supply-btn').forEach(b => b.classList.remove('nx-btn-cyan'));
+        btn.classList.add('nx-btn-cyan');
+      });
+    });
+
+    // Lock duration button selection
+    document.querySelectorAll('.lock-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('lock-input').value = btn.dataset.lock;
+        document.querySelectorAll('.lock-btn').forEach(b => b.classList.remove('nx-btn-cyan'));
+        btn.classList.add('nx-btn-cyan');
+      });
+    });
+
+    // Set default lock duration button to highlighted (14 days)
+    document.querySelector('.lock-btn[data-lock="14"]')?.classList.add('nx-btn-cyan');
+  </script>
+</body>
+</html>

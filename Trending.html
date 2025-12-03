@@ -2,12 +2,272 @@
 <html lang="en">
   <head>
     <meta charset="utf-8"/>
-    <title>NEBULAX • Trending</title>
+    <title>NEBULAX �� Trending</title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+  window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
+</script>
+<script src="assets/nx-wallet.js"></script>
+<script src="trending-engine.js"></script>
+<script>
+const debugLog = (() => {
+  let lines = [];
+  return (msg) => {
+    lines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+    const debugEl = document.getElementById('debug-output');
+    if (debugEl) {
+      debugEl.innerHTML = lines.slice(-20).map(l => `<div>${l}</div>`).join('');
+    }
+    console.log(msg);
+  };
+})();
+window.debugLog = debugLog;
+
+/**
+ * Render trending tokens from trending-engine into the table
+ */
+function renderTrendingTokens() {
+  const tbody = document.getElementById('trend-body');
+  if (!tbody) {
+    console.warn('[RENDER] Table body #trend-body not found');
+    return;
+  }
+  
+  const tokens = window.NX?.getTrendingTokens?.() || window.NX?.trendingTokens || [];
+  console.log(`[RENDER] Rendering ${tokens.length} tokens`);
+  if (!tokens.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#999;">Loading trending tokens...</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = tokens.slice(0, 100).map(token => {
+    const symbol = token.symbol || '???';
+    const name = token.name || 'Unknown';
+    const price = token.jupiterPrice || token.gtPrice || token.dsPrice || 0;
+    const mc = token.dsMarketCap || token.dsFdv || 0;
+    const liq = Math.max(token.dsLiquidityUsd || 0, token.gtLiquidityUsd || 0);
+    const vol24h = token.dsVolumeUsd_24h || token.gtVolumeUsd_24h || 0;
+    const change5m = token.dsPriceChange_5m || 0;
+    const txns_5m = token.gtTxns_5m || token.dsTxns_5m || 0;
+    const score = token.score || 0;
+    const tier = token.tier || 'B';
+    const pair = `${symbol}/SOL`;
+    const logoUrl = token.logoURI || null;
+    
+    // Calculate age from pool creation date
+    let ageText = '-';
+    if (token.gtPoolCreatedAt) {
+      const createdDate = new Date(token.gtPoolCreatedAt);
+      const now = new Date();
+      const diffMs = now - createdDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      
+      if (diffDays > 0) ageText = `${diffDays}d`;
+      else if (diffHours > 0) ageText = `${diffHours}h`;
+      else ageText = `${diffMins}m`;
+    }
+    
+    // Format functions
+    const fmt = (v) => {
+      if (!v || isNaN(v)) return '$0';
+      if (v === 0) return '$0';
+      if (Math.abs(v) < 0.01) return '$' + v.toExponential(2);
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(2) + 'K';
+      return '$' + v.toFixed(2);
+    };
+    
+    const fmtPrice = (p) => {
+      if (!p || isNaN(p)) return '$0';
+      if (p === 0) return '$0';
+      if (p < 0.001) return '$' + p.toExponential(2);
+      if (p < 0.01) return '$' + p.toFixed(6);
+      return '$' + p.toFixed(4);
+    };
+    
+    const tierClass = tier === 'S' ? 'green' : (tier === 'A' ? 'pill' : 'red');
+    const tierColor = tier === 'S' ? '#34d399' : (tier === 'A' ? '#fbbf24' : '#f87171');
+    const pctClass = change5m >= 0 ? 'green' : 'red';
+    const pctIcon = change5m >= 0 ? '📈' : '📉';
+    
+    return `
+      <tr style="cursor: pointer;" data-mint="${token.mint}">
+        <td class="nx-td" style="padding:10px; max-width:220px;">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+            ${logoUrl ? `<img src="${logoUrl}" style="width:32px; height:32px; border-radius:4px; flex-shrink:0;" alt="${symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="width:32px; height:32px; border-radius:4px; background:#333; flex-shrink:0; display:none; align-items:center; justify-content:center; font-size:10px; color:#666;">${symbol.substring(0,2)}</div>` : `<div style="width:32px; height:32px; border-radius:4px; background:#333; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:#666;">${symbol.substring(0,2)}</div>`}
+            <div style="min-width:0; flex:1;">
+              <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${symbol}</div>
+              <div style="font-size:11px; color:#8b97c9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+            </div>
+          </div>
+        </td>
+        <td class="nx-td">${fmtPrice(price)} / ${fmt(mc)}</td>
+        <td class="nx-td"><span class="pill ${pctClass}">${pctIcon} ${change5m.toFixed(2)}%</span></td>
+        <td class="nx-td">${fmt(vol24h)}</td>
+        <td class="nx-td">${txns_5m || '-'}</td>
+        <td class="nx-td">${ageText}</td>
+        <td class="nx-td" style="width:190px;">
+          <button class="mini-btn" onclick="goToCoin('${token.mint}', '${symbol}')">View</button>
+          <button class="mini-btn star-btn" onclick="toggleWatchlist('${token.mint}', '${symbol}')">★</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Navigate to coin page
+function goToCoin(mint, symbol) {
+  if (!window.NX) window.NX = {};
+  window.NX.currentCoin = { mint, symbol };
+  window.location.href = `Coinpage-Official.html?mint=${encodeURIComponent(mint)}`;
+}
+
+// Make it available on global NX object too
+if (!window.NX) window.NX = {};
+window.NX.goToCoin = goToCoin;
+
+// Toggle watchlist
+function toggleWatchlist(mint, symbol) {
+  let wl = JSON.parse(localStorage.getItem('nx_watchlist') || '{}');
+  if (wl[mint]) {
+    delete wl[mint];
+  } else {
+    wl[mint] = { symbol, addedAt: Date.now() };
+  }
+  localStorage.setItem('nx_watchlist', JSON.stringify(wl));
+  updateWatchlistDisplay();
+}
+
+// Update watchlist display
+function updateWatchlistDisplay() {
+  const wl = JSON.parse(localStorage.getItem('nx_watchlist') || '{}');
+  const watchlistEl = document.getElementById('watchlist');
+  if (!watchlistEl) return;
+  
+  const items = Object.entries(wl);
+  if (!items.length) {
+    watchlistEl.innerHTML = '<div class="text-zinc-400 text-xs">No pairs saved yet.</div>';
+    return;
+  }
+  
+  watchlistEl.innerHTML = items.map(([mint, data]) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px; border-bottom:1px solid #333;">
+      <div class="text-sm">${data.symbol}</div>
+      <button class="mini-btn" style="padding:2px 6px; font-size:10px;" onclick="NX.goToCoin('${mint}', '${data.symbol}')">View</button>
+    </div>
+  `).join('');
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  debugLog('Page loaded, ready to debug');
+
+  // Listen for trending engine updates
+  window.addEventListener('nebula:trending:updated', (e) => {
+    debugLog(`[TRENDING] Received ${e.detail?.count || 0} tokens, rendering...`);
+    renderTrendingTokens();
+  });
+
+  // Initial render (will show "Loading..." until engine finishes first fetch)
+  renderTrendingTokens();
+
+  // Sync profile picture from platform avatar or store state
+  function updatePfp() {
+    try {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(!pfpImg) {
+        setTimeout(updatePfp, 500);
+        return;
+      }
+
+      let avatarSrc = localStorage.getItem('nx_platform_avatar');
+      if (!avatarSrc) {
+        const storeState = JSON.parse(localStorage.getItem('nx_store_state_v3') || '{}');
+        avatarSrc = storeState.profile?.avatar;
+      }
+      if (!avatarSrc) avatarSrc = 'NebulaX-logo.png';
+      
+      pfpImg.src = avatarSrc;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    } catch(e) {
+      const pfpImg = document.getElementById('nx-pfp');
+      if(pfpImg) pfpImg.src = 'NebulaX-logo.png';
+    }
+  }
+  setTimeout(updatePfp, 100);
+
+  // Listen for avatar changes from store
+  window.addEventListener('nebula:avatar:changed', (e) => {
+    const pfpImg = document.getElementById('nx-pfp');
+    if(pfpImg && e.detail?.avatar) {
+      pfpImg.src = e.detail.avatar;
+      pfpImg.onerror = () => { pfpImg.src = 'NebulaX-logo.png'; };
+    }
+  });
+
+  const btn = document.getElementById("wallet-btn");
+  function paint(sol){
+    if (!btn) return;
+    if (sol == null) {
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet`;
+    } else {
+      const s = sol.toFixed(3);
+      btn.innerHTML = `<i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: ${s} SOL`;
+    }
+    try { window.lucide?.createIcons?.(); } catch {}
+  }
+  if (window.NXWallet?.isConnected?.()) {
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  } else {
+    const prov = (window.phantom?.solana) || window.solana;
+    try { await prov?.connect?.({ onlyIfTrusted: true }); } catch {}
+    if (window.NXWallet?.isConnected?.()) {
+      try { await window.NXWallet.refreshBalance?.(true); } catch {}
+      paint(window.NXWallet?.getBalance?.());
+    } else {
+      paint(null);
+    }
+  }
+  window.addEventListener("nebula:sol:changed", (e)=> paint(e.detail?.balance));
+  window.addEventListener("nxwallet:connected", async ()=>{
+    try { await window.NXWallet.refreshBalance?.(true); } catch {}
+    paint(window.NXWallet?.getBalance?.());
+  });
+  window.addEventListener("nxwallet:disconnected", ()=> paint(null));
+
+  // Watchlist event handlers
+  const clearWatchlistBtn = document.getElementById('btn-clear-watchlist');
+  if (clearWatchlistBtn) {
+    clearWatchlistBtn.addEventListener('click', () => {
+      localStorage.removeItem('nx_watchlist');
+      updateWatchlistDisplay();
+      debugLog('Watchlist cleared');
+    });
+  }
+
+  // Alerts event handlers
+  const clearAlertsBtn = document.getElementById('btn-clear-alerts');
+  if (clearAlertsBtn) {
+    clearAlertsBtn.addEventListener('click', () => {
+      localStorage.removeItem('nx_alerts');
+      debugLog('Alerts cleared');
+    });
+  }
+
+  // Initialize watchlist display on page load
+  setTimeout(() => {
+    updateWatchlistDisplay();
+  }, 100);
+});
+</script>
 <script> window.NX_BIRDEYE_KEY = '267367afba5b44f2b7398e53aba49f5f'; </script>
 <script>window.NX_USE_BIRDEYE_ONLY = true;</script>
 <script>window.NX_MODE = 'prodegen';</script>
@@ -61,7 +321,8 @@
 
       /* Popovers / Modals */
       .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
-      .modal-fx{ position:fixed; inset:0; display:none; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx{ position:fixed; inset:0; display:grid; place-items:center; z-index:2100; background:rgba(0,0,0,.55); padding:12px; }
+      .modal-fx.hidden{ display:none !important; }
 
       /* SEARCH dropdown (homepage/coin style) */
       #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
@@ -131,6 +392,7 @@
             <a class="nx-btn px-2 py-1 text-xs" href="portfolio_official_v_2_fixed.html">Portfolio</a>
             <a class="nx-btn px-2 py-1 text-xs" href="Adrenaline-official.html">Adrenaline</a>
             <a class="nx-btn px-2 py-1 text-xs" href="nebula_x_store_official.html">Store</a>
+            <a class="nx-btn px-2 py-1 text-xs" href="NEBX-Arcade.html">Arcade</a>
           </nav>
         </div>
 
@@ -142,37 +404,16 @@
 
         <!-- Wallet -->
         <div class="flex items-center gap-2">
-          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Bal: 0.214 SOL</button>
+          <button id="wallet-btn" class="nx-btn"><i data-lucide="wallet" class="w-3 h-3 mr-2"></i> Connect Wallet</button>
         </div>
       <!-- Profile picture -->
       <button id="nx-profile" class="relative w-8 h-8 rounded-xl overflow-hidden border"
               style="border-color:var(--nx-border)">
-        <img id="nx-pfp" src="/pfp/default.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
+        <img id="nx-pfp" src="NebulaX-logo.png" alt="" class="absolute inset-0 w-full h-full object-cover" />
       </button>
     </div>
   </div>
-<div class="flex items-center gap-2">
-  <select id="nx-theme-picker" class="nx-input w-[9.5rem] text-xs">
-    <option value="default">default</option>
-    <option value="neon">Neon</option>
-    <option value="midnight">Midnight</option>
-    <option value="dusk">Dusk</option>
-    <option value="light">Light</option>
-  </select>
-</div>
 
-<script>
-  // Wire the picker to the engine
-  (function(){
-    const sel = document.getElementById('nx-theme-picker');
-    if(!sel) return;
-    const setSel = () => { try { sel.value = (window.NX?.theme?.get?.() || 'neon'); } catch{} };
-    setSel();
-    sel.addEventListener('change', () => window.NX?.theme?.set?.(sel.value));
-    // keep dropdown in sync if changed on another tab/page
-    window.addEventListener('nebula:theme-applied', setSel);
-  })();
-</script>
 
 </header>
 
@@ -194,10 +435,11 @@
               <thead>
                 <tr>
                   <th class="nx-th" style="width:220px;">Pair</th>
-                  <th class="nx-th">24h Change</th>
-                  <th class="nx-th">MC</th>
+                  <th class="nx-th">Price/MC</th>
+                  <th class="nx-th">5m Trend</th>
                   <th class="nx-th">Vol</th>
-                  <th class="nx-th">Holders</th>
+                  <th class="nx-th">Txns 5m</th>
+                  <th class="nx-th">Age</th>
                   <th class="nx-th" style="width:190px;">Actions</th>
                 </tr>
               </thead>
@@ -208,6 +450,12 @@
 
         <!-- RIGHT PANEL (widgets) -->
         <aside class="nx-panel p-3">
+          <!-- Debug Panel -->
+          <div class="nx-panel p-3 mb-3" style="background: #111; border: 1px solid #333;">
+            <div class="text-sm font-semibold mb-2" style="color: #666;">Debug Output</div>
+            <div id="debug-output" style="font-size: 10px; font-family: monospace; color: #888; max-height: 200px; overflow-y: auto;"></div>
+          </div>
+
           <!-- Watchlist -->
           <div class="nx-panel p-3 mb-3">
             <div class="text-sm font-semibold mb-2">Watchlist</div>
@@ -241,7 +489,7 @@
             <span class="text-zinc-400">Status:</span>
             <span class="text-emerald-400">Idle (mock)</span>
           </div>
-          <div>&copy; <span id="year"></span> NebulaX • Trending • Front-end mock</div>
+          <div>&copy; <span id="year"></span> NebulaX �� Trending �� Front-end mock</div>
         </div>
       </footer>
     </div>
@@ -275,40 +523,53 @@
       <button id="alert-save" class="nx-btn nx-btn-cyan w-full mt-3">Save</button>
     </div>
 
-    <!-- Wallet dropdown -->
-    <div id="wallet-dd" class="hidden fixed z-[2000] top-16 right-3 w-80 popover p-3">
-      <div class="text-sm font-semibold mb-1">Wallet <span class="text-[10px] text-zinc-400">mock</span></div>
-      <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-        <div class="nx-panel p-2">Total<br/><strong>0.314 SOL</strong></div>
-        <div class="nx-panel p-2">Available<br/><strong>0.214 SOL</strong></div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button id="wd-open" class="nx-btn">Withdraw</button>
-        <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+    <!-- Wallet Modal Popup -->
+    <div id="wallet-modal" class="modal-fx hidden">
+      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-lg font-semibold">Wallet</div>
+          <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('wallet-modal').classList.add('hidden')">Close</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Total Balance</div>
+            <div class="font-semibold text-base" id="wallet-total">0.000 SOL</div>
+          </div>
+          <div class="nx-panel p-3">
+            <div class="text-xs text-zinc-400 mb-1">Available</div>
+            <div class="font-semibold text-base" id="wallet-available">0.000 SOL</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button id="wd-open" class="nx-btn">Withdraw</button>
+          <button id="dp-open" class="nx-btn nx-btn-cyan">Deposit</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="wallet-connect" class="nx-btn nx-btn-cyan">Connect</button>
+          <button id="wallet-disconnect" class="nx-btn">Disconnect</button>
+        </div>
       </div>
     </div>
 
     <!-- Deposit / Withdraw modals -->
-    <div id="deposit" class="modal-fx">
+    <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#deposit">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Only deposit SOL to this address (mock):</div>
-        <div class="nx-panel p-2 text-xs break-words">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
-        <button class="nx-btn nx-btn-cyan w-full mt-3" onclick="navigator.clipboard.writeText('Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze');alert('Copied! (mock)')">Copy Address</button>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
+        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
+        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
       </div>
     </div>
-    <div id="withdraw" class="modal-fx">
+    <div id="withdraw" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" data-close="#withdraw">Close</button></div>
+        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
         <div class="space-y-2">
           <input class="nx-input" placeholder="Destination SOL address"/>
           <div class="grid grid-cols-3 gap-2">
             <input class="nx-input col-span-2" placeholder="Amount"/>
-            <select class="nx-input">
-              <option>SOL</option><option>USD</option>
-            </select>
+            <select class="nx-input"><option>SOL</option><option>USD</option></select>
           </div>
-          <button class="nx-btn nx-btn-cyan w-full">Submit (mock)</button>
+          <button class="nx-btn nx-btn-cyan w-full">Submit</button>
         </div>
       </div>
     </div>
@@ -323,9 +584,9 @@
 
       /* ===== SEARCH (same as other pages) ===== */
       const SEARCH_DATA = [
-        {icon:'◎', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
-        {icon:'◈', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
-        {icon:'◈', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
+        {icon:'��', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
+        {icon:'��', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
+        {icon:'��', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
       ];
       const sWrap=document.getElementById('search-wrap');
       const sIn=document.getElementById('search-input');
@@ -378,20 +639,52 @@ function selectHit(i){
   NX.goToCoin({ pair, mint: hit.mint || '' });
 }
 
-      /* ===== Wallet dropdown + modals ===== */
-      const wBtn=document.getElementById('wallet-btn'); const wDD=document.getElementById('wallet-dd');
-      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); wDD.classList.toggle('hidden'); });
-      document.addEventListener('click',(e)=>{ if(!wDD?.classList.contains('hidden') && !wDD.contains(e.target) && !wBtn.contains(e.target)) wDD.classList.add('hidden'); });
-      document.getElementById('dp-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('deposit').style.display='grid'; });
-      document.getElementById('wd-open')?.addEventListener('click',()=>{ wDD.classList.add('hidden'); document.getElementById('withdraw').style.display='grid'; });
-      document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>{ const id=btn.getAttribute('data-close'); document.querySelector(id).style.display='none'; }));
-      ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.style.display='none'; }); });
+      /* ===== Wallet modal + modals ===== */
+      const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
+      
+      // Update wallet display with real balance
+      function updateWalletDisplay(){
+        const balance = window.NXWallet?.getBalance?.();
+        const sol = balance ? balance.toFixed(3) : '0.000';
+        document.getElementById('wallet-total').textContent = sol + ' SOL';
+        document.getElementById('wallet-available').textContent = sol + ' SOL';
+      }
+      
+      wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
+      wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+      document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
+      
+      // Wallet connect/disconnect
+      document.getElementById('wallet-connect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.connect?.(); } catch(e) { console.log('Connect cancelled'); }
+      });
+      document.getElementById('wallet-disconnect')?.addEventListener('click',async()=>{ 
+        const prov = (window.phantom?.solana) || window.solana;
+        try { await prov?.disconnect?.(); } catch(e) { console.log('Disconnect error'); }
+      });
+      
+      // Deposit address copy
+      const copyBtn = document.getElementById('copy-deposit-btn');
+      const depositAddr = document.getElementById('deposit-addr');
+      copyBtn?.addEventListener('click',()=>{ 
+        const addr = depositAddr.textContent;
+        navigator.clipboard.writeText(addr).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>{ copyBtn.textContent='Copy Address'; },2000); }); 
+      });
+      
+      // Close modals on click outside
+      document.getElementById('deposit')?.addEventListener('click',(e)=>{ if(e.target.id==='deposit') e.target.classList.add('hidden'); });
+      document.getElementById('withdraw')?.addEventListener('click',(e)=>{ if(e.target.id==='withdraw') e.target.classList.add('hidden'); });
+      
+      // Listen for balance changes
+      window.addEventListener('nebula:sol:changed',(e)=>{ if(!wModal.classList.contains('hidden')) updateWalletDisplay(); });
 
 
 
-      // Initial render
-      renderTable();
-      redrawWatchlist();
+      // Initial render handled by Pro-Degen trending logic below
+      // renderTable();
+      // redrawWatchlist() - handled by Pro-Degen logic
     </script>
 <script>
 /** ===== NebulaX Click-to-Coin Utilities ===== */
@@ -517,7 +810,7 @@ document.querySelectorAll('.row-card[data-symbol]').forEach(row=>{
 (function () {
   if (window.NX_MODE === 'prodegen') return;
   // (If you want to re-enable the legacy list later, paste it back here
-  //  *inside* this IIFE so there’s no top-level `return`.)
+  //  *inside* this IIFE so there��s no top-level `return`.)
 })();
 </script>
 
@@ -532,15 +825,43 @@ const BIRDEYE_KEY =
   const CHAIN = 'solana';
  // ------------- put near the top of Pro-Degen block -------------
 const STARTER_MODE = true;
-const CANDIDATE_SIZE = 6;       // <= shrink for Starter to avoid 429
+const CANDIDATE_SIZE = 10;       // Number of trending tokens to display
 const REFRESH_PRICES_MS = 60000; // <= slower loop on Starter
 const REFRESH_SLOW_MS   = 300000;
 
-// Global throttle (≈1 req/sec) + gentle 429 backoff
+// ============ DEX & LAUNCHPAD FILTERING CONFIGURATION ============
+// Toggle to enable/disable trusted source filtering
+// NOTE: Set to FALSE to see all trending coins, not just from specific sources
+const ENABLE_TRUSTED_SOURCE_FILTER = false; // Set to true to only show tokens from trusted DEXes/launchpads
+
+// DEX addresses and identifiers to whitelist (comment out ones you don't want)
+const TRUSTED_DEXES = {
+  'jupiter': 'Jupiter',
+  'bonk': 'Bonk',
+};
+
+// Launchpad creators to whitelist (comment out ones you don't want)
+const TRUSTED_LAUNCHPADS = {
+  'pump': 'Pump.fun',
+  'moonshot': 'Moonshot',
+  'believe': 'Believe',
+  'nebulax': 'NebulaX',
+};
+
+// Minimum criteria for tokens (can be adjusted)
+const TOKEN_QUALITY_GATES = {
+  minVerified: false,           // Require verified badge? (strict)
+  minHolders: 10,               // Minimum unique holders
+  minAge: 0,                    // Minimum age in minutes (0 = any age)
+  maxHolder: 0.20,              // Max % held by single holder (0 = no limit)
+};
+// ===============================================================
+
+// Global throttle (��1 req/sec) + gentle 429 backoff
 let lastReqTs = 0;
 async function throttled(url, opts={}) {
   const elapsed = Date.now() - lastReqTs;
-  const wait = Math.max(0, 1100 - elapsed);
+  const wait = Math.max(0, 100 - elapsed); // Reduced from 300ms to 100ms
   if (wait) await new Promise(r=>setTimeout(r, wait));
   const r = await fetch(url, { ...opts, headers: { ...HEADERS, ...(opts.headers||{}) }});
   lastReqTs = Date.now();
@@ -556,6 +877,9 @@ async function throttled(url, opts={}) {
 
 
   const HEADERS = { 'X-API-KEY': BIRDEYE_KEY, 'x-chain': CHAIN, 'accept': 'application/json' };
+
+  // GeckoTerminal API (no key required, free)
+  const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2';
 
   // --- DOM targets (adjust if your IDs differ)
 const tableBody =
@@ -601,29 +925,202 @@ async function jget(url, opts = {}) {
   // 1) Candidate pool: Birdeye trending (cheap) OR markets page
 let lastCandidatesFallback = false;
 
-// 1) Candidate pool: Birdeye trending (cheap) → fallback to markets
-async function fetchCandidates(limit = CANDIDATE_SIZE) {
-  if (!lastCandidatesFallback) {
-    try {
-      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit}`);
-      const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit);
-      const mints = rows.map(x => x.address || x.mint).filter(Boolean);
-      if (mints.length) return [...new Set(mints)];
-      // fall through to markets on next tick
-      lastCandidatesFallback = true;
-      return [];
-    } catch {
-      lastCandidatesFallback = true;
-      return [];
+// Simple heuristic: check if mint matches known launchpad/DEX patterns
+// Pump.fun tokens have 'pump' in the mint address
+// Jupiter, Moonshot, Believe, Bonk are typically in symbol or verified
+function isFromTrustedSourceByMint(mint, symbol = '') {
+  if (!ENABLE_TRUSTED_SOURCE_FILTER) return true; // Skip if disabled
+  
+  const lowerMint = (mint || '').toLowerCase();
+  const lowerSymbol = (symbol || '').toLowerCase();
+  
+  // Pump.fun tokens contain 'pump' in the mint
+  if (lowerMint.includes('pump')) {
+    for (const key of Object.keys(TRUSTED_LAUNCHPADS)) {
+      if (key === 'pump') return true;
     }
-  } else {
+  }
+  
+  // Check symbol against trusted names
+  for (const [key, name] of Object.entries(TRUSTED_DEXES)) {
+    if (lowerSymbol.includes(key)) return true;
+  }
+  for (const [key, name] of Object.entries(TRUSTED_LAUNCHPADS)) {
+    if (lowerSymbol.includes(key)) return true;
+  }
+  
+  // Default: accept (let scoring algorithm rank them)
+  return true;
+}
+
+// Filter a list of mints by simple heuristics (no API calls = no 404 errors)
+function filterByTrustedSources(mints) {
+  if (!ENABLE_TRUSTED_SOURCE_FILTER) return mints;
+  return mints.filter(mint => isFromTrustedSourceByMint(mint));
+}
+
+// Fetch GeckoTerminal Solana trending pools
+async function fetchGeckoTerminalTrending(limit = 30) {
+  try {
+    const response = await fetch(`${GECKOTERMINAL_BASE}/networks/solana/trending_pools?include=base_token`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    
+    const pools = data?.data || [];
+    const mints = [];
+    const poolMap = {}; // Store pool addresses for later use
+    
+    for (const pool of pools) {
+      const baseToken = pool?.relationships?.base_token?.data?.id?.split('_')[1];
+      if (baseToken) {
+        mints.push(baseToken);
+        poolMap[baseToken] = pool.id.split('_')[1]; // Pool address
+      }
+    }
+    
+    // Store pool addresses in sessionStorage for chart embedding
+    if (Object.keys(poolMap).length > 0) {
+      sessionStorage.setItem('gt_pool_map', JSON.stringify(poolMap));
+    }
+    
+    return [...new Set(mints)].slice(0, limit);
+  } catch (e) {
+    console.warn('GeckoTerminal fetch failed:', e);
+    return [];
+  }
+}
+
+// Fetch DexScreener data for Market Cap and FDV
+async function fetchDexScreenerData(mint) {
+  try {
+    // DexScreener searches by token address on Solana with 3s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) return null;
+    const data = await response.json();
+    
+    const pairs = data?.pairs || [];
+    if (pairs.length === 0) return null;
+    
+    // Get the pair with highest volume (most reliable data)
+    const pair = pairs.reduce((best, p) => 
+      (p.volume?.h24 || 0) > (best.volume?.h24 || 0) ? p : best
+    );
+    
+    // Calculate age from pairCreatedAt (milliseconds)
+    const createdAt = pair.pairCreatedAt || null;
+    const ageMin = createdAt ? Math.floor((Date.now() - createdAt) / 60000) : null;
+    
+    return {
+      mint,
+      symbol: pair.baseToken?.symbol || null,
+      name: pair.baseToken?.name || null,
+      logoURI: pair.info?.imageUrl || pair.baseToken?.logo || null,
+      marketCap: pair.marketCap || null,
+      fdv: pair.fdv || null,
+      price: pair.priceUsd || null,
+      priceChange24h: pair.priceChange?.h24 || null,
+      volume24h: pair.volume?.h24 || null,
+      liquidity: pair.liquidity?.usd || null,
+      pairAddress: pair.pairAddress || null,
+      ageMin: ageMin // Age in minutes
+    };
+  } catch (e) {
+    // Silently fail - DexScreener data is optional
+    return null;
+  }
+}
+
+// 1) Candidate pool: Combine Birdeye + GeckoTerminal for better reliability
+// Cache for trending candidates
+let cachedCandidates = null;
+let cachedCandidatesTime = 0;
+const CANDIDATES_CACHE_MS = 120000; // 2 minutes
+
+async function fetchCandidates(limit = CANDIDATE_SIZE) {
+  // Return cached candidates if fresh
+  if (cachedCandidates && (Date.now() - cachedCandidatesTime) < CANDIDATES_CACHE_MS) {
+    debugLog(`Using cached candidates (${cachedCandidates.length} tokens)`);
+    return cachedCandidates;
+  }
+  
+  debugLog('Fetching fresh candidates...');
+  try {
+    // Fetch from both sources in parallel
+    const [birdeyeMints, geckoMints] = await Promise.all([
+      // Birdeye: try multiple endpoints for volume data
+      (async () => {
+        try {
+          // Try token overview endpoint with sort by volume
+          const response = await throttled(
+            `https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=${limit * 2}`,
+            { headers: HEADERS }
+          );
+          
+          if (!response.ok) {
+            // Fallback to market data endpoint
+            const fallbackRes = await throttled(
+              `https://public-api.birdeye.so/defi/token_trending?limit=${limit * 2}`,
+              { headers: HEADERS }
+            );
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              const items = data?.data?.tokens || data?.data?.items || data?.data || [];
+              let mints = items.map(x => x.address || x.mint).filter(Boolean);
+              if (ENABLE_TRUSTED_SOURCE_FILTER) mints = filterByTrustedSources(mints);
+              return mints;
+            }
+            return [];
+          }
+          
+          const data = await response.json();
+          const items = data?.data?.tokens || data?.data?.items || data?.data || [];
+          let mints = items.map(x => x.address || x.mint).filter(Boolean);
+          if (ENABLE_TRUSTED_SOURCE_FILTER) {
+            mints = filterByTrustedSources(mints);
+          }
+          return mints;
+        } catch (e) {
+          console.warn('Birdeye fetch failed, using GeckoTerminal only:', e.message);
+          return [];
+        }
+      })(),
+      // GeckoTerminal: trending pools
+      fetchGeckoTerminalTrending(limit)
+    ]);
+    
+    // Combine and deduplicate: GeckoTerminal first (trending), then Birdeye (volume)
+    const combined = [...geckoMints, ...birdeyeMints];
+    const unique = [...new Set(combined)].slice(0, limit);
+    
+    // Cache the results
+    cachedCandidates = unique;
+    cachedCandidatesTime = Date.now();
+    
+    debugLog(`Fetched ${geckoMints.length} GeckoTerminal + ${birdeyeMints.length} Birdeye = ${unique.length} unique`);
+    
+    return unique;
+  } catch (e) {
+    console.warn('Failed to fetch market data:', e);
+    // Fallback: try the trending endpoint
     try {
-      const md = await jget(`https://public-api.birdeye.so/defi/v2/markets?sort_by=volume_usd_24h&sort_type=desc&offset=0&limit=${limit}`);
-      const mints = (md?.items || md || []).map(x => x.address || x.mint).filter(Boolean);
-      lastCandidatesFallback = false;
+      const d = await jget(`https://public-api.birdeye.so/defi/token_trending?limit=${limit * 2}`);
+      const rows = (Array.isArray(d) ? d : (d?.tokens || d?.items || [])).slice(0, limit * 2);
+      let mints = rows.map(x => x.address || x.mint).filter(Boolean);
+      
+      if (ENABLE_TRUSTED_SOURCE_FILTER) {
+        mints = filterByTrustedSources(mints);
+      }
+      
       return [...new Set(mints)].slice(0, limit);
-    } catch {
-      // remain in fallback mode; skip this tick gracefully
+    } catch (e2) {
+      console.error('All trending endpoints failed:', e2);
       return [];
     }
   }
@@ -632,15 +1129,16 @@ async function fetchCandidates(limit = CANDIDATE_SIZE) {
 async function sequenceHydrate(need) {
   if (!need.length) return [{}, {}, {}, {}, {}];
 
-  // Phase 1: cheap-ish essentials
-  const md = await hydrateMarketData(need);
-  await sleep(200); // tiny spacing between families
-  const ps = await hydratePriceStats(need);
+  // Phase 1: parallel fetch for speed
+  const [md, ps] = await Promise.all([
+    hydrateMarketData(need),
+    hydratePriceStats(need)
+  ]);
 
-  // Phase 2: skip on Starter to avoid 429s
+  // Phase 2: skip holders initially for fast display
   const o5 = {};   // await hydrateOhlcv5m(need)
   const tr15 = {}; // await hydrateTrades15m(need)
-  const hh = {};   // await hydrateHolders(need)
+  const hh = {};   // Skip holders initially - too slow
 
   return [md, ps, o5, tr15, hh];
 }
@@ -648,13 +1146,15 @@ async function sequenceHydrate(need) {
   // 2) Hydrators (Starter: single endpoints; upgraded: batch) -----------------
   async function hydrateMarketData(mints) {
     const out = {};
-await sleep(1100);
 
     if (!STARTER_MODE) {
       try {
         const chunk = mints.join(',');
         const md = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data/multiple?addresses=${chunk}`);
         Object.entries(md||{}).forEach(([mint, v]) => out[mint] = {
+          symbol: v.symbol || v.token_symbol || '',
+          name: v.name || v.token_name || '',
+          logoURI: v.logoURI || v.logo_uri || v.image || null,
           mcapUsd: v.market_cap ?? null,
           liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
           vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
@@ -669,6 +1169,9 @@ await sleep(1100);
       try {
         const v = await jget(`https://public-api.birdeye.so/defi/v3/token/market-data?address=${mint}`);
         out[mint] = {
+          symbol: v.symbol || v.token_symbol || '',
+          name: v.name || v.token_name || '',
+          logoURI: v.logoURI || v.logo_uri || v.image || null,
           mcapUsd: v.market_cap ?? null,
           liqUsd: v.liquidity ?? v.liquidity_usd ?? null,
           vol24h: v.v24hUsd ?? v.volume_usd_24h ?? null,
@@ -676,14 +1179,16 @@ await sleep(1100);
           verified: !!v.verified
         };
         await sleep(120); // be gentle on 1 rps
-      } catch(e) { console.warn('md single fail', mint, e); }
+      } catch(e) { 
+        // Silently handle missing market data (some tokens may not have data)
+        out[mint] = { symbol: '', name: '', mcapUsd: null, liqUsd: null, vol24h: null, price: null, verified: false };
+      }
     }
     return out;
   }
 
   async function hydratePriceStats(mints) {
     const out = {};
-    await sleep(1100);
     if (!STARTER_MODE) {
       try {
         const ps = await jget(`https://public-api.birdeye.so/defi/v3/price/stats/multiple?addresses=${mints.join(',')}`);
@@ -697,8 +1202,11 @@ await sleep(1100);
       try {
         const v = await jget(`https://public-api.birdeye.so/defi/v3/price/stats?address=${mint}`);
         out[mint] = { pct24h: v.price_change_24h ?? null };
-        await sleep(80);
-      } catch(e) { console.warn('ps single fail', mint, e); }
+        await sleep(30);
+      } catch(e) { 
+        // Silently handle missing price stats (some tokens may not have data)
+        out[mint] = { pct24h: null };
+      }
     }
     return out;
   }
@@ -707,7 +1215,7 @@ await sleep(1100);
   async function hydrateOhlcv5m(mints) {
     const out = {};
     await sleep(1100);
-    // Starter: we’ll request a small window per token (e.g., 30m of 1m candles)
+    // Starter: we��ll request a small window per token (e.g., 30m of 1m candles)
     for (const mint of mints) {
       try {
         const to = nowIso();
@@ -724,7 +1232,10 @@ await sleep(1100);
         const vol5mEWMA = ewma(vols, 0.7);
         out[mint] = { pct5m, vol5mEWMA };
         await sleep(60);
-      } catch(e) { console.warn('ohlcv fail', mint, e); }
+      } catch(e) { 
+        // Silently handle missing OHLCV data
+        out[mint] = { pct5m: 0, vol5mEWMA: 0 };
+      }
     }
     return out;
   }
@@ -751,7 +1262,10 @@ await sleep(1100);
         const imbalance15m = (buys + sells) ? buys / (buys + sells) : 0.5;
         out[mint] = { trades15m, uniqBuyers15m, imbalance15m };
         await sleep(60);
-      } catch(e) { console.warn('trades15m fail', mint, e); }
+      } catch(e) { 
+        // Silently handle missing trades data
+        out[mint] = { trades15m: 0, uniqBuyers15m: 0, imbalance15m: 0.5 };
+      }
     }
     return out;
   }
@@ -759,16 +1273,28 @@ await sleep(1100);
   // Holders (free on Standard Solana). Peek first page and read total.
   async function hydrateHolders(mints) {
     const out = {};
-    await sleep(1100);
+    if (!mints.length) return out;
+    
+    debugLog(`Fetching holders for ${mints.length} tokens sequentially`);
+    
+    // Sequential fetch to avoid overwhelming the API
     for (const mint of mints) {
       try {
-        const d = await jget(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`);
-        // Try several possible shapes:
-        const total = d?.total ?? d?.count ?? d?.pagination?.total ?? null;
-        out[mint] = { holders: Number(total || 0) };
-        await sleep(80);
-      } catch(e) { console.warn('holders fail', mint, e); }
+        const response = await throttled(`https://public-api.birdeye.so/defi/v3/token/holder?address=${mint}&page=1&page_size=1`, {});
+        if (response.ok) {
+          const json = await response.json();
+          const d = json?.data ?? json;
+          const total = d?.total ?? d?.count ?? d?.pagination?.total ?? null;
+          if (total && total > 0) {
+            out[mint] = { holders: Number(total) };
+          }
+        }
+      } catch(e) {
+        // Skip on error
+      }
     }
+    
+    debugLog(`Holders fetched: ${Object.keys(out).length} tokens`);
     return out;
   }
 
@@ -823,103 +1349,76 @@ await sleep(1100);
 
   // 4) Orchestrator -----------------------------------------------------------
   async function renderProDegen() {
-    try {
-      status('Loading candidates…');
-      const mints = await fetchCandidates(CANDIDATE_SIZE);
-
-      // reuse cache to avoid slow calls
-      const need = mints.filter(m => {
-        const c = getCached(m);
-        return !c || (Date.now() - (c._ts||0) > REFRESH_SLOW_MS);
-      });
-
-      // Hydrate slow-changing fields
-      const [md, ps, o5, tr15, hh] = await sequenceHydrate(need);
-
-      // Merge into cache
-      for (const mint of mints) {
-        const c = getCached(mint) || {};
-        const merged = {
-          mint,
-          symbol: c.symbol || md?.[mint]?.symbol || c.name || '',
-          name: c.name || '',
-          price: md?.[mint]?.price ?? c.price ?? null,
-          mcapUsd: md?.[mint]?.mcapUsd ?? c.mcapUsd ?? null,
-          liqUsd: md?.[mint]?.liqUsd ?? c.liqUsd ?? null,
-          vol24h: md?.[mint]?.vol24h ?? c.vol24h ?? null,
-
-          pct24h: ps?.[mint]?.pct24h ?? c.pct24h ?? null,
-          pct5m: o5?.[mint]?.pct5m ?? c.pct5m ?? 0,
-          vol5mEWMA: o5?.[mint]?.vol5mEWMA ?? c.vol5mEWMA ?? 0,
-
-          trades15m: tr15?.[mint]?.trades15m ?? c.trades15m ?? 0,
-          uniqBuyers15m: tr15?.[mint]?.uniqBuyers15m ?? c.uniqBuyers15m ?? 0,
-          imbalance15m: clamp(tr15?.[mint]?.imbalance15m ?? c.imbalance15m ?? 0.5, 0.35, 0.75),
-
-          holders: hh?.[mint]?.holders ?? c.holders ?? 0,
-
-          // placeholders for future flags/age (can be hydrated from metadata/RPC)
-          ageMin: c.ageMin ?? 60,
-          paused: !!c.paused,
-          blocked: !!c.blocked,
-          verified: md?.[mint]?.verified ?? c.verified ?? false,
-        };
-        setCached(mint, merged);
-      }
-      saveCache();
-
-      // Compose rows in table order
-      let rows = mints.map(m => getCached(m)).filter(Boolean);
-
-      // Apply hard gates
-      rows = rows.filter(r => hardGate(r));
-
-      // Compute (and apply) score
-      rows = computeScore(rows);
-
-      // Render
-      status(`Showing ${rows.length} tokens · updated ${new Date().toLocaleTimeString()}`);
-      if (!tableBody) return;
-      tableBody.innerHTML = rows.map(rowHTML).join('');
-    } catch (e) {
-      console.error(e);
-      status('Failed to load trending.');
-    }
+    // DISABLED: Legacy Pro-Degen rendering system
+    // Now using trending-engine.js with renderTrendingTokens()
+    debugLog('renderProDegen() called but disabled - using trending-engine.js instead');
+    return;
   }
-
   // 5) Minimal rowHTML fallback (use your own if present) ---------------------
-  function rowHTML(r) {
-    const n = (x, d=0) => (x||x===0) ? Number(x).toLocaleString(undefined,{maximumFractionDigits:d}) : '—';
-    const pc = (x) => (x||x===0) ? `${(x>0?'+':'')}${x.toFixed(2)}%` : '—';
-    const liq = n(r.liqUsd, 0);
-    const mc = n(r.mcapUsd, 0);
-    const vol = n(r.vol24h, 0);
-    const h = n(r.holders, 0);
-    const p5 = pc(r.pct5m||0);
-    const p24 = pc(r.pct24h);
-    const score = (r.score ?? 0).toFixed(2);
-    const cls5 = (r.pct5m||0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
-    const cls24 = (r.pct24h||0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
-    return `
-      <tr class="border-b border-white/5 hover:bg-white/5 transition">
-        <td class="py-2 px-3">
-          <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full ${r.verified?'bg-cyan-400':'bg-zinc-500'}"></div>
-            <div class="font-semibold">${r.symbol || r.name || r.mint.slice(0,4)+'…'}</div>
-            <div class="text-xs opacity-60">${r.mint.slice(0,4)}…${r.mint.slice(-4)}</div>
-          </div>
-        </td>
-        <td class="py-2 px-3 text-right">${n(r.price, 6)}</td>
-        <td class="py-2 px-3 text-right ${cls5}">${p5}</td>
-        <td class="py-2 px-3 text-right ${cls24}">${p24}</td>
-        <td class="py-2 px-3 text-right">${liq}</td>
-        <td class="py-2 px-3 text-right">${mc}</td>
-        <td class="py-2 px-3 text-right">${vol}</td>
-        <td class="py-2 px-3 text-right">${h}</td>
-        <td class="py-2 px-3 text-right text-cyan-300 font-bold">${score}</td>
-      </tr>
-    `;
-  }
+  const rowHTML = (() => {
+    let renderCount = 0;
+    return function(r) {
+      const n = (x, d=0) => (x||x===0) ? Number(x).toLocaleString(undefined,{maximumFractionDigits:d}) : '��';
+      const pc = (x) => (x||x===0) ? `${(x>0?'+':'')}${x.toFixed(2)}%` : '��';
+      // Compact number format: K/M/B
+      const compact = (x) => {
+        if (!x && x !== 0) return '��';
+        const num = Number(x);
+        if (num >= 1e9) return `${(num/1e9).toFixed(2)}B`;
+        if (num >= 1e6) return `${(num/1e6).toFixed(2)}M`;
+        if (num >= 1e3) return `${(num/1e3).toFixed(2)}K`;
+        return num.toFixed(2);
+      };
+      // Format age: minutes -> hours/days
+      const formatAge = (min) => {
+        if (!min && min !== 0) return '��';
+        if (min < 60) return `${min}m`;
+        if (min < 1440) return `${Math.floor(min/60)}h`;
+        return `${Math.floor(min/1440)}d`;
+      };
+      
+      // Format values with proper fallbacks
+      const pair = `${r.symbol || r.name || 'TOKEN'}/SOL`;
+      const price = n(r.price, 4);
+      const change24h = pc(r.pct24h || 0);
+      const mc = compact(r.mcapUsd); // Use compact format
+      const vol = compact(r.vol24h); // Use compact format
+      const holders = r.holders || r.holders === 0 ? compact(r.holders) : '��'; // Show 0 if that's the value
+      const age = formatAge(r.ageMin); // Format age
+      
+      // Combined Price/MC display with MC larger and bolder (just show number, no "MC" text)
+      const priceMc = `<div class="text-right"><div class="font-bold text-base">${mc}</div><div class="text-xs text-zinc-400">$${price}</div></div>`;
+      
+      // Log first 3 rows being rendered
+      if (renderCount < 3) {
+        debugLog(`[ROW ${renderCount}] ${r.symbol}: price=${r.price}, mc=${r.mcapUsd}, vol=${r.vol24h}, holders=${r.holders}`);
+        renderCount++;
+      }
+      
+      // Color for 24h change
+      const changeClass = (r.pct24h || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400';
+      
+      return `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition cursor-pointer" data-mint="${r.mint}" data-symbol="${r.symbol || ''}" data-price="${r.price || 0}">
+          <td class="py-2 px-3">
+            <div class="flex items-center gap-2">
+              ${r.logoURI ? `<img src="${r.logoURI}" class="w-6 h-6 rounded-full" onerror="this.style.display='none'" alt="${r.symbol}"/>` : '<div class="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600"></div>'}
+              <div class="w-2 h-2 rounded-full ${r.verified?'bg-cyan-400':'bg-zinc-500'}"></div>
+              <span class="font-semibold">${pair}</span>
+            </div>
+          </td>
+          <td class="py-2 px-3">${priceMc}</td>
+          <td class="py-2 px-3 text-right ${changeClass}">${change24h}</td>
+          <td class="py-2 px-3 text-right">${vol}</td>
+          <td class="py-2 px-3 text-right">${holders}</td>
+          <td class="py-2 px-3 text-right text-xs">${age}</td>
+          <td class="py-2 px-3 text-center">
+            <button class="nx-btn nx-btn-cyan text-xs px-2 py-1">Buy</button>
+          </td>
+        </tr>
+      `;
+    };
+  })();
 
   // 6) Status helper ----------------------------------------------------------
   function ensureStatus() {
@@ -934,19 +1433,42 @@ await sleep(1100);
   }
   function status(msg){ try{ statusEl.textContent = msg; }catch{} }
 
-  // 7) Boot + refresh loops ---------------------------------------------------
-  let running = false;
-  async function tick() {
-    if (running) return;
-    running = true;
-    try { await renderProDegen(); }
-    finally { running = false; }
+  // Add click handler to table rows
+  if (tableBody) {
+    tableBody.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-mint]');
+      if (!tr) return;
+      
+      const mint = tr.getAttribute('data-mint');
+      const symbol = tr.getAttribute('data-symbol') || '';
+      const price = tr.getAttribute('data-price') || '';
+      
+      if (!mint) return;
+      
+      // Save coin data and navigate to coin page
+      try {
+        const coinData = {
+          mint: mint,
+          symbol: symbol,
+          pair: symbol ? `${symbol.toUpperCase()}/SOL` : '',
+          price: parseFloat(price) || 0
+        };
+        localStorage.setItem('nebula_selected_coin', JSON.stringify(coinData));
+      } catch (err) {
+        console.error('Error saving coin data:', err);
+      }
+      
+      // Navigate to coin page
+      const pair = symbol ? `${symbol.toUpperCase()}/SOL` : '';
+      const qp = `?pair=${encodeURIComponent(pair)}${mint ? `&mint=${encodeURIComponent(mint)}` : ''}`;
+      location.href = `Coinpage-Official.html${pair ? qp : ''}`;
+    });
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
-  tick(); // initial
-  setInterval(tick, REFRESH_PRICES_MS); // light refresh
-  // slow refresh to refresh MC/liq/holders cache naturally
-  setInterval(() => { /* marker to let cache expire naturally */ }, REFRESH_SLOW_MS);
+
+  // 7) Boot + refresh loops ---------------------------------------------------
+  // OLD PRO-DEGEN CODE DISABLED - Now using trending-engine.js
+  // The trending-engine auto-initializes and renderTrendingTokens() is called from DOMContentLoaded
+  debugLog('Pro-Degen legacy code disabled - using trending-engine.js');
 
 })();
 </script>
@@ -954,6 +1476,7 @@ await sleep(1100);
    
   </body>
 </html>
+
 
 
 
