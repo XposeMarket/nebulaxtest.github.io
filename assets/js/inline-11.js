@@ -93,20 +93,32 @@ async function onConnected(pk){
     // Auto-restore: try NXWallet first (from sessionStorage), then Phantom trusted connect
     (async () => {
       try {
+        console.log('[inline-11] Auto-restore starting...', {
+          hasNXWallet: !!window.NXWallet,
+          isConnected: window.NXWallet?.isConnected?.(),
+          address: window.NXWallet?.getAddress?.()
+        });
+
         // 1) Check if NXWallet already has a connected wallet (from sessionStorage)
         if (window.NXWallet?.isConnected?.()) {
           const addr = window.NXWallet.getAddress?.();
           if (addr) {
+            console.log('[inline-11] NXWallet already connected:', addr);
             await onConnected(addr);
             return;
           }
         }
 
         // 2) Try Phantom trusted connect (already approved on this origin)
-        const p = phantom(); if(!p) return;
+        const p = phantom(); 
+        console.log('[inline-11] Trying Phantom trusted connect, provider:', !!p);
+        if(!p) return;
         const res = await p.connect({ onlyIfTrusted:true });
+        console.log('[inline-11] Phantom trusted connect result:', res?.publicKey?.toString());
         if(res?.publicKey) await onConnected(res.publicKey);
-      } catch {}
+      } catch(e) {
+        console.log('[inline-11] Auto-restore error:', e);
+      }
     })();
   });
 
