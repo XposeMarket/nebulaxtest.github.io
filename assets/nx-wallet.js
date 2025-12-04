@@ -373,6 +373,9 @@ async function fetchBalanceThrottled(pubkey){
       // best-effort: try to show balance without forcing the connect modal
       STATE.pubkey = remembered;
       STATE.balance = await fetchBalance(remembered);
+      // Setup balance watch and dispatch connected event so other pages know wallet is ready
+      startBalanceWatch(remembered);
+      window.dispatchEvent(new CustomEvent('nxwallet:connected', { detail: { address: remembered } }));
     }
     ui();
   })();
@@ -393,14 +396,15 @@ async function fetchBalanceThrottled(pubkey){
   
   // Public API
   window.NX = window.NX || {};
- window.NXWallet = {
-  connect, disconnect,
-  isConnected, isInstalled,
-  getAddress, getBalance,
-  refreshBalance,   // <--- add here
-  guard,
-    openMenu: openWalletMenu
-};
+  window.NXWallet = {
+    connect, disconnect,
+    isConnected, isInstalled,
+    getAddress, getBalance,
+    refreshBalance,   // <--- add here
+    guard,
+    openMenu: openWalletMenu,
+    get publicKey() { return STATE.pubkey; }  // Allow checking wallet address directly
+  };
 
 })();
 
