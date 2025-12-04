@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "nebulax-jupiter",
   "builds": [
     {
       "src": "api/**/*.js",
@@ -12,5 +11,9 @@
       "src": "/api/(.*)",
       "dest": "/api/$1"
     }
-  ]
+  ],
+  "buildCommand": "npm install",
+  "env": {
+    "VERCEL_ENV": "production"
+  }
 }
