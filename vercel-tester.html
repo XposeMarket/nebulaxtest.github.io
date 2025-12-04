@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vercel Jupiter API Tester</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0a0e27;
+      color: #fff;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: #1a1f3a;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    h1 {
+      grid-column: 1 / -1;
+      margin-top: 0;
+      color: #00d4ff;
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+    .input-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #a0aec0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      background: #0f1929;
+      border: 1px solid #2d3748;
+      border-radius: 4px;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #00d4ff;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #00a8cc;
+    }
+    .response {
+      background: #0f1929;
+      border: 1px solid #2d3748;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .status.success {
+      background: #00d46f;
+      color: #000;
+    }
+    .status.error {
+      background: #ff6b6b;
+      color: #fff;
+    }
+    .status.loading {
+      background: #4299e1;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Vercel Jupiter API Tester</h1>
+    
+    <div class="card">
+      <h2>📊 Test Quote</h2>
+      <div class="input-group">
+        <label>API URL</label>
+        <input type="text" id="apiUrl" value="https://nebulax-jupiter-jrn8c3pmy-xpose-markets-projects.vercel.app/api/jupiter" readonly>
+      </div>
+      <div class="input-group">
+        <label>Input Mint</label>
+        <input type="text" id="inputMint" value="So11111111111111111111111111111111111111112" placeholder="SOL mint">
+      </div>
+      <div class="input-group">
+        <label>Output Mint</label>
+        <input type="text" id="outputMint" value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" placeholder="USDC mint">
+      </div>
+      <div class="input-group">
+        <label>Amount (lamports)</label>
+        <input type="text" id="amount" value="1000000000" placeholder="1 SOL = 1000000000 lamports">
+      </div>
+      <button onclick="testQuote()">Test Quote</button>
+      <div id="quoteStatus" class="status" style="display:none;"></div>
+      <div id="quoteResponse" class="response" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ API Information</h2>
+      <div class="input-group">
+        <label>Vercel Project</label>
+        <textarea readonly rows="3">nebulax-jupiter-jrn8c3pmy-xpose-markets-projects.vercel.app
+
+Status: ✅ Deployed</textarea>
+      </div>
+      <div class="input-group">
+        <label>Endpoints</label>
+        <textarea readonly rows="4">/api/jupiter?endpoint=quote&inputMint=XXX&outputMint=YYY&amount=ZZZ&slippageBps=50
+
+/api/jupiter (POST) for swaps</textarea>
+      </div>
+      <div class="input-group">
+        <label>Current Configuration</label>
+        <textarea id="configInfo" readonly rows="6"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Update config info
+    document.getElementById('configInfo').value = `
+USE_VERCEL_PROXY: true
+VERCEL_API_BASE: 
+  nebulax-jupiter-jrn8c3pmy-xpose-markets-projects.vercel.app/api/jupiter
+
+Next Steps:
+1. Test quote endpoint below
+2. If successful, check Coinpage-Official.html
+3. Test HUH → SOL swap on site`;
+
+    async function testQuote() {
+      const apiUrl = document.getElementById('apiUrl').value;
+      const inputMint = document.getElementById('inputMint').value;
+      const outputMint = document.getElementById('outputMint').value;
+      const amount = document.getElementById('amount').value;
+      
+      const statusEl = document.getElementById('quoteStatus');
+      const responseEl = document.getElementById('quoteResponse');
+      
+      statusEl.textContent = '⏳ Loading...';
+      statusEl.className = 'status loading';
+      statusEl.style.display = 'block';
+      responseEl.style.display = 'none';
+      
+      try {
+        const url = `${apiUrl}?endpoint=quote&inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (response.ok) {
+          statusEl.textContent = '✅ Success! Quote received';
+          statusEl.className = 'status success';
+          responseEl.textContent = JSON.stringify(data, null, 2);
+        } else {
+          statusEl.textContent = `❌ Error: ${response.status}`;
+          statusEl.className = 'status error';
+          responseEl.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        responseEl.style.display = 'block';
+      } catch (error) {
+        statusEl.textContent = `❌ Exception: ${error.message}`;
+        statusEl.className = 'status error';
+        responseEl.textContent = error.stack;
+        responseEl.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
