@@ -742,31 +742,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
       
       const url = `${JUPITER_QUOTE_API}?${params}`;
-      console.log('[Jupiter] Fetching quote from:', url);
+      console.log('[Jupiter] Fetching quote...');
       
       // Use CORS proxy for GitHub Pages deployment
       const proxyUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-      console.log('[Jupiter] Using CORS proxy:', proxyUrl);
       
       const response = await fetch(proxyUrl);
-      console.log('[Jupiter] Response status:', response.status, response.statusText);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[Jupiter] Error response:', errorText);
-        throw new Error(`Quote failed: ${response.status} - ${errorText}`);
+        console.error('[Jupiter] Quote failed:', response.status, errorText.substring(0, 200));
+        throw new Error(`Quote failed: ${response.status}`);
       }
       
       const quote = await response.json();
-      console.log('[Jupiter] Quote:', quote);
+      console.log('[Jupiter] Quote received:', quote.outAmount);
       return quote;
     } catch (error) {
-      console.error('[Jupiter] Quote error:', error);
-      console.error('[Jupiter] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
+      console.error('[Jupiter] Quote error:', error.message);
       
       // Retry with exponential backoff
       if (retries > 0) {
