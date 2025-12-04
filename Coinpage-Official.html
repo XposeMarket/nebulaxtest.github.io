@@ -687,10 +687,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 <script>
 (async function(){
   // Jupiter Swap Configuration
+  // OPTION 1: Use Vercel proxy (recommended for production)
+  const USE_VERCEL_PROXY = true; // Set to false to use public CORS proxy as fallback
+  const VERCEL_API_BASE = 'https://YOUR-VERCEL-URL.vercel.app/api/jupiter'; // Replace after deployment
+  
+  // OPTION 2: Public CORS proxy (unreliable, for testing only)
   const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
   const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
-  // CORS proxy to bypass GitHub Pages restrictions
-  const CORS_PROXY = 'https://corsproxy.io/?';
+  const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+  
   const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Native SOL
   const SLIPPAGE_BPS = 50; // 0.5% slippage (50 basis points)
   
@@ -734,20 +739,36 @@ document.addEventListener("DOMContentLoaded", async () => {
       const amountLamports = Math.floor(parseFloat(amount) * Math.pow(10, decimals));
       if (amountLamports <= 0) return null;
       
-      const params = new URLSearchParams({
-        inputMint,
-        outputMint,
-        amount: amountLamports.toString(),
-        slippageBps: SLIPPAGE_BPS.toString(),
-      });
+      let response;
       
-      const url = `${JUPITER_QUOTE_API}?${params}`;
-      console.log('[Jupiter] Fetching quote...');
-      
-      // Use CORS proxy for GitHub Pages deployment
-      const proxyUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-      
-      const response = await fetch(proxyUrl);
+      if (USE_VERCEL_PROXY) {
+        // Use Vercel serverless function (reliable, no CORS issues)
+        const params = new URLSearchParams({
+          endpoint: 'quote',
+          inputMint,
+          outputMint,
+          amount: amountLamports.toString(),
+          slippageBps: SLIPPAGE_BPS.toString(),
+        });
+        
+        console.log('[Jupiter] Fetching quote via Vercel proxy...');
+        response = await fetch(`${VERCEL_API_BASE}?${params}`);
+        
+      } else {
+        // Fallback to public CORS proxy (unreliable)
+        const params = new URLSearchParams({
+          inputMint,
+          outputMint,
+          amount: amountLamports.toString(),
+          slippageBps: SLIPPAGE_BPS.toString(),
+        });
+        
+        const url = `${JUPITER_QUOTE_API}?${params}`;
+        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
+        
+        console.log('[Jupiter] Fetching quote via public proxy...');
+        response = await fetch(proxyUrl);
+      }
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -776,23 +797,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Get swap transaction from Jupiter
   async function getSwapTransaction(quote, userPublicKey) {
     try {
-      const body = JSON.stringify({
+      const swapBody = {
         quoteResponse: quote,
         userPublicKey: userPublicKey.toString(),
         wrapAndUnwrapSol: true,
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto'
-      });
+      };
       
-      // Use CORS proxy for swap API too
-      const proxyUrl = `${CORS_PROXY}${encodeURIComponent(JUPITER_SWAP_API)}`;
-      console.log('[Jupiter] Fetching swap transaction via proxy');
+      let response;
       
-      const response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: body
-      });
+      if (USE_VERCEL_PROXY) {
+        // Use Vercel serverless function
+        console.log('[Jupiter] Fetching swap transaction via Vercel proxy');
+        
+        response = await fetch(`${VERCEL_API_BASE}?endpoint=swap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'POST',
+            body: swapBody
+          })
+        });
+        
+      } else {
+        // Fallback to public CORS proxy
+        console.log('[Jupiter] Fetching swap transaction via public proxy');
+        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(JUPITER_SWAP_API)}`;
+        
+        response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(swapBody)
+        });
+      }
       
       if (!response.ok) throw new Error(`Swap transaction failed: ${response.status}`);
       
