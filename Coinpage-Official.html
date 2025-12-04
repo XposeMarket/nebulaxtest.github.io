@@ -739,14 +739,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         slippageBps: SLIPPAGE_BPS.toString(),
       });
       
-      const response = await fetch(`${JUPITER_QUOTE_API}?${params}`);
-      if (!response.ok) throw new Error(`Quote failed: ${response.status}`);
+      const url = `${JUPITER_QUOTE_API}?${params}`;
+      console.log('[Jupiter] Fetching quote from:', url);
+      
+      const response = await fetch(url);
+      console.log('[Jupiter] Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Jupiter] Error response:', errorText);
+        throw new Error(`Quote failed: ${response.status} - ${errorText}`);
+      }
       
       const quote = await response.json();
       console.log('[Jupiter] Quote:', quote);
       return quote;
     } catch (error) {
       console.error('[Jupiter] Quote error:', error);
+      console.error('[Jupiter] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       
       // Retry with exponential backoff
       if (retries > 0) {
