@@ -78,13 +78,35 @@ async function onConnected(pk){
       p0.on("connect",      async (pubkey)=> onConnected(pubkey));
       p0.on("disconnect",   async ()=>      onDisconnected());
     }
- // Auto-restore if trusted
+
+    // Listen for NXWallet events (from sessionStorage restore)
+    window.addEventListener('nxwallet:connected', async (e) => {
+      const addr = e.detail?.address || window.NXWallet?.getAddress?.();
+      if (addr) await onConnected(addr);
+    });
+    window.addEventListener('nebula:sol:changed', (e) => {
+      if (e.detail?.balance != null) {
+        const b = $("solBalance"); if (b) b.textContent = e.detail.balance.toFixed(4);
+      }
+    });
+
+    // Auto-restore: try NXWallet first (from sessionStorage), then Phantom trusted connect
     (async () => {
-      try{
+      try {
+        // 1) Check if NXWallet already has a connected wallet (from sessionStorage)
+        if (window.NXWallet?.isConnected?.()) {
+          const addr = window.NXWallet.getAddress?.();
+          if (addr) {
+            await onConnected(addr);
+            return;
+          }
+        }
+
+        // 2) Try Phantom trusted connect (already approved on this origin)
         const p = phantom(); if(!p) return;
         const res = await p.connect({ onlyIfTrusted:true });
         if(res?.publicKey) await onConnected(res.publicKey);
-      }catch{}
+      } catch {}
     })();
   });
 

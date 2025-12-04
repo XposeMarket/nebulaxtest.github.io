@@ -57,7 +57,7 @@ function nxOpenInRealBrowser(){
 
 // Simple dropdown for connect/disconnect
 (function(){
-  const LKEY = 'nebula:wallet';
+  const LKEY = 'nebula:wallet';  // localStorage key for wallet persistence
   const STATE = { provider: null, pubkey: null, balance: null, conn: null };
 
   // Robust Phantom resolver (handles multi-wallet & mobile)
@@ -101,14 +101,13 @@ function nxOpenInRealBrowser(){
 }
 
   function shorten(pk){ if(!pk) return ''; return pk.slice(0,4)+'…'+pk.slice(-4); }
-function save(pk){
-  try {
-    // Use sessionStorage for session-only persistence (not across browser close)
-    sessionStorage.setItem("nebula:wallet:session", JSON.stringify({ pk }));
-  } catch {}
-}
-  function load(){ try{ return JSON.parse(sessionStorage.getItem(SKEY)||'{}').pk||null; }catch{return null} }
-  function clear(){ try{ sessionStorage.removeItem(SKEY); }catch{} }
+  function save(pk){
+    try {
+      localStorage.setItem(LKEY, JSON.stringify({ pk }));
+    } catch {}
+  }
+  function load(){ try{ return JSON.parse(localStorage.getItem(LKEY)||'{}').pk||null; }catch{return null} }
+  function clear(){ try{ localStorage.removeItem(LKEY); }catch{} }
 
 function resolveRpc(){
   try{

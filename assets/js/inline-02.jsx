@@ -5,7 +5,7 @@
       const nf=new Intl.NumberFormat(undefined,{maximumFractionDigits:6});
       const usdFmt=new Intl.NumberFormat(undefined,{maximumFractionDigits:2});
       const theme={bg:"bg-transparent",panel:"cyberpunk-panel",text:"neon-text"};
-      const LKEY="nebula_home_layout_v10";
+      const LKEY="nebula_home_layout_v11";
 // Put near the top of your Babel script
 const DEX_EMBEDS = {
   "ETH/USDC": "https://dexscreener.com/ethereum/0x00b9edc1583bf6ef09ff3a09f6c23ecb57fd7d0bb75625717ec81eed181e22d7?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15",
@@ -256,7 +256,7 @@ function ChartPanel2({ symbol }) {
       /* ===== Layout model ===== */
       const DEFAULT_LAYOUT={
         wide:["ticker"],                      // top row shows a single panel (replace on drop)
-        left:["trending","chart","data-feed"],
+        left:["chart","data-feed"],
         right:["portfolio","alerts","referrals","docs","selftest"],
         heights:{
           "ticker":130,
@@ -269,7 +269,7 @@ function ChartPanel2({ symbol }) {
         },
         undockedSignal:false,
         undockedExplore:false,
-        v:10
+        v:11
       };
       const PANEL_IDS=new Set(Object.keys(DEFAULT_LAYOUT.heights));
       const containersOrder=["wide","left","right"];
@@ -287,15 +287,24 @@ function ChartPanel2({ symbol }) {
           const raw=localStorage.getItem(LKEY);
           if(!raw) return DEFAULT_LAYOUT;
           const p=JSON.parse(raw);
+          
+          // Force reset if version mismatch
+          if(p.v !== 11) return DEFAULT_LAYOUT;
+          
           const clean=(arr)=>Array.isArray(arr)?arr.filter(id=>PANEL_IDS.has(id)):[];
+          
+          // Remove "trending" from right column if it exists (should only be in left)
+          const rightPanels = clean(p.right)||DEFAULT_LAYOUT.right;
+          const filteredRight = rightPanels.filter(id => id !== "trending");
+          
           return {
             wide:clean(p.wide)||DEFAULT_LAYOUT.wide,
             left:clean(p.left)||DEFAULT_LAYOUT.left,
-            right:clean(p.right)||DEFAULT_LAYOUT.right,
+            right:filteredRight,
             heights:{...DEFAULT_LAYOUT.heights,...(p.heights||{})},
             undockedSignal:!!p.undockedSignal,
             undockedExplore:!!p.undockedExplore,
-            v:10
+            v:11
           };
         }catch{return DEFAULT_LAYOUT;}
       }
@@ -757,132 +766,6 @@ function useSolBalance(addressOrPk){
     };
   }, [addressOrPk && (typeof addressOrPk==="string"?addressOrPk:addressOrPk?.toBase58?.())]);
   return sol;
-}
-
-       /* Trending Panel - Shows top 5 trending tokens */
-function TrendingPanel() {
-  const [trending, setTrending] = React.useState([]);
-  const initialLoadDone = React.useRef(false);
-
-  React.useEffect(() => {
-    // Fetch trending tokens from window.NX (populated by trending-engine.js)
-    const updateTrending = () => {
-      const tokens = window.NX?.getTrendingTokens?.() || [];
-      if (tokens.length > 0) {
-        const newTokens = tokens.slice(0, 5);
-        setTrending(prev => {
-          // On first load, just set the data
-          if (!initialLoadDone.current) {
-            initialLoadDone.current = true;
-            return newTokens;
-          }
-          // Smooth update: only replace if data actually changed
-          if (prev.length === newTokens.length) {
-            const changed = newTokens.some((t, i) => 
-              t.mint !== prev[i]?.mint || 
-              t.jupiterPrice !== prev[i]?.jupiterPrice ||
-              t.dsPriceChange_5m !== prev[i]?.dsPriceChange_5m
-            );
-            if (!changed) return prev;
-          }
-          return newTokens;
-        });
-      }
-    };
-
-    // Listen for trending updates
-    const handleTrendingUpdate = () => updateTrending();
-    window.addEventListener('nebula:trending:updated', handleTrendingUpdate);
-    
-    // Initial update
-    updateTrending();
-    
-    // Fallback polling every 5 seconds
-    const interval = setInterval(updateTrending, 5000);
-    
-    return () => {
-      window.removeEventListener('nebula:trending:updated', handleTrendingUpdate);
-      clearInterval(interval);
-    };
-  }, []);
-
-  const formatPrice = (p) => {
-    if (!p || isNaN(p)) return '$0';
-    if (p < 0.001) return '$' + p.toExponential(2);
-    if (p < 0.01) return '$' + p.toFixed(6);
-    return '$' + p.toFixed(4);
-  };
-
-  const formatMarketCap = (mc) => {
-    if (!mc || mc === 0) return '$0';
-    if (mc >= 1e9) return '$' + (mc / 1e9).toFixed(2) + 'B';
-    if (mc >= 1e6) return '$' + (mc / 1e6).toFixed(2) + 'M';
-    if (mc >= 1e3) return '$' + (mc / 1e3).toFixed(2) + 'K';
-    return '$' + mc.toFixed(0);
-  };
-
-  return (
-    <Card
-      title={
-        <a
-          href="Trending.html"
-          className="text-sm font-semibold neon-text underline decoration-[var(--cyberpunk-border)] decoration-1 underline-offset-4 hover:opacity-90"
-        >
-          🔥 Trending
-        </a>
-      }
-      toolbar={<Pill>Live</Pill>}
-    >
-      <div className="h-full flex flex-col min-h-0">
-        <div className="flex-1 min-h-0 overflow-auto space-y-2">
-          {trending.length > 0 ? (
-            trending.map((token, idx) => {
-              const price = token.jupiterPrice || token.dsPrice || token.gtPrice || 0;
-              const mc = token.dsMarketCap || token.dsFdv || 0;
-              const change5m = token.dsPriceChange_5m || 0;
-              const tierColor = token.tier === 'S' ? '#34d399' : token.tier === 'A' ? '#fbbf24' : '#f87171';
-
-              return (
-                <div
-                  key={token.mint || idx}
-                  className="rounded-lg bg-[var(--cyberpunk-dark-secondary)] p-2 hover:bg-[rgba(18,21,42,.85)] cursor-pointer transition-colors"
-                  onClick={() => {
-                    if (window.NX?.goToCoin) {
-                      window.NX.goToCoin({ mint: token.mint, symbol: token.symbol, pair: `${token.symbol}/SOL` });
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold neon-text text-sm truncate">{token.symbol || '???'}</span>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: tierColor + '20', color: tierColor }}
-                        >
-                          {token.tier || 'B'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-zinc-400 truncate">{token.name || 'Unknown'}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold neon-text">{formatPrice(price)}</div>
-                      <div className={cx("text-xs", change5m >= 0 ? "text-emerald-400" : "text-red-400")}>
-                        {change5m >= 0 ? '+' : ''}{change5m.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">MC: {formatMarketCap(mc)}</div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-sm text-zinc-400 text-center py-4">Loading trending tokens...</div>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
 }
 
        /* Portfolio - STABLE (doesn't re-render on parent updates) */
@@ -2311,7 +2194,6 @@ function ExplorePanel({dockBack, isTop}){
                               setWide={setWide}
                               onInsertAt={(pid2)=>onInsertAt(pid2,"left",idx)}
                             >
-                              {pid==="trending" && <TrendingPanel/>}
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                               {pid==="data-feed" && <ArcadeLeaderboardPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
@@ -2347,7 +2229,6 @@ function ExplorePanel({dockBack, isTop}){
                               setWide={setWide}
                               onInsertAt={(pid2)=>onInsertAt(pid2,"right",idx)}
                             >
-                              {pid==="trending" && <TrendingPanel/>}
                               {pid==="chart" && <ChartPanel2 symbol={symbol} candlesBySymbol={candlesBySymbol}/>}
                               {pid==="data-feed" && <ArcadeLeaderboardPanel/>}
                               {pid==="ticker" && <MarketInfo/>}
