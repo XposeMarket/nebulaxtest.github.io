@@ -16,6 +16,7 @@
   window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
 </script>
 <script src="assets/nx-wallet.js"></script>
+<script src="assets/js/nx-search.js"></script>
 
     
     <script>
@@ -210,6 +211,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       .ri-metrics .lab{color:#9aa6dc;margin-right:4px}
       .row-card.highlight{box-shadow:inset 0 0 0 1px rgba(0,230,255,.35),0 0 12px rgba(0,230,255,.12);border-radius:12px}
 
+      /* SEARCH dropdown styles (critical!) */
+      #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
+      .search-row{ display:flex; align-items:center; gap:.75rem; padding:.45rem .6rem; border-radius:10px; cursor:pointer; }
+      .search-row:hover{ background: var(--nx-dark-2); }
+      .search-icon{ height:2rem; width:2rem; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--nx-dark-2); }
+      .search-grid{ display:grid; grid-template-columns: 1fr auto auto auto; gap:.75rem; align-items:center; min-width:0; }
+      .search-name{ min-width:0; }
+      .search-name .ticker{ font-size:11px; color:#8b97c9; }
+      .search-metric{ font-size:11px; color:#9fb3ff; white-space:nowrap; }
+      .search-active{ outline:2px solid var(--nx-cyan); outline-offset:2px; }
       }
     
     </style>
@@ -234,8 +245,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           </nav>
         </div>
 
-  <!-- Center: SEARCH -->
-  <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
+  <!-- SEARCH -->
+  <div id="search-wrap" class="relative w-[24rem] max-w-[50vw]">
     <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
     <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
   </div>
@@ -327,14 +338,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           </div>
         </section>
 
-        <!-- RIGHT: Price editor + summary -->
+        <!-- RIGHT: summary -->
         <aside class="nx-panel p-3">
-          <div class="nx-panel p-3 mb-3">
-            <div class="text-sm font-semibold mb-2">Manual Price Editor</div>
-            <div id="price-box" class="space-y-2 text-sm"></div>
-            <button id="price-rand" class="nx-btn w-full mt-2">Nudge Prices (±5%)</button>
-          </div>
-
           <div class="nx-panel p-3">
             <div class="text-sm font-semibold mb-2">Snapshot</div>
             <div id="snap-box" class="text-sm text-zinc-300">Add trades to see snapshot.</div>
@@ -344,11 +349,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       <footer class="mt-3 mb-4">
         <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-zinc-400">Status:</span>
-            <span class="text-emerald-400">Idle (mock)</span>
-          </div>
-          <div>&copy; <span id="year"></span> NebulaX • Portfolio • Front-end mock</div>
+          <div>&copy; <span id="year"></span> NebulaX v1.0 Beta</div>
+          <div>Xpose Market</div>
         </div>
       </footer>
     </div>
@@ -411,70 +413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
 
     </script>
-    <!-- Search dropdown (Photon-style) -->
-    <script>
-      (function(){
-        const data = [
-          {id:'WIF', name:'dogwifhat', mc:'4.2B', vol:'118M', liq:'32.1M'},
-          {id:'BONK', name:'Bonk', mc:'1.8B', vol:'88.0M', liq:'20.2M'},
-          {id:'MEW', name:'MEW', mc:'420M', vol:'21.3M', liq:'6.7M'},
-          {id:'POP', name:'POPCAT', mc:'310M', vol:'12.0M', liq:'4.9M'},
-          {id:'CAT', name:'Cat', mc:'95M', vol:'9.4M', liq:'2.1M'},
-          {id:'PENGU', name:'Pengu', mc:'180M', vol:'15.2M', liq:'3.2M'},
-          {id:'DUCK', name:'Duck', mc:'42M', vol:'3.6M', liq:'1.1M'},
-          {id:'PUP', name:'Pup', mc:'61M', vol:'5.4M', liq:'1.6M'},
-          {id:'GME', name:'GameStop', mc:'720M', vol:'43.0M', liq:'12.9M'},
-          {id:'PEPE', name:'PEPE', mc:'1.1B', vol:'98.2M', liq:'23.4M'},
-          {id:'MOG', name:'MOG', mc:'250M', vol:'18.5M', liq:'5.8M'},
-          {id:'BOME', name:'BOME', mc:'390M', vol:'22.1M', liq:'7.2M'}
-        ];
-        const input = document.getElementById('search-input');
-        const dd = document.getElementById('search-dd');
-
-        function itemTpl(x){
-          return `<div class="result-item" data-id="${x.id}">
-            <div class="ri-left"><i data-lucide="diamond" class="w-3 h-3 text-zinc-300"></i></div>
-            <div class="ri-main">
-              <div class="ri-pair">${x.id} / SOL</div>
-              <div class="ri-name">${x.name}</div>
-            </div>
-            <div class="ri-metrics">
-              <div><span class="lab">MC</span>$${x.mc}</div>
-              <div><span class="lab">V</span>$${x.vol}</div>
-              <div><span class="lab">L</span>$${x.liq}</div>
-            </div>
-          </div>`;
-        }
-        function render(list){
-          if(!list || list.length===0){
-            dd.innerHTML = '<div class="search-head">RESULTS</div><div class="text-xs text-zinc-400 p-3">No matches</div>';
-            dd.classList.remove('hidden'); return;
-          }
-          dd.innerHTML = '<div class="search-head">RESULTS</div>' + list.slice(0,8).map(itemTpl).join('');
-          dd.classList.remove('hidden');
-          if (window.lucide && typeof window.lucide.createIcons==='function'){ window.lucide.createIcons({attrs:{}}); }
-        }
-        function filter(q){
-          q=q.trim().toLowerCase();
-          if(!q){ dd.classList.add('hidden'); return []; }
-          return data.filter(x=> x.id.toLowerCase().includes(q) || x.name.toLowerCase().includes(q));
-        }
-        input?.addEventListener('input', ()=>{ render(filter(input.value)); });
-        input?.addEventListener('focus', ()=>{ if(input.value){ render(filter(input.value)); } });
-        document.addEventListener('click', (e)=>{ if(!e.target.closest('#search-wrap')) dd.classList.add('hidden'); });
-        dd?.addEventListener('click', (e)=>{
-          const it = e.target.closest('.result-item'); if(!it) return;
-          const id = it.getAttribute('data-id');
-          const el = document.getElementById('row-'+id);
-          if(el){
-            el.classList.add('highlight');
-            el.scrollIntoView({behavior:'smooth',block:'center'});
-            setTimeout(()=>el.classList.remove('highlight'), 1200);
-          }
-          dd.classList.add('hidden'); input.blur();
-        });
-        window.addEventListener('keydown', (e)=>{ if(e.key==='/' && document.activeElement!==input){ e.preventDefault(); input.focus(); }});
-      })();
+    <!-- Search handled by nx-search.js -->
 
 
     </script>
@@ -1464,7 +1403,8 @@ async function renderPositionsTable(positions, prices) {
           return {
             mint: pos.mint,
             symbol: pair.baseToken?.symbol || pos.mint.slice(0, 6),
-            name: pair.baseToken?.name || 'Unknown Token'
+            name: pair.baseToken?.name || 'Unknown Token',
+            logo: pair.info?.imageUrl || null
           };
         }
       }
@@ -1515,7 +1455,8 @@ async function renderPositionsTable(positions, prices) {
           return {
             mint: pos.mint,
             symbol: symbol,
-            name: name || symbol
+            name: name || symbol,
+            logo: null
           };
         }
       }
@@ -1526,7 +1467,8 @@ async function renderPositionsTable(positions, prices) {
     return {
       mint: pos.mint,
       symbol: pos.mint.slice(0, 6) + '...' + pos.mint.slice(-4),
-      name: 'Unknown Token'
+      name: 'Unknown Token',
+      logo: null
     };
   });
   
@@ -1542,6 +1484,7 @@ async function renderPositionsTable(positions, prices) {
     const meta = tokenMetadata.get(pos.mint);
     const symbol = meta?.symbol || pos.mint.slice(0, 6) + '...' + pos.mint.slice(-4);
     const name = meta?.name || 'Unknown Token';
+    const logo = meta?.logo || null;
     const priceData = prices?.[pos.mint];
     const price = priceData?.usdPrice || 0;
     const qty = pos.qty || 0;
@@ -1550,7 +1493,7 @@ async function renderPositionsTable(positions, prices) {
     const unrealized = 0;
     const pct = 0;
     
-    return { symbol, name, qty, avgCost, price, value, unrealized, pct, mint: pos.mint };
+    return { symbol, name, logo, qty, avgCost, price, value, unrealized, pct, mint: pos.mint };
   });
   
   // Apply current sort if any
@@ -1563,8 +1506,13 @@ async function renderPositionsTable(positions, prices) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="nx-td">
-        <strong>${row.symbol}</strong>
-        <div class="text-xs text-zinc-400">${row.name}</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${row.logo ? `<img src="${row.logo}" style="width:32px; height:32px; border-radius:6px; flex-shrink:0;" alt="${row.symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="width:32px; height:32px; border-radius:6px; background:#333; flex-shrink:0; display:none; align-items:center; justify-content:center; font-size:11px; color:#666; font-weight:700;">${row.symbol.substring(0,2)}</div>` : `<div style="width:32px; height:32px; border-radius:6px; background:#333; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#666; font-weight:700;">${row.symbol.substring(0,2)}</div>`}
+          <div>
+            <strong>${row.symbol}</strong>
+            <div class="text-xs text-zinc-400">${row.name}</div>
+          </div>
+        </div>
       </td>
       <td class="nx-td tabnums">${row.qty.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
       <td class="nx-td tabnums">$${formatPrice(row.avgCost)}</td>
@@ -1652,8 +1600,13 @@ function sortPositionsData(column) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="nx-td">
-        <strong>${row.symbol}</strong>
-        <div class="text-xs text-zinc-400">${row.name}</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${row.logo ? `<img src="${row.logo}" style="width:32px; height:32px; border-radius:6px; flex-shrink:0;" alt="${row.symbol}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div style="width:32px; height:32px; border-radius:6px; background:#333; flex-shrink:0; display:none; align-items:center; justify-content:center; font-size:11px; color:#666; font-weight:700;">${row.symbol.substring(0,2)}</div>` : `<div style="width:32px; height:32px; border-radius:6px; background:#333; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:#666; font-weight:700;">${row.symbol.substring(0,2)}</div>`}
+          <div>
+            <strong>${row.symbol}</strong>
+            <div class="text-xs text-zinc-400">${row.name}</div>
+          </div>
+        </div>
       </td>
       <td class="nx-td tabnums">${row.qty.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
       <td class="nx-td tabnums">$${formatPrice(row.avgCost)}</td>

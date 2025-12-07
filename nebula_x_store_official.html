@@ -12,6 +12,8 @@
   window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
 </script>
 <script src="assets/nx-wallet.js"></script>
+<link rel="stylesheet" href="assets/css/nx-mobile-banner.css">
+<script src="assets/js/nx-search.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
   const btn = document.getElementById("wallet-btn");
@@ -226,6 +228,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       .modal-fx.hidden{ display:none !important; }
 
       .nx-title{color:#ffeb3b;text-shadow:0 0 3px #ffeb3b;}
+
+      /* SEARCH dropdown styles (critical!) */
+      #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
+      .search-row{ display:flex; align-items:center; gap:.75rem; padding:.45rem .6rem; border-radius:10px; cursor:pointer; }
+      .search-row:hover{ background: var(--nx-dark-2); }
+      .search-icon{ height:2rem; width:2rem; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--nx-dark-2); }
+      .search-grid{ display:grid; grid-template-columns: 1fr auto auto auto; gap:.75rem; align-items:center; min-width:0; }
+      .search-name{ min-width:0; }
+      .search-name .ticker{ font-size:11px; color:#8b97c9; }
+      .search-metric{ font-size:11px; color:#9fb3ff; white-space:nowrap; }
+      .search-active{ outline:2px solid var(--nx-cyan); outline-offset:2px; }
     </style>
   </head>
   <body>
@@ -248,9 +261,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           </nav>
         </div>
 
-        <!-- Search (optional placeholder for consistency) -->
-        <div id="search-wrap" class="relative w-[26rem] max-w-[60vw] hidden md:block">
-          <input id="search-input" class="nx-input" placeholder="Search items... /" autocomplete="off"/>
+        <!-- SEARCH -->
+        <div id="search-wrap" class="relative w-[24rem] max-w-[50vw]">
+          <input id="search-input" class="nx-input" placeholder="Search markets... /" autocomplete="off"/>
           <div id="search-dd" class="popover hidden mt-1 w-full max-h-[22rem] overflow-auto p-2"></div>
         </div>
 
@@ -491,11 +504,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       <footer class="mt-3 mb-4">
         <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-zinc-400">Status:</span>
-            <span class="text-emerald-400">Store mock ready</span>
-          </div>
-          <div>&copy; <span id="year"></span> NebulaX • Store • Front-end mock</div>
+          <div>&copy; <span id="year"></span> NebulaX v1.0 Beta</div>
+          <div>Xpose Market</div>
         </div>
       </footer>
     </div>

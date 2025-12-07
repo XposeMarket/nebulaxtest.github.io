@@ -397,3 +397,72 @@ async function fetchBalanceThrottled(pubkey){
 
 })();
 
+// ===== Environment & Mobile Banner System =====
+(function(){
+  // 1) Environment detection helpers
+  function nxIsMobileDevice() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  function nxHasSolanaProvider() {
+    return typeof window.solana !== "undefined";
+  }
+
+  // Attach to global namespace
+  window.NX = window.NX || {};
+  window.NX.Env = window.NX.Env || {};
+  window.NX.Env.isMobileDevice = nxIsMobileDevice;
+  window.NX.Env.hasSolanaProvider = nxHasSolanaProvider;
+
+  // 2) Mobile Phantom banner initialization
+  function initMobilePhantomBanner() {
+    // Only show if: mobile AND no solana provider
+    if (!window.NX.Env.isMobileDevice() || window.NX.Env.hasSolanaProvider()) {
+      return;
+    }
+
+    // Check if user dismissed it
+    if (localStorage.getItem("nxHideMobilePhantomBanner") === "true") {
+      return;
+    }
+
+    // Build the deep link
+    const currentUrl = window.location.href;
+    const phantomUrl = "https://phantom.app/ul/browse/" + encodeURIComponent(currentUrl);
+
+    // Create banner DOM
+    const banner = document.createElement("div");
+    banner.id = "nx-mobile-phantom-banner";
+    banner.className = "nx-mobile-phantom-banner";
+    banner.innerHTML = `
+      <p class="nx-mobile-phantom-text">To connect your wallet on mobile, open this page inside the Phantom app.</p>
+      <a href="${phantomUrl}" class="nx-mobile-phantom-button">
+        Open in Phantom
+      </a>
+      <button class="nx-mobile-phantom-close" aria-label="Close banner">✕</button>
+    `;
+
+    // Insert at top of body
+    document.body.insertBefore(banner, document.body.firstChild);
+
+    // Close button handler
+    const closeBtn = banner.querySelector(".nx-mobile-phantom-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        banner.remove();
+        localStorage.setItem("nxHideMobilePhantomBanner", "true");
+      });
+    }
+  }
+
+  // Attach to global namespace for manual triggering if needed
+  window.NX.initMobilePhantomBanner = initMobilePhantomBanner;
+
+  // Initialize on DOMContentLoaded
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initMobilePhantomBanner);
+  } else {
+    initMobilePhantomBanner();
+  }
+})();
+

@@ -1,5 +1,5 @@
 // Vercel Serverless Function to proxy Jupiter API
-// Deploy location: /api/jupiter.js
+import https from 'https';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -12,47 +12,61 @@ export default async function handler(req, res) {
   }
   
   try {
-    const { method = 'GET', body } = req.body || {};
-    const { endpoint, ...queryParams } = req.query;
+    const { endpoint = 'quote', ...queryParams } = req.query;
     
-    // Build Jupiter API URL
-    let jupiterUrl = `https://quote-api.jup.ag/v6/${endpoint || 'quote'}`;
-    
-    // Add query parameters for GET requests
-    if (method === 'GET' && Object.keys(queryParams).length > 0) {
-      const params = new URLSearchParams(queryParams);
-      jupiterUrl += `?${params}`;
+    // Build query string
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (key !== 'endpoint') params.append(key, value);
     }
     
-    console.log('[Jupiter Proxy]', method, jupiterUrl);
+    const path = `/v6/${endpoint}${params.toString() ? '?' + params.toString() : ''}`;
     
-    // Proxy request to Jupiter
-    const options = {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    };
+    console.log('[Jupiter Proxy] GET', path);
     
-    if (method === 'POST' && body) {
-      options.body = JSON.stringify(body);
-    }
-    
-    const response = await fetch(jupiterUrl, options);
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('[Jupiter Proxy] Error:', response.status, data);
-      return res.status(response.status).json({ 
-        error: data,
-        message: `Jupiter API returned ${response.status}`
+    // Use https module for reliability
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'public.jupiter-ag.workers.dev',
+        port: 443,
+        path: `/v6/${endpoint}${params.toString() ? '?' + params.toString() : ''}`,
+        method: req.method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      };
+      
+      const request = https.request(options, (response) => {
+        let body = '';
+        response.on('data', chunk => body += chunk);
+        response.on('end', () => {
+          try {
+            resolve({ status: response.statusCode, data: JSON.parse(body) });
+          } catch (e) {
+            resolve({ status: response.statusCode, data: body });
+          }
+        });
       });
+      
+      request.on('error', reject);
+      
+      if (req.method === 'POST' && req.body) {
+        const postBody = req.body.body || req.body;
+        request.write(JSON.stringify(postBody));
+      }
+      
+      request.end();
+    });
+    
+    if (data.status !== 200) {
+      return res.status(data.status).json({ error: data.data });
     }
     
-    return res.status(200).json(data);
+    return res.status(200).json(data.data);
     
   } catch (error) {
-    console.error('[Jupiter Proxy] Exception:', error);
+    console.error('[Jupiter Proxy] Error:', error.message);
     return res.status(500).json({ 
       error: error.message,
       message: 'Internal proxy error'

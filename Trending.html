@@ -13,6 +13,7 @@
   window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
 </script>
 <script src="assets/nx-wallet.js"></script>
+<script src="assets/js/nx-search.js"></script>
 <script src="trending-engine.js"></script>
 <script>
 const debugLog = (() => {
@@ -88,9 +89,19 @@ function renderTrendingTokens() {
     const fmtPrice = (p) => {
       if (!p || isNaN(p)) return '$0';
       if (p === 0) return '$0';
-      if (p < 0.001) return '$' + p.toExponential(2);
-      if (p < 0.01) return '$' + p.toFixed(6);
-      return '$' + p.toFixed(4);
+      
+      // Use compact scientific notation only for extremely small numbers: X.X(^X)
+      if (p < 0.00001) {
+        const exp = Math.floor(Math.log10(p));
+        const mantissa = p / Math.pow(10, exp);
+        const absExp = Math.abs(exp);
+        return `$${mantissa.toFixed(1)}(^${absExp})`;
+      }
+      
+      if (p < 0.01) return '$' + p.toFixed(8);
+      if (p < 1) return '$' + p.toFixed(6);
+      if (p < 100) return '$' + p.toFixed(4);
+      return '$' + p.toFixed(2);
     };
     
     const tierClass = tier === 'S' ? 'green' : (tier === 'A' ? 'pill' : 'red');
@@ -450,12 +461,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         <!-- RIGHT PANEL (widgets) -->
         <aside class="nx-panel p-3">
-          <!-- Debug Panel -->
-          <div class="nx-panel p-3 mb-3" style="background: #111; border: 1px solid #333;">
-            <div class="text-sm font-semibold mb-2" style="color: #666;">Debug Output</div>
-            <div id="debug-output" style="font-size: 10px; font-family: monospace; color: #888; max-height: 200px; overflow-y: auto;"></div>
-          </div>
-
           <!-- Watchlist -->
           <div class="nx-panel p-3 mb-3">
             <div class="text-sm font-semibold mb-2">Watchlist</div>
@@ -485,11 +490,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       <footer class="mt-3 mb-4">
         <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-zinc-400">Status:</span>
-            <span class="text-emerald-400">Idle (mock)</span>
-          </div>
-          <div>&copy; <span id="year"></span> NebulaX �� Trending �� Front-end mock</div>
+          <div>&copy; <span id="year"></span> NebulaX v1.0 Beta</div>
+          <div>Xpose Market</div>
         </div>
       </footer>
     </div>
@@ -582,62 +584,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       /* Back */
       document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
 
-      /* ===== SEARCH (same as other pages) ===== */
-      const SEARCH_DATA = [
-        {icon:'��', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
-        {icon:'��', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
-        {icon:'��', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
-      ];
-      const sWrap=document.getElementById('search-wrap');
-      const sIn=document.getElementById('search-input');
-      const sDD=document.getElementById('search-dd');
-      let activeIndex=-1, currentHits=[];
-      const debounce=(fn,ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
-
-      function renderSearch(q){
-        const query=(q||'').trim().toLowerCase();
-        currentHits = query? SEARCH_DATA.filter(o => (o.name+o.ticker).toLowerCase().includes(query)) : [];
-        sDD.innerHTML=''; activeIndex=-1;
-        if(!currentHits.length){ sDD.classList.add('hidden'); return; }
-        sDD.classList.remove('hidden');
-        sDD.insertAdjacentHTML('beforeend','<div class="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-400 border-b border-[var(--nx-border)]">Results</div>');
-        currentHits.forEach((o,i)=>{
-          const row=document.createElement('button');
-          row.type='button'; row.className='search-row w-full'; row.dataset.index=i;
-          row.innerHTML=`
-            <div class="search-icon">${o.icon}</div>
-            <div class="search-grid min-w-0 flex-1">
-              <div class="search-name min-w-0">
-                <div class="truncate">${o.name}</div>
-                <div class="ticker">${o.ticker}</div>
-              </div>
-              <div class="search-metric tabnums">MC <span class="font-semibold">${o.mc}</span></div>
-              <div class="search-metric tabnums">V <span class="font-semibold">${o.v}</span></div>
-              <div class="search-metric tabnums">L <span class="font-semibold">${o.l}</span></div>
-            </div>`;
-          row.addEventListener('click',()=>selectHit(i));
-          sDD.appendChild(row);
-        });
-      }
-      const doRender = debounce(()=>renderSearch(sIn.value),120);
-      sIn.addEventListener('input', doRender);
-      sIn.addEventListener('focus', doRender);
-      document.addEventListener('click', (e)=>{ if(!sWrap.contains(e.target)) sDD.classList.add('hidden'); });
-      sIn.addEventListener('keydown',(e)=>{
-        if(sDD.classList.contains('hidden')) return;
-        const rows=[...sDD.querySelectorAll('.search-row')]; if(!rows.length) return;
-        if(e.key==='ArrowDown'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex+1)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
-        else if(e.key==='ArrowUp'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex-1+rows.length)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
-        else if(e.key==='Enter'){ e.preventDefault(); if(activeIndex<0) activeIndex=0; selectHit(activeIndex); }
-        else if(e.key==='Escape'){ sDD.classList.add('hidden'); }
-      });
-function selectHit(i){
-  const hit = currentHits[i]; if(!hit) return;
-  sDD.classList.add('hidden'); sDD.innerHTML=''; activeIndex=-1; currentHits=[];
-  sIn.value='';
-  const pair = hit.name.replace(/\s+/g,'');   // "WIF/SOL"
-  NX.goToCoin({ pair, mint: hit.mint || '' });
-}
+      /* Search handled by nx-search.js */
 
       /* ===== Wallet modal + modals ===== */
       const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');

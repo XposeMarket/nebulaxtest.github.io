@@ -1,0 +1,105 @@
+/* ===== Mobile Phantom Banner ===== */
+.nx-mobile-phantom-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(135deg, rgba(13, 16, 34, 0.98), rgba(30, 39, 71, 0.95));
+  color: #f9fafb;
+  padding: 0.875rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid rgba(0, 230, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+
+.nx-mobile-phantom-text {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.nx-mobile-phantom-button {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(0, 230, 255, 0.6);
+  background: transparent;
+  color: #00e6ff;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Orbitron', ui-monospace, SFMono-Regular, monospace;
+}
+
+.nx-mobile-phantom-button:hover {
+  background: rgba(0, 230, 255, 0.1);
+  border-color: rgba(0, 230, 255, 0.9);
+  box-shadow: 0 0 12px rgba(0, 230, 255, 0.3);
+}
+
+.nx-mobile-phantom-button:active {
+  transform: scale(0.98);
+}
+
+.nx-mobile-phantom-close {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.nx-mobile-phantom-close:hover {
+  color: #f3f4f6;
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 480px) {
+  .nx-mobile-phantom-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .nx-mobile-phantom-text {
+    min-width: 100%;
+    text-align: center;
+    font-size: 0.8125rem;
+  }
+
+  .nx-mobile-phantom-button {
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 0.6rem 1rem;
+  }
+
+  .nx-mobile-phantom-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .nx-mobile-phantom-button {
+    transition: none;
+  }
+
+  .nx-mobile-phantom-button:active {
+    transform: none;
+  }
+}

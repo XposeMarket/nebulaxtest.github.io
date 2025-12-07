@@ -4,15 +4,21 @@
     <meta charset="utf-8"/>
     <title>NebulaX • Coin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <!-- Force cache refresh -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 <script src="nx-theme.js"></script>
+<link rel="stylesheet" href="assets/css/nx-mobile-banner.css">
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <script>
   window.NX_RPC = "https://rpc.helius.xyz/?api-key=3858d764-530d-4b75-b3df-619dc2613ff9";
 </script>
 <script src="assets/nx-wallet.js"></script>
+<script src="assets/js/nx-search.js"></script>
 <!-- Jupiter Swap Integration -->
 <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
 <script>
@@ -129,6 +135,140 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       /* Popovers */
       .popover{position:absolute; z-index:1000; border:1px solid var(--nx-border); background:rgba(13,16,34,.98); box-shadow:0 10px 30px rgba(0,0,0,.4); border-radius:12px;}
+
+      /* Toast Notifications */
+      .nx-toast {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 320px;
+        max-width: 500px;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.1);
+        backdrop-filter: blur(12px);
+        animation: slideIn 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+        display: flex;
+        align-items: start;
+        gap: 12px;
+      }
+      
+      .nx-toast.success {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+      
+      .nx-toast.error {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+        border: 1px solid rgba(239, 68, 68, 0.3);
+      }
+      
+      .nx-toast-icon {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+      }
+      
+      .nx-toast.success .nx-toast-icon {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+      }
+      
+      .nx-toast.error .nx-toast-icon {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+      }
+      
+      .nx-toast-content {
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .nx-toast-title {
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+      
+      .nx-toast.success .nx-toast-title {
+        color: #10b981;
+      }
+      
+      .nx-toast.error .nx-toast-title {
+        color: #ef4444;
+      }
+      
+      .nx-toast-message {
+        font-size: 13px;
+        color: #cbd5e1;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+      
+      .nx-toast-link {
+        color: var(--nx-cyan);
+        text-decoration: none;
+        font-weight: 600;
+        transition: opacity 0.2s;
+      }
+      
+      .nx-toast-link:hover {
+        opacity: 0.8;
+        text-decoration: underline;
+      }
+      
+      .nx-toast-close {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border: none;
+        background: rgba(255,255,255,0.1);
+        color: #94a3b8;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        line-height: 1;
+        transition: background 0.2s;
+      }
+      
+      .nx-toast-close:hover {
+        background: rgba(255,255,255,0.15);
+      }
+      
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+      }
+      
+      .nx-toast.hiding {
+        animation: slideOut 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+      }
 
       /* SEARCH styling */
       #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
@@ -459,11 +599,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       <footer class="mt-3 mb-4">
         <div class="nx-panel px-3 py-2 text-xs flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-zinc-400">Status:</span>
-            <span class="text-emerald-400">Idle (mock)</span>
-          </div>
-          <div>&copy; <span id="year"></span> NebulaX • Front-end mock</div>
+          <div>&copy; <span id="year"></span> NebulaX v1.0 Beta</div>
+          <div>Xpose Market</div>
         </div>
       </footer>
     </div>
@@ -542,57 +679,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       /* Back */
       document.getElementById('back-btn')?.addEventListener('click', (e)=>{ e.preventDefault(); history.back(); });
 
-      /* ====== SEARCH DROPDOWN ====== */
-      const SEARCH_DATA = [
-        {icon:'◎', name:'SOL / USDC', ticker:'SOL',  mc:'$13.2B', v:'$980M', l:'$120M'},
-        {icon:'◈', name:'WIF / SOL',  ticker:'WIF',  mc:'$4.2B',  v:'$120M', l:'$32M'},
-        {icon:'◈', name:'BONK / SOL', ticker:'BONK', mc:'$1.8B',  v:'$88M',  l:'$20M'},
-      ];
-      const sWrap=document.getElementById('search-wrap');
-      const sIn=document.getElementById('search-input');
-      const sDD=document.getElementById('search-dd');
-      let activeIndex=-1, currentHits=[];
-
-      const debounce=(fn,ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
-
-      function renderSearch(q){
-        const query=(q||'').trim().toLowerCase();
-        currentHits = query? SEARCH_DATA.filter(o => (o.name+o.ticker).toLowerCase().includes(query)) : [];
-        sDD.innerHTML=''; activeIndex=-1;
-        if(!currentHits.length){ sDD.classList.add('hidden'); return; }
-        sDD.classList.remove('hidden');
-        sDD.insertAdjacentHTML('beforeend','<div class="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-400 border-b border-[var(--nx-border)]">Results</div>');
-        currentHits.forEach((o,i)=>{
-          const row=document.createElement('button');
-          row.type='button'; row.className='search-row w-full'; row.dataset.index=i;
-          row.innerHTML=`
-            <div class="search-icon">${o.icon}</div>
-            <div class="search-grid min-w-0 flex-1">
-              <div class="search-name min-w-0">
-                <div class="truncate">${o.name}</div>
-                <div class="ticker">${o.ticker}</div>
-              </div>
-              <div class="search-metric tabnums">MC <span class="font-semibold">${o.mc}</span></div>
-              <div class="search-metric tabnums">V <span class="font-semibold">${o.v}</span></div>
-              <div class="search-metric tabnums">L <span class="font-semibold">${o.l}</span></div>
-            </div>`;
-          row.addEventListener('click',()=>selectHit(i));
-          sDD.appendChild(row);
-        });
-      }
-      const doRender = debounce(()=>renderSearch(sIn.value),120);
-      sIn.addEventListener('input', doRender);
-      sIn.addEventListener('focus', doRender);
-      document.addEventListener('click', (e)=>{ if(!sWrap.contains(e.target)) sDD.classList.add('hidden'); });
-      sIn.addEventListener('keydown',(e)=>{
-        if(sDD.classList.contains('hidden')) return;
-        const rows=[...sDD.querySelectorAll('.search-row')]; if(!rows.length) return;
-        if(e.key==='ArrowDown'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex+1)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
-        else if(e.key==='ArrowUp'){ e.preventDefault(); rows.forEach(r=>r.classList.remove('search-active')); activeIndex=(activeIndex-1+rows.length)%rows.length; rows[activeIndex].classList.add('search-active'); rows[activeIndex].scrollIntoView({block:'nearest'}); }
-        else if(e.key==='Enter'){ e.preventDefault(); if(activeIndex<0) activeIndex=0; selectHit(activeIndex); }
-        else if(e.key==='Escape'){ sDD.classList.add('hidden'); }
-      });
-      function selectHit(i){ const hit=currentHits[i]; if(!hit) return; sDD.classList.add('hidden'); sIn.value=''; alert('Navigate to '+hit.name+' (mock)'); }
+      /* Search handled by nx-search.js */
 
       /* ====== Tabs ====== */
       const tabs=[...document.querySelectorAll('.tab')];
@@ -683,25 +770,63 @@ document.addEventListener("DOMContentLoaded", async () => {
       ;['deposit','withdraw'].forEach(id=>{ const el=document.getElementById(id); el?.addEventListener('click',(e)=>{ if(e.target===el) el.classList.add('hidden'); }); });
     </script>
 
-    <!-- === Jupiter Swap Integration === -->
+    <!-- === Jupiter Swap V1 API Integration === -->
 <script>
 (async function(){
-  // Jupiter Swap Configuration
-  // OPTION 1: Use Vercel proxy (recommended for production)
-  const USE_VERCEL_PROXY = true; // Set to false to use public CORS proxy as fallback
-  const VERCEL_API_BASE = 'https://nebulax-jupiter.vercel.app/api/jupiter';
-  
-  // OPTION 2: Public CORS proxy (unreliable, for testing only)
-  const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
-  const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
-  const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+  // ===== JUPITER SWAP V1 API INTEGRATION =====
+  // Uses api.jup.ag/swap/v1 endpoints with x-api-key header
+  // Docs: https://station.jup.ag/docs/apis/swap-api
   
   const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Native SOL
-  const SLIPPAGE_BPS = 50; // 0.5% slippage (50 basis points)
+  const JUPITER_QUOTE_API = 'https://api.jup.ag/swap/v1/quote';
+  const JUPITER_SWAP_API = 'https://api.jup.ag/swap/v1/swap';
+  
+  // Get API key - in production, use environment variable via build system
+  // For now, using direct value since we're in browser (no process.env)
+  const JUP_API_KEY = '233fe202-5da0-4296-903f-8ca65bd71b36';
   
   let currentQuote = null;
   let isSwapping = false;
-  let isBuyMode = true; // true = buy token, false = sell token
+  let isBuyMode = true; // true = buy token with SOL, false = sell token for SOL
+  let tokenNotTradable = false; // Track if token can't be traded
+  
+  // Cache for token decimals
+  const decimalsCache = new Map();
+  
+  // Toast notification system
+  function showToast(type, title, message, duration = 5000) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `nx-toast ${type}`;
+    
+    const icon = type === 'success' ? '✓' : '✕';
+    
+    toast.innerHTML = `
+      <div class="nx-toast-icon">${icon}</div>
+      <div class="nx-toast-content">
+        <div class="nx-toast-title">${title}</div>
+        <div class="nx-toast-message">${message}</div>
+      </div>
+      <button class="nx-toast-close">×</button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Close button handler
+    const closeBtn = toast.querySelector('.nx-toast-close');
+    const close = () => {
+      toast.classList.add('hiding');
+      setTimeout(() => toast.remove(), 300);
+    };
+    closeBtn.addEventListener('click', close);
+    
+    // Auto-dismiss
+    if (duration > 0) {
+      setTimeout(close, duration);
+    }
+    
+    return toast;
+  }
   
   const amtInput = document.getElementById('amt');
   const outputDisplay = document.getElementById('output-display');
@@ -711,18 +836,89 @@ document.addEventListener("DOMContentLoaded", async () => {
   const buyBtn = document.getElementById('buy-btn');
   const sellBtn = document.getElementById('sell-btn');
   
-  // Get current token mint from URL
+  // Get current token mint from URL or localStorage fallback
   function getCurrentMint() {
+    // First try URL
     const qp = new URLSearchParams(location.search);
-    const mint = qp.get('mint') || '';
-    if (!mint) {
-      console.warn('[Jupiter] No mint address found in URL');
+    let mint = qp.get('mint') || '';
+    
+    if (mint) {
+      console.log('[Jupiter] Using mint from URL:', mint);
+      return mint;
     }
-    return mint;
+    
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('nebula_selected_coin');
+      if (stored) {
+        const coinData = JSON.parse(stored);
+        mint = coinData.mint || '';
+        if (mint) {
+          console.log('[Jupiter] Using mint from localStorage:', mint);
+          return mint;
+        }
+      }
+    } catch (e) {
+      console.error('[Jupiter] Error reading localStorage:', e);
+    }
+    
+    // Last resort: check window.NX global
+    if (window.NX?.mint) {
+      console.log('[Jupiter] Using mint from window.NX:', window.NX.mint);
+      return window.NX.mint;
+    }
+    
+    console.warn('[Jupiter] No mint address found');
+    return '';
   }
   
   // Make getCurrentMint globally accessible
   window.NX_getCurrentMint = getCurrentMint;
+  
+  // Get token decimals from on-chain mint data
+  async function getTokenDecimals(mintAddress) {
+    // Check cache first
+    if (decimalsCache.has(mintAddress)) {
+      return decimalsCache.get(mintAddress);
+    }
+    
+    // SOL is always 9 decimals
+    if (mintAddress === SOL_MINT) {
+      decimalsCache.set(mintAddress, 9);
+      return 9;
+    }
+    
+    try {
+      const connection = new solanaWeb3.Connection(window.NX_RPC);
+      const mintPubkey = new solanaWeb3.PublicKey(mintAddress);
+      
+      // Use getParsedAccountInfo to get mint data
+      const info = await connection.getParsedAccountInfo(mintPubkey);
+      
+      if (info && info.value && info.value.data && info.value.data.parsed) {
+        const decimals = info.value.data.parsed.info.decimals;
+        console.log(`[Jupiter] Fetched decimals for ${mintAddress.substring(0, 8)}...: ${decimals}`);
+        decimalsCache.set(mintAddress, decimals);
+        return decimals;
+      }
+      
+      // Fallback to 9 if we can't determine
+      console.warn(`[Jupiter] Could not determine decimals for ${mintAddress}, defaulting to 9`);
+      return 9;
+    } catch (error) {
+      console.error(`[Jupiter] Error fetching decimals for ${mintAddress}:`, error);
+      // Fallback to 9
+      return 9;
+    }
+  }
+  
+  // Build raw amount with correct decimals
+  async function buildRawAmount(uiAmount, mintAddress) {
+    const decimals = await getTokenDecimals(mintAddress);
+    const factor = Math.pow(10, decimals);
+    const raw = Math.floor(parseFloat(uiAmount) * factor);
+    return raw.toString();
+  }
   
   // Format token amounts with proper decimals
   function formatTokenAmount(amount, decimals = 9) {
@@ -733,113 +929,131 @@ document.addEventListener("DOMContentLoaded", async () => {
     return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
   
-  // Fetch quote from Jupiter with retry logic
-  async function fetchQuote(inputMint, outputMint, amount, decimals = 9, retries = 2) {
+  // Fetch quote from Jupiter Swap V1 API with authentication
+  async function fetchQuote(inputMint, outputMint, uiAmount, retries = 2) {
     try {
-      const amountLamports = Math.floor(parseFloat(amount) * Math.pow(10, decimals));
-      if (amountLamports <= 0) return null;
+      // Get correct decimals for the input token
+      const amountRaw = await buildRawAmount(uiAmount, inputMint);
       
-      let response;
+      if (!amountRaw || amountRaw === '0') return null;
       
-      if (USE_VERCEL_PROXY) {
-        // Use Vercel serverless function (reliable, no CORS issues)
-        const params = new URLSearchParams({
-          endpoint: 'quote',
-          inputMint,
-          outputMint,
-          amount: amountLamports.toString(),
-          slippageBps: SLIPPAGE_BPS.toString(),
-        });
-        
-        console.log('[Jupiter] Fetching quote via Vercel proxy...');
-        response = await fetch(`${VERCEL_API_BASE}?${params}`);
-        
-      } else {
-        // Fallback to public CORS proxy (unreliable)
-        const params = new URLSearchParams({
-          inputMint,
-          outputMint,
-          amount: amountLamports.toString(),
-          slippageBps: SLIPPAGE_BPS.toString(),
-        });
-        
-        const url = `${JUPITER_QUOTE_API}?${params}`;
-        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-        
-        console.log('[Jupiter] Fetching quote via public proxy...');
-        response = await fetch(proxyUrl);
-      }
+      const params = new URLSearchParams({
+        inputMint,
+        outputMint,
+        amount: amountRaw,
+        slippageBps: '50', // 0.5% slippage
+        onlyDirectRoutes: 'false',
+        asLegacyTransaction: 'false'
+      });
+      
+      console.log('[Jupiter Swap V1] Fetching quote...', params.toString());
+      
+      const response = await fetch(`${JUPITER_QUOTE_API}?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': JUP_API_KEY
+        }
+      });
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[Jupiter] Quote failed:', response.status, errorText.substring(0, 200));
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        // Check for permanent errors (don't retry these)
+        if (errorData.errorCode === 'TOKEN_NOT_TRADABLE') {
+          console.warn('[Jupiter Swap] This token is not tradable via Jupiter routing:', errorData.error);
+          tokenNotTradable = true;
+          disableSwapUI('This token is not currently tradable through Jupiter. You can still view your holdings and chart.');
+          return null;
+        }
+        
+        if (errorData.errorCode === 'NO_ROUTES_FOUND') {
+          console.warn('[Jupiter Swap] No routes found for this token pair');
+          tokenNotTradable = true;
+          disableSwapUI('No swap routes available for this token pair.');
+          return null;
+        }
+        
+        console.error('[Jupiter Swap V1] Quote failed:', response.status, errorText.substring(0, 300));
         throw new Error(`Quote failed: ${response.status}`);
       }
       
       const quote = await response.json();
-      console.log('[Jupiter] Quote received:', quote.outAmount);
+      
+      // Check for errors in response
+      if (quote.error) {
+        // Check for permanent routing errors
+        if (quote.errorCode === 'TOKEN_NOT_TRADABLE' || quote.errorCode === 'NO_ROUTES_FOUND') {
+          console.warn('[Jupiter Swap] Routing error:', quote.error);
+          tokenNotTradable = true;
+          disableSwapUI(quote.error);
+          return null;
+        }
+        
+        console.error('[Jupiter Swap V1] Quote error:', quote.error);
+        throw new Error(quote.error);
+      }
+      
+      console.log('[Jupiter Swap V1] Quote received:', {
+        inAmount: quote.inAmount,
+        outAmount: quote.outAmount,
+        priceImpactPct: quote.priceImpactPct
+      });
+      
+      // Clear tokenNotTradable flag if we got a quote
+      tokenNotTradable = false;
+      
       return quote;
     } catch (error) {
-      console.error('[Jupiter] Quote error:', error.message);
+      console.error('[Jupiter Swap V1] Quote error:', error.message);
       
-      // Retry with exponential backoff
-      if (retries > 0) {
-        const delay = (3 - retries) * 500; // 500ms, then 1000ms
-        console.log(`[Jupiter] Retrying in ${delay}ms... (${retries} retries left)`);
+      // Only retry for transient errors (network, 5xx)
+      const isTransientError = error.message.includes('Failed to fetch') || 
+                               error.message.includes('503') || 
+                               error.message.includes('502');
+      
+      if (retries > 0 && isTransientError) {
+        const delay = (3 - retries) * 500;
+        console.log(`[Jupiter Swap V1] Retrying in ${delay}ms... (${retries} retries left)`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchQuote(inputMint, outputMint, amount, decimals, retries - 1);
+        return fetchQuote(inputMint, outputMint, uiAmount, retries - 1);
       }
       
       return null;
     }
   }
   
-  // Get swap transaction from Jupiter
-  async function getSwapTransaction(quote, userPublicKey) {
-    try {
-      const swapBody = {
-        quoteResponse: quote,
-        userPublicKey: userPublicKey.toString(),
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: 'auto'
-      };
-      
-      let response;
-      
-      if (USE_VERCEL_PROXY) {
-        // Use Vercel serverless function
-        console.log('[Jupiter] Fetching swap transaction via Vercel proxy');
-        
-        response = await fetch(`${VERCEL_API_BASE}?endpoint=swap`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'POST',
-            body: swapBody
-          })
-        });
-        
-      } else {
-        // Fallback to public CORS proxy
-        console.log('[Jupiter] Fetching swap transaction via public proxy');
-        const proxyUrl = `${CORS_PROXY}${encodeURIComponent(JUPITER_SWAP_API)}`;
-        
-        response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(swapBody)
-        });
-      }
-      
-      if (!response.ok) throw new Error(`Swap transaction failed: ${response.status}`);
-      
-      const { swapTransaction } = await response.json();
-      return swapTransaction;
-    } catch (error) {
-      console.error('[Jupiter] Swap transaction error:', error);
-      throw error;
+  // Disable swap UI with error message
+  function disableSwapUI(message) {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.classList.remove('nx-btn-cyan');
+      submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
     }
+    
+    // Show error message
+    if (outputDisplay && outputAmount) {
+      outputAmount.textContent = message;
+      outputAmount.className = 'font-semibold text-amber-400 text-xs';
+      priceImpact.textContent = '';
+      outputDisplay.classList.remove('hidden');
+    }
+  }
+  
+  // Re-enable swap UI
+  function enableSwapUI() {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.classList.add('nx-btn-cyan');
+      submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    tokenNotTradable = false;
   }
   
   // Update output display with quote info
@@ -851,7 +1065,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     currentQuote = quote;
     const outAmount = formatTokenAmount(quote.outAmount, 9);
-    const impact = parseFloat(quote.priceImpactPct || 0);
+    
+    // Swap V1 returns priceImpactPct directly
+    const impact = parseFloat(quote.priceImpactPct) || 0;
     const impactColor = impact > 5 ? 'text-rose-400' : impact > 1 ? 'text-amber-400' : 'text-emerald-400';
     
     outputAmount.textContent = outAmount;
@@ -877,13 +1093,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!amount || parseFloat(amount) <= 0) {
       outputDisplay.classList.add('hidden');
       currentQuote = null;
+      enableSwapUI(); // Re-enable in case it was disabled
       return;
     }
     
     const mint = getCurrentMint();
     if (!mint) {
-      console.warn('[Jupiter] No token mint found');
+      console.warn('[Jupiter Swap V1] No token mint found');
       return;
+    }
+    
+    // Re-enable UI in case it was disabled from previous error
+    if (tokenNotTradable) {
+      enableSwapUI();
     }
     
     // Show loading state
@@ -899,42 +1121,43 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       if (quote) {
         updateOutputDisplay(quote);
-      } else {
-        // Show error message
+        enableSwapUI(); // Make sure UI is enabled on success
+      } else if (!tokenNotTradable) {
+        // Only show generic error if not TOKEN_NOT_TRADABLE (already handled in fetchQuote)
         const tokenSymbol = window.NX?.base || 'TOKEN';
         if (isBuyMode) {
-          showOutputError(`No liquidity to buy ${tokenSymbol}`);
+          showOutputError(`No route found for ${tokenSymbol}`);
         } else {
-          showOutputError(`No liquidity to sell ${tokenSymbol}`);
+          showOutputError(`No route to sell ${tokenSymbol}`);
         }
       }
-    }, 1000);
+    }, 500);
   }
   
-  // Execute swap
+  // Execute swap using Jupiter Swap V1 API
   async function executeSwap() {
     if (isSwapping || !currentQuote) {
       if (!currentQuote) {
-        alert('Please wait for quote to load or check if token has liquidity on Jupiter');
+        showToast('error', 'No Quote Available', 'Please wait for quote to load or check if token has liquidity on Jupiter');
       }
       return;
     }
     
     // Check wallet connection
     if (!window.NXWallet?.isConnected()) {
-      alert('Please connect your wallet first');
+      showToast('error', 'Wallet Not Connected', 'Please connect your wallet first');
       return;
     }
     
     const mint = getCurrentMint();
     if (!mint) {
-      alert('Token mint not found');
+      showToast('error', 'Token Not Found', 'Token mint address not found');
       return;
     }
     
     isSwapping = true;
     const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Swapping...';
+    submitBtn.textContent = 'Getting transaction...';
     submitBtn.disabled = true;
     
     try {
@@ -945,41 +1168,70 @@ document.addEventListener("DOMContentLoaded", async () => {
       const publicKey = provider.publicKey;
       if (!publicKey) throw new Error('Wallet not connected');
       
-      console.log('[Jupiter] Getting swap transaction...');
-      const swapTransactionBase64 = await getSwapTransaction(currentQuote, publicKey);
+      // Step 1: Get swap transaction from Jupiter Swap V1 API with authentication
+      console.log('[Jupiter Swap V1] Getting swap transaction...');
+      const swapResponse = await fetch(JUPITER_SWAP_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': JUP_API_KEY
+        },
+        body: JSON.stringify({
+          quoteResponse: currentQuote,
+          userPublicKey: publicKey.toString(),
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto' // Auto priority fee
+        })
+      });
       
-      // Deserialize and sign transaction
-      const swapTransactionBuf = Buffer.from(swapTransactionBase64, 'base64');
+      if (!swapResponse.ok) {
+        const errorText = await swapResponse.text();
+        throw new Error(`Failed to get swap transaction: ${errorText}`);
+      }
+      
+      const swapData = await swapResponse.json();
+      
+      if (swapData.error) {
+        throw new Error(swapData.error);
+      }
+      
+      // Step 2: Deserialize and sign the transaction
+      console.log('[Jupiter Swap V1] Deserializing transaction...');
+      submitBtn.textContent = 'Sign in wallet...';
+      
+      const swapTransactionBuf = Uint8Array.from(atob(swapData.swapTransaction), c => c.charCodeAt(0));
       const transaction = solanaWeb3.VersionedTransaction.deserialize(swapTransactionBuf);
       
-      console.log('[Jupiter] Signing transaction...');
+      console.log('[Jupiter Swap V1] Signing transaction...');
       const signedTransaction = await provider.signTransaction(transaction);
       
-      // Send transaction
-      console.log('[Jupiter] Sending transaction...');
+      // Step 3: Send the signed transaction to the network
+      console.log('[Jupiter Swap V1] Sending transaction to network...');
+      submitBtn.textContent = 'Sending...';
+      
       const connection = new solanaWeb3.Connection(window.NX_RPC);
       const rawTransaction = signedTransaction.serialize();
+      
       const txid = await connection.sendRawTransaction(rawTransaction, {
         skipPreflight: true,
-        maxRetries: 2
+        maxRetries: 3
       });
       
-      console.log('[Jupiter] Transaction sent:', txid);
+      console.log('[Jupiter Swap V1] Transaction sent:', txid);
       submitBtn.textContent = 'Confirming...';
       
-      // Wait for confirmation
-      const latestBlockHash = await connection.getLatestBlockhash();
-      await connection.confirmTransaction({
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-        signature: txid
-      });
+      // Step 4: Wait for confirmation
+      const confirmation = await connection.confirmTransaction(txid, 'confirmed');
       
-      console.log('[Jupiter] Transaction confirmed:', txid);
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      }
+      console.log('[Jupiter Swap V1] Transaction confirmed:', txid);
       
       // Log to order book
       const tokenSymbol = window.NX?.base || 'TOKEN';
-      const mint = getCurrentMint();
+      const orderMint = getCurrentMint();
       const userPublicKey = window.NXWallet?.publicKey;
       
       // Calculate actual amounts from quote
@@ -994,7 +1246,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const price = window.NX?.price || 0;
       
       logTradeToOrderBook({
-        tokenMint: mint,
+        tokenMint: orderMint,
         tokenSymbol: tokenSymbol,
         type: isBuyMode ? 'buy' : 'sell',
         tokenAmount: tokenAmount,
@@ -1015,15 +1267,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       
       // Trigger holdings refresh (token balance and stats)
-      console.log('[Jupiter] Triggering holdings refresh...');
+      console.log('[Jupiter Swap V1] Triggering holdings refresh...');
       window.dispatchEvent(new CustomEvent('jupiter:swap:complete', { detail: { txid } }));
       
-      // Show success message
-      alert(`Swap successful!\n\nTransaction: ${txid.slice(0, 8)}...${txid.slice(-8)}\n\nView on Solscan: https://solscan.io/tx/${txid}`);
+      // Show success toast with transaction link
+      const shortTx = `${txid.slice(0, 8)}...${txid.slice(-8)}`;
+      showToast(
+        'success',
+        'Swap Successful!',
+        `Transaction confirmed: <a href="https://solscan.io/tx/${txid}" target="_blank" class="nx-toast-link">${shortTx}</a>`,
+        8000
+      );
       
     } catch (error) {
-      console.error('[Jupiter] Swap failed:', error);
-      alert(`Swap failed: ${error.message}`);
+      console.error('[Jupiter Swap V1] Swap failed:', error);
+      
+      // Determine if user rejected or actual error
+      if (error.message?.includes('User rejected') || error.code === 4001) {
+        showToast('error', 'Transaction Cancelled', 'You rejected the transaction', 3000);
+      } else {
+        showToast('error', 'Swap Failed', error.message, 5000);
+      }
     } finally {
       isSwapping = false;
       submitBtn.textContent = originalText;
@@ -1237,9 +1501,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   submitBtn?.addEventListener('click', executeSwap);
   
   // Quick amount buttons
-  const quickBuyBtns = document.getElementById('quick-buy-btns');
-  const quickSellBtns = document.getElementById('quick-sell-btns');
-  const amtLabel = document.getElementById('amt-label');
   let currentBalance = 0; // Will be updated by holdings system
   
   // Store user's token balance globally
@@ -1247,33 +1508,52 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentBalance = balance;
   };
   
-  // SOL preset buttons (buy mode)
-  if (quickBuyBtns) {
-    quickBuyBtns.querySelectorAll('[data-sol]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const amount = btn.dataset.sol;
-        amtInput.value = amount;
-        handleAmountChange();
+  // Setup quick button handlers
+  function setupQuickButtons() {
+    const quickBuyBtns = document.getElementById('quick-buy-btns');
+    const quickSellBtns = document.getElementById('quick-sell-btns');
+    const amtLabel = document.getElementById('amt-label');
+    
+    // SOL preset buttons (buy mode)
+    if (quickBuyBtns) {
+      quickBuyBtns.querySelectorAll('[data-sol]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const amount = btn.dataset.sol;
+          if (amtInput) {
+            amtInput.value = amount;
+            handleAmountChange();
+          }
+        });
       });
-    });
+      console.log('[Jupiter] SOL preset buttons attached');
+    }
+    
+    // Percentage buttons (sell mode)
+    if (quickSellBtns) {
+      quickSellBtns.querySelectorAll('[data-pct]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pct = parseFloat(btn.dataset.pct);
+          if (!pct) return;
+          
+          if (currentBalance > 0) {
+            const amount = (currentBalance * pct / 100).toFixed(6);
+            if (amtInput) {
+              amtInput.value = amount;
+              handleAmountChange();
+            }
+          } else {
+            alert('No token balance to sell');
+          }
+        });
+      });
+      console.log('[Jupiter] Percentage buttons attached');
+    }
   }
   
-  // Percentage buttons (sell mode)
-  if (quickSellBtns) {
-    quickSellBtns.querySelectorAll('[data-pct]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const pct = parseFloat(btn.dataset.pct);
-        if (!pct) return;
-        
-        if (currentBalance > 0) {
-          const amount = (currentBalance * pct / 100).toFixed(6);
-          amtInput.value = amount;
-          handleAmountChange();
-        } else {
-          alert('No token balance to sell');
-        }
-      });
-    });
+  // Setup quick buttons immediately and after DOM loads
+  setupQuickButtons();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupQuickButtons);
   }
   
   // Buy/Sell mode toggle
@@ -1282,6 +1562,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const mint = getCurrentMint();
     const base = window.NX?.base || 'TOKEN';
     submitBtn.textContent = `Buy ${base}`;
+    const amtLabel = document.getElementById('amt-label');
+    const quickBuyBtns = document.getElementById('quick-buy-btns');
+    const quickSellBtns = document.getElementById('quick-sell-btns');
     if (amtLabel) amtLabel.textContent = 'Amount (SOL)';
     // Show SOL presets, hide percentage buttons
     if (quickBuyBtns) quickBuyBtns.classList.remove('hidden');
@@ -1294,6 +1577,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     isBuyMode = false;
     const base = window.NX?.base || 'TOKEN';
     submitBtn.textContent = `Sell ${base}`;
+    const amtLabel = document.getElementById('amt-label');
+    const quickBuyBtns = document.getElementById('quick-buy-btns');
+    const quickSellBtns = document.getElementById('quick-sell-btns');
     if (amtLabel) amtLabel.textContent = `Amount (${base})`;
     // Show percentage buttons, hide SOL presets
     if (quickBuyBtns) quickBuyBtns.classList.add('hidden');
@@ -1447,6 +1733,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Expose current context for other scripts
   window.NX = Object.assign({}, window.NX || {}, { pair, base, quote, mint, coinData });
+  
+  // Dispatch event to let Jupiter know mint is ready
+  window.dispatchEvent(new CustomEvent('nebula:mint:ready', { detail: { mint } }));
   
   // Format numbers for market cap, liquidity, volume (available globally)
   const fmt = (v) => {
@@ -1820,10 +2109,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statPnl = document.getElementById('stat-pnl');
   const holdingsInfo = document.getElementById('holdings-info');
   
-  // Get current mint from URL
+  // Get current mint from URL or localStorage fallback
   function getCurrentMint() {
+    // First try URL
     const qp = new URLSearchParams(location.search);
-    return qp.get('mint') || '';
+    let mint = qp.get('mint') || '';
+    
+    if (mint) return mint;
+    
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('nebula_selected_coin');
+      if (stored) {
+        const coinData = JSON.parse(stored);
+        mint = coinData.mint || '';
+        if (mint) return mint;
+      }
+    } catch (e) {
+      console.error('[Holdings] Error reading localStorage:', e);
+    }
+    
+    // Last resort: check window.NX global
+    if (window.NX?.mint) {
+      return window.NX.mint;
+    }
+    
+    return '';
   }
   
   // Format large numbers
