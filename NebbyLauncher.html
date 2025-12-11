@@ -102,7 +102,8 @@
           </div>
           <div>
             <label class="label">Symbol</label>
-            <input type="text" class="nx-input" placeholder="NEBX" required/>
+            <input id="symbol-input" type="text" class="nx-input" placeholder="NEBX" required/>
+            <div id="symbol-error" class="text-xs text-red-400 hidden mt-1">Symbol must be 1–10 characters, uppercase A–Z or 0–9, no spaces or special characters.</div>
           </div>
           <div>
             <label class="label">Initial Supply</label>
@@ -129,6 +130,7 @@
             </div>
             <input type="hidden" id="lock-input" name="lock" value="14"/>
             <p class="text-[11px] text-zinc-400 mt-1">How long your liquidity will be locked. Cannot be unlocked early.</p>
+            <div id="unlock-date" class="text-xs text-cyan-400 mt-1 font-mono"></div>
           </div>
 
           <div>
@@ -139,49 +141,116 @@
           <div class="grid md:grid-cols-2 gap-3">
             <div>
               <label class="label">Website (optional)</label>
-              <input type="url" class="nx-input" placeholder="https://example.com" />
+              <div class="relative">
+                <input type="url" class="nx-input social-input" id="website-input" placeholder="https://example.com" />
+                <span class="absolute right-3 top-2.5" id="website-icon"></span>
+                <span class="text-xs text-red-400 hidden absolute left-0 -bottom-5" id="website-error">Invalid URL (must start with https://)</span>
+              </div>
             </div>
             <div>
               <label class="label">X / Twitter (optional)</label>
-              <input type="url" class="nx-input" placeholder="https://x.com/yourhandle" />
+              <div class="relative">
+                <input type="url" class="nx-input social-input" id="twitter-input" placeholder="https://x.com/yourhandle" />
+                <span class="absolute right-3 top-2.5" id="twitter-icon"></span>
+                <span class="text-xs text-red-400 hidden absolute left-0 -bottom-5" id="twitter-error">Invalid URL (must start with https://)</span>
+              </div>
             </div>
             <div>
               <label class="label">Instagram (optional)</label>
-              <input type="url" class="nx-input" placeholder="https://instagram.com/yourhandle" />
+              <div class="relative">
+                <input type="url" class="nx-input social-input" id="instagram-input" placeholder="https://instagram.com/yourhandle" />
+                <span class="absolute right-3 top-2.5" id="instagram-icon"></span>
+                <span class="text-xs text-red-400 hidden absolute left-0 -bottom-5" id="instagram-error">Invalid URL (must start with https://)</span>
+              </div>
             </div>
             <div>
               <label class="label">TikTok (optional)</label>
-              <input type="url" class="nx-input" placeholder="https://tiktok.com/@yourhandle" />
+              <div class="relative">
+                <input type="url" class="nx-input social-input" id="tiktok-input" placeholder="https://tiktok.com/@yourhandle" />
+                <span class="absolute right-3 top-2.5" id="tiktok-icon"></span>
+                <span class="text-xs text-red-400 hidden absolute left-0 -bottom-5" id="tiktok-error">Invalid URL (must start with https://)</span>
+              </div>
             </div>
           </div>
-
+          <div class="flex items-center gap-2 mt-1">
+            <input type="checkbox" id="verified-creator" class="rounded-sm" />
+            <label for="verified-creator" class="text-sm text-zinc-300">Verified creator (optional)</label>
+          </div>
           <div>
             <label class="label">Initial Liquidity Pool (SOL) - Required</label>
-            <input id="initial-sol" type="number" min="10" step="0.1" class="nx-input" placeholder="e.g. 2.0" required/>
-            <p class="text-[11px] text-zinc-400 mt-1">SOL to seed the trading pool (separate from $5 launch fee). Minimum: $10 USD equivalent.</p>
+            <input id="initial-sol" type="number" min="0" step="0.0001" class="nx-input" placeholder="e.g. 2.0" required/>
+            <div class="flex items-center justify-between">
+              <p id="initial-sol-note" class="text-[11px] text-zinc-400 mt-1">SOL to seed the trading pool (separate from $5 launch fee). Minimum: $10 USD equivalent.</p>
+              <div id="sol-usd" class="text-[11px] text-zinc-300 mt-1">--</div>
+            </div>
+            <div id="initial-sol-error" class="text-xs text-red-400 hidden mt-1">Minimum required liquidity (USD equivalent) is $10. Increase SOL amount.</div>
           </div>
 
-          <button type="submit" class="nx-btn nx-btn-cyan w-full font-bold">Launch Token</button>
+          <div class="flex items-start gap-2">
+            <input type="checkbox" id="creator-liability" />
+            <label for="creator-liability" class="text-sm text-zinc-300">I acknowledge all launches are permanent and I am responsible for my actions.</label>
+          </div>
+          <div class="mt-2">
+            <input type="checkbox" id="onchain-commit" />
+            <label for="onchain-commit" class="text-sm text-zinc-300">I confirm I will deploy on-chain tokenomics (multisig vaults, vesting accounts, LP lock program) or use NebulaX on-chain services.</label>
+          </div>
+          <button id="launch-btn" type="submit" class="nx-btn nx-btn-cyan w-full font-bold mt-3">Launch Token</button>
+          <div id="launch-blocker" class="text-xs text-red-400 hidden mt-2">Please resolve the errors above and acknowledge the liability and on-chain commitments to proceed.</div>
         </form>
         <div id="status" class="mt-3 text-sm text-zinc-400"></div>
       </section>
 
       <!-- Right: Safety & Economics Info -->
       <aside class="space-y-3">
+        <!-- NEBX Flywheel Preview -->
+        <div class="nx-panel p-3">
+          <div class="text-sm font-bold mb-2 text-cyan-400">NEBX Flywheel</div>
+          <div class="flex flex-col items-center">
+            <svg width="120" height="120" viewBox="0 0 120 120" class="mb-2">
+              <!-- Proportional flywheel chart -->
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#181a2a" stroke-width="10"/>
+              <!-- Proportional flywheel chart, perfect circle, correct arc sizes -->
+                <g transform="rotate(-90 60 60)">
+                  <!-- subtle background ring -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#0f1724" stroke-width="12"/>
+                  <!-- 30% Burn NEBX (pink) -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#ec4899" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.24777960769379 219.9114857512855" stroke-dashoffset="0"/>
+                  <!-- 30% NEBX Staker Rewards (green) -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#34d399" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.24777960769379 219.9114857512855" stroke-dashoffset="-94.24777960769379"/>
+                  <!-- 20% Treasury (yellow) -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#fbbf24" stroke-width="10" stroke-linecap="round" stroke-dasharray="62.83185307179586 251.32741228718344" stroke-dashoffset="-188.49555921538758"/>
+                  <!-- 15% Auto-Stake Pool (purple) -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#a78bfa" stroke-width="10" stroke-linecap="round" stroke-dasharray="47.12388980384689 267.0353755551324" stroke-dashoffset="-251.32741228718344"/>
+                  <!-- 5% CREATOR REWARD (blue) -->
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#3b82f6" stroke-width="10" stroke-linecap="round" stroke-dasharray="15.707963267898966 298.45130209103033" stroke-dashoffset="-298.45130209103033"/>
+                </g>
+            </svg>
+            </svg>
+            <div class="flex flex-wrap gap-x-8 gap-y-2 text-xs items-center justify-center" style="min-width:220px;">
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-pink-400 inline-block"></span> <span>30% Burn NEBX</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span> <span>30% NEBX Staker Rewards</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-yellow-400 inline-block"></span> <span>20% Treasury</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-400 inline-block"></span> <span>15% Auto-Stake Pool</span></div>
+              <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-400 inline-block"></span> <span>5% CREATOR REWARD</span></div>
+            </div>
+            <div class="text-[10px] text-zinc-400 mt-2 text-center">Your launch contributes to the NebulaX Flywheel: burn, rewards, staking, and treasury for ecosystem growth.</div>
+          </div>
+        </div>
         <!-- Launch Fee Breakdown -->
         <div class="nx-panel p-3">
           <div class="text-sm font-bold mb-2" style="color:#ffffff">Launch Details</div>
           <div class="text-xs space-y-2 text-zinc-300">
             <div class="border-b border-[var(--nx-border)] pb-2">
               <div class="text-zinc-400 text-[10px] mb-1">Mandatory Launch Fee:</div>
-              <div class="flex justify-between font-semibold"><span>Platform Fee</span> <span class="text-cyan-400">$5 USD</span></div>
+              <div class="flex justify-between font-semibold"><span>Platform Fee</span> <span class="text-cyan-400">$5 USD + 1% of LP Pool</span></div>
             </div>
-            <div class="border-b border-[var(--nx-border)] pb-2">
-              <div class="text-zinc-400 text-[10px] mb-1">Fee Distribution:</div>
-              <div class="flex justify-between text-[10px]"><span>→ Burn NEBX</span> <span>30%</span></div>
-              <div class="flex justify-between text-[10px]"><span>→ NEBX Staker Rewards</span> <span>30%</span></div>
-              <div class="flex justify-between text-[10px]"><span>→ Auto Staking Pool</span> <span>20%</span></div>
-              <div class="flex justify-between text-[10px]"><span>→ Treasury</span> <span>20%</span></div>
+              <div class="border-b border-[var(--nx-border)] pb-2">
+                <div class="text-zinc-400 text-[10px] mb-1">Fee Distribution:</div>
+                <div class="flex justify-between text-[10px]"><span>→ Burn NEBX</span> <span>30%</span></div>
+                <div class="flex justify-between text-[10px]"><span>→ NEBX Staker Rewards</span> <span>30%</span></div>
+                <div class="flex justify-between text-[10px]"><span>→ Treasury</span> <span>20%</span></div>
+                <div class="flex justify-between text-[10px]"><span>→ Auto-Stake Pool</span> <span>15%</span></div>
+                <div class="flex justify-between text-[10px]"><span>→ Creator Reward</span> <span>5%</span></div>
             </div>
             <div>
               <div class="text-zinc-400 text-[10px] mb-1">Minimum to Launch:</div>
@@ -234,18 +303,182 @@
       });
     });
 
-    // Lock duration button selection
+    // Lock duration button selection and unlock date display
+    function updateUnlockDate() {
+      const lockDays = parseInt(document.getElementById('lock-input').value, 10);
+      const now = new Date();
+      const unlock = new Date(now.getTime() + lockDays * 24 * 60 * 60 * 1000);
+      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' };
+      const unlockStr = unlock.toLocaleString('en-US', options);
+      document.getElementById('unlock-date').textContent = `Unlock date: ${unlockStr}`;
+    }
     document.querySelectorAll('.lock-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         document.getElementById('lock-input').value = btn.dataset.lock;
         document.querySelectorAll('.lock-btn').forEach(b => b.classList.remove('nx-btn-cyan'));
         btn.classList.add('nx-btn-cyan');
+        updateUnlockDate();
+      });
+    });
+    // Set default lock duration button to highlighted (14 days) and show unlock date
+    document.querySelector('.lock-btn[data-lock="14"]')?.classList.add('nx-btn-cyan');
+    updateUnlockDate();
+
+    // Social/link normalization, validation and icon autofill
+    function normalizeUrl(val) {
+      if (!val) return '';
+      val = val.trim();
+      if (/^http:\/\//i.test(val)) val = val.replace(/^http:\/\//i, 'https://');
+      if (!/^https?:\/\//i.test(val)) {
+        // if it looks like a domain (contains a dot) prepend https://
+        if (/\./.test(val) && !/\s/.test(val)) val = 'https://' + val;
+      }
+      return val;
+    }
+
+    function validateSocialInput(input, iconId, errorId, platform) {
+      let val = input.value.trim();
+      let isEmpty = !val;
+      let isValid = true;
+      if (!isEmpty) {
+        try {
+          const u = new URL(val);
+          if (u.protocol !== 'https:') isValid = false;
+        } catch (e) { isValid = false; }
+      }
+      if (!isEmpty && !isValid) {
+        input.classList.add('border-red-400');
+        document.getElementById(errorId).classList.remove('hidden');
+      } else {
+        input.classList.remove('border-red-400');
+        document.getElementById(errorId).classList.add('hidden');
+      }
+      // Autofill icon (use lowercase for matching)
+      const l = val.toLowerCase();
+      let icon = '';
+      if (l.includes('twitter.com') || platform === 'twitter') icon = 'twitter';
+      else if (l.includes('instagram.com') || platform === 'instagram') icon = 'instagram';
+      else if (l.includes('tiktok.com') || platform === 'tiktok') icon = 'tiktok';
+      else if (l.includes('x.com')) icon = 'twitter';
+      else if (l.includes('youtube.com')) icon = 'youtube';
+      else if (l.includes('facebook.com')) icon = 'facebook';
+      else if (l.includes('github.com')) icon = 'github';
+      else if (l.includes('linkedin.com')) icon = 'linkedin';
+      else if (l.includes('discord.gg') || l.includes('discord.com')) icon = 'discord';
+      else if (l.includes('example.com')) icon = 'globe';
+      else if (val && platform === 'website') icon = 'globe';
+      document.getElementById(iconId).innerHTML = icon ? `<i data-lucide="${icon}" class="w-4 h-4 text-cyan-400"></i>` : '';
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    document.querySelectorAll('.social-input').forEach(input => {
+      let platform = input.id.split('-')[0];
+      let iconId = input.id.replace('input','icon');
+      let errorId = input.id.replace('input','error');
+      input.addEventListener('input',()=>validateSocialInput(input,iconId,errorId,platform));
+      input.addEventListener('blur',()=>{
+        // normalize to https when user leaves the field
+        input.value = normalizeUrl(input.value);
+        validateSocialInput(input,iconId,errorId,platform);
       });
     });
 
-    // Set default lock duration button to highlighted (14 days)
-    document.querySelector('.lock-btn[data-lock="14"]')?.classList.add('nx-btn-cyan');
+    // Symbol validation (Solana rules approximation)
+    const symbolInput = document.getElementById('symbol-input');
+    const symbolError = document.getElementById('symbol-error');
+    function validateSymbol() {
+      let v = symbolInput.value || '';
+      // remove weird unicode by keeping only ASCII letters/numbers
+      v = v.normalize('NFKD').replace(/[^\x00-\x7F]/g, '');
+      v = v.toUpperCase();
+      // remove spaces
+      v = v.replace(/\s+/g,'');
+      // restrict to A-Z0-9
+      const clean = v.replace(/[^A-Z0-9]/g,'');
+      if (clean !== v) v = clean;
+      symbolInput.value = v;
+      const ok = /^[A-Z0-9]{1,10}$/.test(v);
+      if (!ok) symbolError.classList.remove('hidden'); else symbolError.classList.add('hidden');
+      return ok;
+    }
+    symbolInput.addEventListener('input', validateSymbol);
+    symbolInput.addEventListener('blur', validateSymbol);
+
+    // SOL/USD enforcement
+    const solInput = document.getElementById('initial-sol');
+    const solUsd = document.getElementById('sol-usd');
+    const solError = document.getElementById('initial-sol-error');
+    const launchBtn = document.getElementById('launch-btn');
+    const creatorLiability = document.getElementById('creator-liability');
+    const onchainCommit = document.getElementById('onchain-commit');
+    const launchBlocker = document.getElementById('launch-blocker');
+
+    let solPrice = null;
+    async function fetchSolPrice(){
+      try{
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+        const j = await res.json();
+        solPrice = j?.solana?.usd || null;
+      }catch(e){ solPrice = null; }
+    }
+
+    function updateSolUsdDisplay(){
+      const val = parseFloat(solInput.value);
+      if (!solPrice || isNaN(val)) {
+        solUsd.textContent = solPrice ? `$${(val*solPrice).toFixed(2)} USD` : '--';
+        return;
+      }
+      const usd = val * solPrice;
+      solUsd.textContent = `$${usd.toFixed(2)} USD`;
+    }
+
+    function checkSolMinimum(){
+      const val = parseFloat(solInput.value);
+      if (!solPrice) return true; // cannot enforce if price unavailable
+      const usd = (isNaN(val) ? 0 : val) * solPrice;
+      const ok = usd >= 10.0;
+      if (!ok) solError.classList.remove('hidden'); else solError.classList.add('hidden');
+      return ok;
+    }
+
+    solInput.addEventListener('input', ()=>{ updateSolUsdDisplay(); validateFormState(); });
+
+    // fetch price on load and every 60s
+    (async ()=>{ await fetchSolPrice(); updateSolUsdDisplay(); validateFormState(); setInterval(async ()=>{ await fetchSolPrice(); updateSolUsdDisplay(); validateFormState(); }, 60000); })();
+
+    // form validation before submit
+    function validateFormState(){
+      const symOk = validateSymbol();
+      const solOk = checkSolMinimum();
+      const liabilityOk = creatorLiability.checked;
+      const commitOk = onchainCommit.checked;
+      const ok = symOk && solOk && liabilityOk && commitOk;
+      if (!ok) {
+        launchBtn.setAttribute('disabled','disabled');
+        launchBtn.classList.add('opacity-60');
+        launchBlocker.classList.remove('hidden');
+      } else {
+        launchBtn.removeAttribute('disabled');
+        launchBtn.classList.remove('opacity-60');
+        launchBlocker.classList.add('hidden');
+      }
+      return ok;
+    }
+
+    [symbolInput, solInput, creatorLiability, onchainCommit].forEach(el => el.addEventListener('change', validateFormState));
+
+    // prevent submit if validation fails
+    document.getElementById('mint-form').addEventListener('submit', (e)=>{
+      if (!validateFormState()) { e.preventDefault(); e.stopPropagation(); }
+      // Note: actual on-chain enforcement of tokenomics requires on-chain programs.
+    });
   </script>
+  <footer class="page-wrap mt-6 mb-6">
+    <div class="nx-panel px-3 py-3 text-xs flex items-center justify-between">
+      <div>© NebulaX 2025 — All rights reserved.</div>
+      <div class="text-zinc-400">Built with care • NebulaX Launchpad</div>
+    </div>
+  </footer>
 </body>
 </html>

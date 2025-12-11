@@ -164,6 +164,100 @@ function updateTokenCache(pools) {
 }
 
 /**
+ * Social links cache and fetching
+ */
+const socialLinksCache = new Map(); // mint -> { twitter, website, hasSocials, timestamp }
+const SOCIAL_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function fetchSocialsForToken(mint) {
+  // Check cache first
+  const cached = socialLinksCache.get(mint);
+  if (cached && Date.now() - cached.timestamp < SOCIAL_CACHE_TTL) {
+    return cached;
+  }
+
+  try {
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+    if (!response.ok) {
+      console.log(`[ADRENALINE] DexScreener API returned ${response.status} for ${mint}`);
+      const result = { twitter: null, website: null, hasSocials: false, timestamp: Date.now() };
+      socialLinksCache.set(mint, result);
+      return result;
+    }
+    
+    const data = await response.json();
+    console.log(`[ADRENALINE] DexScreener response for ${mint}:`, data);
+    
+    const pair = data.pairs?.[0];
+    if (!pair) {
+      console.log(`[ADRENALINE] No pairs found for ${mint}`);
+      const result = { twitter: null, website: null, hasSocials: false, timestamp: Date.now() };
+      socialLinksCache.set(mint, result);
+      return result;
+    }
+    
+    if (!pair.info) {
+      console.log(`[ADRENALINE] No pair.info for ${mint}, pair data:`, pair);
+      const result = { twitter: null, website: null, hasSocials: false, timestamp: Date.now() };
+      socialLinksCache.set(mint, result);
+      return result;
+    }
+
+    const socials = pair.info.socials || [];
+    const websites = pair.info.websites || [];
+    
+    console.log(`[ADRENALINE] Found socials for ${mint}:`, socials, 'websites:', websites);
+    
+    const twitterSocial = socials.find(s => s.type === 'twitter');
+    const websiteSocial = websites.find(w => w.url);
+    
+    const twitter = twitterSocial?.url || null;
+    const website = websiteSocial?.url || null;
+    const hasSocials = !!(twitter || website);
+    
+    const result = { twitter, website, hasSocials, timestamp: Date.now() };
+    console.log(`[ADRENALINE] Fetched socials for ${mint}: twitter=${!!twitter}, website=${!!website}, hasSocials=${hasSocials}`);
+    socialLinksCache.set(mint, result);
+    return result;
+  } catch (e) {
+    console.error('[ADRENALINE] Error fetching socials for', mint, e);
+    const result = { twitter: null, website: null, hasSocials: false, timestamp: Date.now() };
+    socialLinksCache.set(mint, result);
+    return result;
+  }
+}
+
+/**
+ * Enrich tokens with social data (in batches to avoid rate limits)
+ */
+async function enrichTokensWithSocials(tokens) {
+  if (!tokens || tokens.length === 0) return tokens;
+  
+  console.log(`[ADRENALINE] Enriching ${tokens.length} tokens with social data...`);
+  // Process in small batches to avoid overwhelming the API
+  const batchSize = 5;
+  const tokensWithSocials = [];
+  
+  for (let i = 0; i < Math.min(tokens.length, 20); i += batchSize) {
+    const batch = tokens.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (token) => {
+      const socials = await fetchSocialsForToken(token.mint);
+      token.hasSocials = socials.hasSocials;
+      if (socials.hasSocials) {
+        tokensWithSocials.push(token.symbol);
+      }
+    }));
+    // Small delay between batches
+    if (i + batchSize < tokens.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  
+  console.log(`[ADRENALINE] Enrichment complete. Tokens with socials: ${tokensWithSocials.join(', ') || 'none'}`);
+  return tokens;
+}
+
+/**
  * Refresh all panels
  */
 async function refreshNewPairs() {
@@ -215,6 +309,11 @@ async function refreshNewPairs() {
 
     // Sort by liquidity descending (most successful migrations first)
     migratedTokens.sort((a, b) => b.liquidityUsd - a.liquidityUsd);
+
+    // Enrich tokens with social data (modifies tokens in-place, only first 20 to avoid rate limits)
+    await enrichTokensWithSocials(newPairs);
+    await enrichTokensWithSocials(migratingTokens);
+    await enrichTokensWithSocials(migratedTokens);
 
     console.log(`[ADRENALINE] ✅ New: ${newPairs.length} | 🔄 Migrating: ${migratingTokens.length} | 🎯 Migrated: ${migratedTokens.length}`);
 

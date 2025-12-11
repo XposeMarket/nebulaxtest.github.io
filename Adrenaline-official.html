@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+<!-- QR Code Generator Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="nx-theme.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <script>
@@ -139,6 +141,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   const wBtn = document.getElementById('wallet-btn');
   const wModal = document.getElementById('wallet-modal');
   
+  /* ====== QR Code Generator for Deposit Modal ====== */
+  function generateDepositQR(address) {
+    const qrContainer = document.getElementById('qr-code');
+    if (!qrContainer) return;
+    
+    // Clear existing QR code
+    qrContainer.innerHTML = '';
+    
+    // Generate new QR code with Solana URI format
+    const solanaURI = `solana:${address}`;
+    
+    try {
+      new QRCode(qrContainer, {
+        text: solanaURI,
+        width: 200,
+        height: 200,
+        colorDark: '#00e6ff',
+        colorLight: '#0f1a2e',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      console.log('[QR Code] Generated for address:', address);
+    } catch (error) {
+      console.error('[QR Code] Generation failed:', error);
+      qrContainer.innerHTML = '<div class="text-xs text-red-500">QR Code generation failed</div>';
+    }
+  }
+  
   wBtn?.addEventListener('click', (e)=>{
     e.stopPropagation();
     updateWalletDisplay();
@@ -152,6 +181,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById('dp-open')?.addEventListener('click', ()=>{
     wModal.classList.add('hidden');
     document.getElementById('deposit').classList.remove('hidden');
+    const depositAddr = document.getElementById('deposit-addr').textContent;
+    generateDepositQR(depositAddr);
   });
   
   document.getElementById('wd-open')?.addEventListener('click', ()=>{
@@ -232,8 +263,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
       const logoUrl = token.logoURI;
 
+      // Only show social icon if token has social links
+      const socialIconHTML = token.hasSocials ? `
+          <button class="social-icon-btn" onclick="event.stopPropagation();" data-mint="${token.mint}">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="8" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <circle cx="16" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <path d="M8 14.5 Q12 17 16 14.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="social-preview" data-mint="${token.mint}"></div>` : '';
+
       return `
-        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+        <div class="row-card" data-mint="${token.mint}" data-symbol="${token.symbol}" data-name="${token.name}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          ${socialIconHTML}
           <div class="row-top">
             <div class="row-left">
               <div class="token-media">
@@ -317,8 +361,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
       const logoUrl = token.logoURI;
 
+      // Only show social icon if token has social links
+      const socialIconHTML = token.hasSocials ? `
+          <button class="social-icon-btn" onclick="event.stopPropagation();" data-mint="${token.mint}">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="8" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <circle cx="16" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <path d="M8 14.5 Q12 17 16 14.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="social-preview" data-mint="${token.mint}"></div>` : '';
+      
       return `
-        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+        <div class="row-card" data-mint="${token.mint}" data-symbol="${token.symbol}" data-name="${token.name}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          ${socialIconHTML}
           <div class="row-top">
             <div class="row-left">
               <div class="token-media">
@@ -388,8 +445,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       const pctText = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
       const logoUrl = token.logoURI;
 
+      // Only show social icon if token has social links
+      const socialIconHTML = token.hasSocials ? `
+          <button class="social-icon-btn" onclick="event.stopPropagation();" data-mint="${token.mint}">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="8" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <circle cx="16" cy="10" r="1.5" fill="var(--nx-cyan)"/>
+              <path d="M8 14.5 Q12 17 16 14.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="social-preview" data-mint="${token.mint}"></div>` : '';
+      
       return `
-        <div class="row-card" data-mint="${token.mint}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+        <div class="row-card" data-mint="${token.mint}" data-symbol="${token.symbol}" data-name="${token.name}" onclick="goToCoin('${token.mint}', '${token.symbol}')" style="cursor:pointer;">
+          ${socialIconHTML}
           <div class="row-top">
             <div class="row-left">
               <div class="token-media">
@@ -448,6 +518,176 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.addEventListener('adrenaline:migrated:updated', () => {
     renderMigratedPairs();
   });
+
+  // === SOCIAL PREVIEW SYSTEM ===
+  const socialCache = new Map(); // mint -> { twitter, website, timestamp }
+  const SOCIAL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  async function fetchSocialLinks(mint) {
+    // Check cache first
+    const cached = socialCache.get(mint);
+    if (cached && Date.now() - cached.timestamp < SOCIAL_CACHE_TTL) {
+      console.log('[Social] Using cached data for', mint, cached);
+      return cached;
+    }
+
+    console.log('[Social] Fetching social links for', mint);
+    try {
+      const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+      if (!response.ok) {
+        console.log('[Social] API response not OK for', mint);
+        return { twitter: null, website: null };
+      }
+      
+      const data = await response.json();
+      const pair = data.pairs?.[0];
+      if (!pair?.info) {
+        console.log('[Social] No pair.info found for', mint);
+        return { twitter: null, website: null };
+      }
+
+      const socials = pair.info.socials || [];
+      const websites = pair.info.websites || [];
+      
+      const twitterSocial = socials.find(s => s.type === 'twitter');
+      const websiteSocial = websites.find(w => w.url);
+      
+      const result = {
+        twitter: twitterSocial?.url || null,
+        website: websiteSocial?.url || null,
+        timestamp: Date.now()
+      };
+      
+      console.log('[Social] Found social links for', mint, result);
+      socialCache.set(mint, result);
+      return result;
+    } catch (e) {
+      console.error('[Social] Error fetching social links:', e);
+      return { twitter: null, website: null };
+    }
+  }
+
+  function createSocialPreviewHTML(twitter, website, tokenSymbol, tokenName) {
+    const parts = [];
+    
+    if (twitter) {
+      const username = twitter.match(/(?:twitter\.com|x\.com)\/([^\/\?]+)/)?.[1] || 'Unknown';
+      parts.push(`
+        <div style="padding: 1.25rem; border-bottom: 1px solid rgba(0, 230, 255, 0.15);">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #1DA1F2, #0d8bd9); border-radius: 50%; display: grid; place-items-center; box-shadow: 0 4px 12px rgba(29, 161, 242, 0.3);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 0.95rem; color: var(--nx-cyan); text-shadow: 0 0 8px rgba(0, 230, 255, 0.3);">@${username}</div>
+              <div style="font-size: 0.75rem; color: #1DA1F2; font-weight: 500;">Twitter/X</div>
+            </div>
+          </div>
+          <div style="padding: 0.75rem; background: rgba(0, 230, 255, 0.08); border: 1px solid rgba(0, 230, 255, 0.2); border-radius: 8px;">
+            <div style="color: #e0e7ff; font-size: 0.8rem; margin-bottom: 0.25rem; font-weight: 500;">Official ${tokenSymbol} Account</div>
+            <div style="color: #a1a5b7; font-size: 0.7rem; line-height: 1.4;">Follow for updates and announcements.</div>
+          </div>
+          <a href="${twitter}" target="_blank" style="display: block; margin-top: 0.75rem; padding: 0.5rem; background: rgba(0, 230, 255, 0.1); border: 1px solid rgba(0, 230, 255, 0.3); border-radius: 6px; text-align: center; color: var(--nx-cyan); font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 230, 255, 0.2)'" onmouseout="this.style.background='rgba(0, 230, 255, 0.1)'">Open Profile →</a>
+        </div>
+      `);
+    }
+    
+    if (website) {
+      const url = new URL(website);
+      const hostname = url.hostname.replace('www.', '');
+      let platformName = 'Website', platformColor = 'var(--nx-cyan)';
+      let platformIcon = `<circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>`;
+      
+      if (hostname.includes('instagram.com')) { platformName='Instagram'; platformColor='#E4405F'; platformIcon=`<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>`; }
+      else if (hostname.includes('reddit.com')) { platformName='Reddit'; platformColor='#FF4500'; platformIcon=`<circle cx="12" cy="12" r="10"></circle><circle cx="9" cy="10" r="1.5"></circle><circle cx="15" cy="10" r="1.5"></circle><path d="M9 15c.5.5 1.5 1 3 1s2.5-.5 3-1"></path>`; }
+      else if (hostname.includes('t.me') || hostname.includes('telegram')) { platformName='Telegram'; platformColor='#0088cc'; platformIcon=`<polygon points="22 2 2 8.67 8.5 12.5 13 22 14.5 17 22 2"></polygon>`; }
+      else if (hostname.includes('discord')) { platformName='Discord'; platformColor='#5865F2'; platformIcon=`<path d="M9 12c0 .8-.7 1.5-1.5 1.5S6 12.8 6 12s.7-1.5 1.5-1.5S9 11.2 9 12zm6 0c0 .8-.7 1.5-1.5 1.5S12 12.8 12 12s.7-1.5 1.5-1.5S15 11.2 15 12z"></path><path d="M20.3 4.7c-1.2-.6-2.5-1-3.8-1.3-.2.3-.4.7-.5 1-1.4-.2-2.8-.2-4.2 0-.2-.3-.3-.7-.5-1-1.4.3-2.6.7-3.8 1.3C2.4 8.8 1.5 12.8 2 16.7c1.6 1.2 3.1 1.9 4.6 2.4.4-.5.7-1 1-1.6-.5-.2-1-.5-1.5-.8l.4-.3c2.9 1.3 6.1 1.3 9 0l.4.3c-.5.3-1 .6-1.5.8.3.6.6 1.1 1 1.6 1.5-.5 3-1.2 4.6-2.4.5-4.5-.8-8.4-3.7-11.9z"></path>`; }
+      
+      parts.push(`
+        <div style="padding: 1.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, ${platformColor}, ${platformColor}dd); border-radius: 50%; display: grid; place-items-center; box-shadow: 0 4px 12px ${platformColor}50;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${platformIcon}</svg>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 0.95rem; color: var(--nx-cyan); text-shadow: 0 0 8px rgba(0, 230, 255, 0.3);">${hostname}</div>
+              <div style="font-size: 0.75rem; color: ${platformColor}; font-weight: 500;">${platformName}</div>
+            </div>
+          </div>
+          <div style="padding: 0.75rem; background: rgba(0, 230, 255, 0.08); border: 1px solid rgba(0, 230, 255, 0.2); border-radius: 8px;">
+            <div style="color: #e0e7ff; font-size: 0.8rem; margin-bottom: 0.25rem; font-weight: 500;">Official ${tokenSymbol} ${platformName}</div>
+            <div style="color: #a1a5b7; font-size: 0.7rem; line-height: 1.4;">Visit for more information.</div>
+          </div>
+          <a href="${website}" target="_blank" style="display: block; margin-top: 0.75rem; padding: 0.5rem; background: rgba(0, 230, 255, 0.1); border: 1px solid rgba(0, 230, 255, 0.3); border-radius: 6px; text-align: center; color: var(--nx-cyan); font-size: 0.75rem; font-weight: 600; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 230, 255, 0.2)'" onmouseout="this.style.background='rgba(0, 230, 255, 0.1)'">Visit Website →</a>
+        </div>
+      `);
+    }
+    
+    if (parts.length === 0) {
+      return `
+        <div style="padding: 1.5rem; text-align: center;">
+          <div style="width: 48px; height: 48px; margin: 0 auto 0.75rem; background: rgba(100, 116, 139, 0.2); border-radius: 50%; display: grid; place-items-center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div style="color: #9aa6dc; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem;">No Social Links</div>
+          <div style="color: #64748b; font-size: 0.75rem;">This token has no public social links yet.</div>
+        </div>
+      `;
+    }
+    
+    return parts.join('');
+  }
+
+  // Handle social icon hover with proper event delegation
+  let socialHoverTimeout = null;
+  
+  document.addEventListener('click', (e) => {
+    const btn = e.target?.closest ? e.target.closest('.social-icon-btn') : null;
+    if (btn) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+  
+  document.addEventListener('mouseenter', async (e) => {
+    if (!e.target || !e.target.closest) return;
+    const btn = e.target.closest('.social-icon-btn');
+    if (!btn) return;
+    
+    const mint = btn.dataset.mint;
+    const card = btn.closest('.row-card');
+    const preview = card?.querySelector('.social-preview');
+    if (!preview) return;
+    
+    clearTimeout(socialHoverTimeout);
+    socialHoverTimeout = setTimeout(async () => {
+      const tokenSymbol = card.dataset.symbol || 'TOKEN';
+      const tokenName = card.dataset.name || tokenSymbol;
+      
+      preview.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: #9aa6dc;">Loading...</div>';
+      preview.classList.add('show');
+      
+      const { twitter, website } = await fetchSocialLinks(mint);
+      preview.innerHTML = createSocialPreviewHTML(twitter, website, tokenSymbol, tokenName);
+    }, 300);
+  }, true);
+
+  document.addEventListener('mouseleave', (e) => {
+    if (!e.target || !e.target.closest) return;
+    const btn = e.target.closest('.social-icon-btn');
+    if (!btn) return;
+    
+    clearTimeout(socialHoverTimeout);
+    const card = btn.closest('.row-card');
+    const preview = card?.querySelector('.social-preview');
+    if (preview) preview.classList.remove('show');
+  }, true);
 
   // Initial render
   setTimeout(() => {
@@ -523,8 +763,110 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       /* Photon-style compact rows */
       .nx-list{ width:100%; }
-      .row-card{ padding:12px 10px; border-bottom:1px solid #333a66; cursor:pointer; }
+      .row-card{ padding:12px 10px; border-bottom:1px solid #333a66; cursor:pointer; position: relative; }
       .row-card:last-child{ border-bottom:0; }
+      
+      /* Social icon and preview */
+      .social-icon-btn {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: rgba(0, 230, 255, 0.1);
+        border: 1px solid rgba(0, 230, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        z-index: 10;
+      }
+      .social-icon-btn:hover {
+        background: rgba(0, 230, 255, 0.2);
+        border-color: var(--nx-cyan);
+        box-shadow: 0 0 12px rgba(0, 230, 255, 0.4);
+      }
+      .social-icon-btn svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: var(--nx-cyan);
+        stroke-width: 2;
+      }
+      
+      .social-preview {
+        position: absolute;
+        bottom: 40px;
+        left: 8px;
+        width: 320px;
+        max-height: 400px;
+        background: linear-gradient(135deg, rgba(13, 16, 34, 0.98), rgba(18, 22, 40, 0.98));
+        border: 1px solid rgba(0, 230, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 230, 255, 0.15);
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        overflow: hidden;
+      }
+      .social-preview.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      
+      /* Social icon and preview */
+      .social-icon-btn {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: rgba(0, 230, 255, 0.1);
+        border: 1px solid rgba(0, 230, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        z-index: 10;
+      }
+      .social-icon-btn:hover {
+        background: rgba(0, 230, 255, 0.2);
+        border-color: var(--nx-cyan);
+        box-shadow: 0 0 12px rgba(0, 230, 255, 0.4);
+      }
+      .social-icon-btn svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: var(--nx-cyan);
+        stroke-width: 2;
+      }
+      
+      .social-preview {
+        position: absolute;
+        bottom: 40px;
+        left: 8px;
+        width: 320px;
+        max-height: 400px;
+        background: linear-gradient(135deg, rgba(13, 16, 34, 0.98), rgba(18, 22, 40, 0.98));
+        border: 1px solid rgba(0, 230, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 230, 255, 0.15);
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        overflow: hidden;
+      }
+      .social-preview.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
 /* keep this from earlier */
 .row-top{
   display:flex;
@@ -703,59 +1045,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       </div>
     </div>
-    
-    <!-- Deposit / Withdraw modals -->
-    <div id="deposit" class="modal-fx hidden">
-      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
-        <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
-        <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
-      </div>
-    </div>
-    <div id="withdraw" class="modal-fx hidden">
-      <div class="nx-panel w-[360px] max-w-[90vw] p-3">
-        <div class="flex items-center justify-between mb-2"><div class="font-semibold">Withdraw</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button></div>
-        <div class="space-y-2">
-          <input class="nx-input" placeholder="Destination SOL address"/>
-          <button class="nx-btn nx-btn-cyan w-full">Withdraw SOL</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Deposit Modal -->
-    <div id="deposit" class="modal-fx hidden">
-      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
-        <div class="grid gap-3">
-          <div style="font-size:14px;font-weight:700">Deposit SOL</div>
-          <div>
-            <div style="font-size:12px;color:#9aa6dc;margin-bottom:6px">Send to this address:</div>
-            <div id="deposit-addr" style="font-size:11px;font-family:'Courier New',monospace;word-break:break-all;background:rgba(13,16,34,.8);padding:12px;border-radius:8px;border:1px solid var(--nx-border);margin-bottom:10px">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
-            <button id="copy-deposit" class="nx-btn nx-btn-cyan w-full">Copy Address</button>
-          </div>
-          <button id="deposit-close" class="nx-btn" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Withdraw Modal -->
-    <div id="withdraw" class="modal-fx hidden">
-      <div class="nx-panel w-[380px] max-w-[90vw] p-4">
-        <div class="grid gap-3">
-          <div style="font-size:14px;font-weight:700">Withdraw SOL</div>
-          <div>
-            <label style="font-size:12px;color:#9aa6dc">Destination Address:</label>
-            <input id="withdraw-addr" type="text" class="nx-input mt-2" placeholder="Enter Solana address"/>
-          </div>
-          <div>
-            <label style="font-size:12px;color:#9aa6dc">Amount:</label>
-            <input id="withdraw-amt" type="number" class="nx-input mt-2" placeholder="0.00" step="0.001"/>
-          </div>
-          <button class="nx-btn nx-btn-cyan w-full">Withdraw</button>
-          <button id="withdraw-close" class="nx-btn" onclick="document.getElementById('withdraw').classList.add('hidden')">Close</button>
-        </div>
-      </div>
-    </div>
 
     <div class="page-wrap">
       <!-- Main grid (3 columns) -->
@@ -842,7 +1131,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="font-semibold">Deposit</div>
           <button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button>
         </div>
-        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="text-sm text-zinc-400 mb-3">Scan with your wallet or exchange app:</div>
+        <!-- QR Code Container -->
+        <div id="qr-code-container" class="flex justify-center mb-4 p-3 rounded-lg" style="background:#0f1a2e; border:1px solid var(--nx-border); border-radius:12px;">
+          <div id="qr-code"></div>
+        </div>
+        <div class="text-sm text-zinc-400 mb-2">Or copy your wallet address:</div>
         <div class="nx-panel p-2 text-xs break-words select-all" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
         <div class="flex gap-2 mt-3 justify-end">
           <button class="nx-btn nx-btn-cyan" id="dp-copy">Copy Address</button>

@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+<!-- QR Code Generator Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="nx-theme.js"></script>
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
 <script>
@@ -557,7 +559,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
         <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="text-sm text-zinc-400 mb-3">Scan with your wallet or exchange app:</div>
+        <!-- QR Code Container -->
+        <div id="qr-code-container" class="flex justify-center mb-4 p-3 rounded-lg" style="background:#0f1a2e; border:1px solid var(--nx-border); border-radius:12px;">
+          <div id="qr-code"></div>
+        </div>
+        <div class="text-sm text-zinc-400 mb-2">Or copy your wallet address:</div>
         <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
         <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
       </div>
@@ -589,6 +596,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       /* ===== Wallet modal + modals ===== */
       const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
       
+      /* ====== QR Code Generator for Deposit Modal ====== */
+      function generateDepositQR(address) {
+        const qrContainer = document.getElementById('qr-code');
+        if (!qrContainer) return;
+        
+        // Clear existing QR code
+        qrContainer.innerHTML = '';
+        
+        // Generate new QR code with Solana URI format
+        const solanaURI = `solana:${address}`;
+        
+        try {
+          new QRCode(qrContainer, {
+            text: solanaURI,
+            width: 200,
+            height: 200,
+            colorDark: '#00e6ff',
+            colorLight: '#0f1a2e',
+            correctLevel: QRCode.CorrectLevel.H
+          });
+          console.log('[QR Code] Generated for address:', address);
+        } catch (error) {
+          console.error('[QR Code] Generation failed:', error);
+          qrContainer.innerHTML = '<div class="text-xs text-red-500">QR Code generation failed</div>';
+        }
+      }
+      
       // Update wallet display with real balance
       function updateWalletDisplay(){
         const balance = window.NXWallet?.getBalance?.();
@@ -599,7 +633,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
       wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
-      document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+      document.getElementById('dp-open')?.addEventListener('click',()=>{ 
+        wModal.classList.add('hidden'); 
+        document.getElementById('deposit').classList.remove('hidden');
+        const depositAddr = document.getElementById('deposit-addr').textContent;
+        generateDepositQR(depositAddr);
+      });
       document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
       
       // Wallet connect/disconnect

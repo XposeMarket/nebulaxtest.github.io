@@ -228,11 +228,62 @@ function Card({ title, toolbar, children, className, onClick }) {
 
       /* ===== Robust ChartPanel (props) ===== */
 function ChartPanel2({ symbol }) {
+  const [price, setPrice] = React.useState(null);
   const url = DEX_EMBEDS[symbol]; // undefined if not set yet
+  
+  // Extract crypto name from symbol (e.g., "BTC/USDC" -> "BTC")
+  const cryptoName = symbol ? symbol.split('/')[0] : '';
+  
+  // Fetch current price from DexScreener API
+  React.useEffect(() => {
+    if (!symbol) return;
+    
+    const fetchPrice = async () => {
+      try {
+        const base = symbol.split('/')[0];
+        const quote = symbol.split('/')[1] || 'USDC';
+        const chain = base === 'SOL' ? 'solana' : 'ethereum';
+        const q = `${base} ${quote} ${chain}`;
+        
+        const r = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`, { cache:'no-store' });
+        const j = await r.json();
+        const list = Array.isArray(j.pairs) ? j.pairs : [];
+        
+        const U = s => (s||'').toUpperCase();
+        const hit = list
+          .filter(p => p.chainId===chain && U(p.baseToken?.symbol)===base && U(p.quoteToken?.symbol)===quote)
+          .sort((a,b)=> (b.volume?.h24||0) - (a.volume?.h24||0))[0] || null;
+        
+        if (hit?.priceUsd) {
+          setPrice(parseFloat(hit.priceUsd));
+        }
+      } catch(e) {
+        console.error('Failed to fetch price for', symbol, e);
+      }
+    };
+    
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 30000); // Update every 30s
+    return () => clearInterval(interval);
+  }, [symbol]);
+  
+  // Format price with appropriate decimals
+  const formatPrice = (p) => {
+    if (p === null) return '...';
+    if (p >= 1000) return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (p >= 1) return p.toFixed(2);
+    if (p >= 0.00001) return p.toFixed(5);
+    // Compact notation for very small prices
+    const absExp = Math.floor(Math.log10(p));
+    const mantissa = p / Math.pow(10, absExp);
+    return mantissa.toFixed(1) + '(^' + Math.abs(absExp) + ')';
+  };
+  
+  const title = `${cryptoName} Chart - Current Price: $${formatPrice(price)}`;
 
   return (
-    <Card title="Chart">
-      <div style={{ position:'relative', width:'100%', height:420, borderRadius:12, overflow:'hidden' }}>
+    <Card title={title}>
+      <div style={{ position:'relative', width:'100%', height:420, borderRadius:12, overflow:'hidden', maxHeight:'420px' }}>
         {url ? (
           <iframe
             title={`DexScreener ${symbol}`}
@@ -255,11 +306,10 @@ function ChartPanel2({ symbol }) {
 
       /* ===== Layout model ===== */
       const DEFAULT_LAYOUT={
-        wide:["ticker"],                      // top row shows a single panel (replace on drop)
+        wide:[],                      // top row shows a single panel (replace on drop)
         left:["chart","data-feed"],
         right:["portfolio","alerts","referrals","docs","selftest"],
         heights:{
-          "ticker":130,
           "trending":320,
           "chart":420,
           "data-feed":240,
@@ -1016,10 +1066,16 @@ function LivePortfolioCard() {
           programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
         });
 
+        // Read hidden positions from localStorage
+        const HIDDEN_POS_KEY = 'nebulax_hidden_positions';
+        const hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+        
         const rawPositions = tokenAccounts.value
           .filter(acc => {
             const amount = acc.account.data.parsed?.info?.tokenAmount?.uiAmount || 0;
-            return amount > 0;
+            const mint = acc.account.data.parsed?.info?.mint;
+            // Exclude zero balance and hidden positions
+            return amount > 0 && !hiddenPositions.includes(mint);
           })
           .map(acc => {
             const info = acc.account.data.parsed?.info;
@@ -1672,7 +1728,7 @@ function ExplorePanel({dockBack, isTop}){
 
   return (
     <Card title="Explore" toolbar={<Pill>Discover</Pill>}>
-      <div className="h-full flex flex-col min-h-0">
+      <div className={cx("h-full flex flex-col min-h-0", isTop && "justify-center")}>
         {editMode && dockBack && (
           <div className="mb-2 shrink-0">
             <Button variant="outline" className="px-2 py-1 text-xs" onClick={dockBack}>

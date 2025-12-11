@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+<!-- QR Code Generator Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="nx-theme.js"></script>
 <!-- 1) Solana web3 must be present before nx-wallet -->
 <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
@@ -212,6 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .row-card.highlight{box-shadow:inset 0 0 0 1px rgba(0,230,255,.35),0 0 12px rgba(0,230,255,.12);border-radius:12px}
 
       /* SEARCH dropdown styles (critical!) */
+      #search-dd { background:rgba(16,20,40,.98); border:1px solid var(--nx-border); border-radius:12px; box-shadow:0 16px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(0,230,255,.08); }
       #search-wrap:focus-within .nx-input{ border-color:var(--nx-cyan); box-shadow:0 0 0 2px rgba(0,230,255,.14); }
       .search-row{ display:flex; align-items:center; gap:.75rem; padding:.45rem .6rem; border-radius:10px; cursor:pointer; }
       .search-row:hover{ background: var(--nx-dark-2); }
@@ -288,21 +291,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div class="flex items-center justify-between mb-2">
               <div class="text-xl nx-title">Positions</div>
               <div class="flex gap-2">
-                <!-- controls removed per request -->
+                <button id="show-hidden-btn" class="text-xs px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all">Show Hidden</button>
+                <button id="hide-small-btn" class="text-xs px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all">Hide Small Balances</button>
               </div>
             </div>
             <div class="themed-scroll max-h-[420px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
               <table class="nx-table" id="pos-table">
                 <thead>
                   <tr>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="token" title="Click to sort">Token ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="qty" title="Click to sort">Qty ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="avgCost" title="Click to sort">Avg Cost ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="price" title="Click to sort">Price ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="value" title="Click to sort">Value ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="unrealized" title="Click to sort">Unrealized ▾</th>
-                    <th class="nx-th cursor-pointer hover:text-emerald-400" data-sort="pct" title="Click to sort">% ▾</th>
-                    <th class="nx-th">Actions</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="token" title="Click to sort">Token ▾</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="qty" title="Click to sort">Qty ▾</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="avgCost" title="Click to sort">Avg Cost ▾</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="price" title="Click to sort">Price ▾</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="value" title="Click to sort">Value ▾</th>
+                    <th class="nx-th text-xs cursor-pointer hover:text-emerald-400" data-sort="unrealized" title="Click to sort">Unrlzd ▾</th>
+                    <th class="nx-th text-xs">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="pos-body"></tbody>
@@ -312,39 +315,149 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           <div class="nx-panel p-3">
             <div class="flex items-center justify-between mb-2">
-              <div class="text-xl nx-title">Trade Log (mock)</div>
+              <div class="text-xl nx-title">Trade Log</div>
               <div class="flex gap-2">
-                <!-- Add Trade removed per request -->
                 <button id="log-clear" class="nx-btn">Clear Log</button>
               </div>
             </div>
-            <div class="themed-scroll max-h-[300px] overflow-auto rounded-[12px] border border-[var(--nx-border)]">
-              <table class="nx-table" id="log-table">
-                <thead>
-                  <tr>
-                    <th class="nx-th">Time</th>
-                    <th class="nx-th">Token</th>
-                    <th class="nx-th">Side</th>
-                    <th class="nx-th">Qty</th>
-                    <th class="nx-th">Price</th>
-                    <th class="nx-th">Fee</th>
-                    <th class="nx-th">Note</th>
-                    <th class="nx-th">Actions</th>
+            <div class="themed-scroll overflow-auto rounded-lg border border-gray-700" style="max-height: 400px;">
+              <table class="w-full text-sm" id="log-table">
+                <thead class="sticky top-0 bg-gray-900 border-b border-gray-700 z-10">
+                  <tr class="text-gray-400 text-xs uppercase tracking-wide">
+                    <th class="p-2 text-left font-semibold">Time</th>
+                    <th class="p-2 text-left font-semibold">Token</th>
+                    <th class="p-2 text-left font-semibold">Type</th>
+                    <th class="p-2 text-right font-semibold">Quantity</th>
+                    <th class="p-2 text-right font-semibold">SOL</th>
+                    <th class="p-2 text-right font-semibold">Price</th>
+                    <th class="p-2 text-right font-semibold">Value</th>
+                    <th class="p-2 text-right font-semibold">PnL</th>
                   </tr>
                 </thead>
-                <tbody id="log-body"></tbody>
+                <tbody id="log-body" class="divide-y divide-gray-800"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- RIGHT: summary -->
-        <aside class="nx-panel p-3">
-          <div class="nx-panel p-3">
-            <div class="text-sm font-semibold mb-2">Snapshot</div>
-            <div id="snap-box" class="text-sm text-zinc-300">Add trades to see snapshot.</div>
+        <!-- RIGHT: Analytics Dashboard -->
+        <aside id="analytics-panel">
+          <div class="nx-panel p-0 backdrop-blur-xl bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-pink-500/10 border border-cyan-500/30" style="max-height: 860px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; padding: 18px;">
+            <!-- Performance Stats -->
+            <div class="p-4 rounded-xl backdrop-blur-xl bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-pink-500/10 border border-cyan-500/20">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-lg font-semibold text-cyan-400">Performance</div>
+              <button id="period-toggle" class="px-2 py-1 text-[10px] font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-full border border-cyan-500/30 transition-colors">
+                Daily
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/5">
+                <div class="text-xs text-gray-400 mb-1">Win Rate</div>
+                <div id="stat-winrate" class="text-2xl font-bold text-emerald-400">0%</div>
+                <div id="stat-winrate-ratio" class="text-[10px] text-gray-500 mt-1">0 / 0</div>
+              </div>
+              <div class="bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/5">
+                <div class="text-xs text-gray-400 mb-1">Total Trades</div>
+                <div id="stat-total-trades" class="text-xl font-bold text-white">0</div>
+              </div>
+              <div class="bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/5">
+                <div class="text-xs text-gray-400 mb-1">Avg Hold Time</div>
+                <div id="stat-avg-hold" class="text-xl font-bold text-purple-400">0h</div>
+              </div>
+              <div class="bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/5">
+                <div class="text-xs text-gray-400 mb-1">Total PnL</div>
+                <div id="stat-total-pnl" class="text-xl font-bold text-cyan-400">$0</div>
+
+              </div>
+            </div>
+            </div>
+            <!-- PnL Circle Chart -->
+            <div class="p-4 rounded-xl backdrop-blur-xl bg-gradient-to-br from-emerald-500/10 via-rose-500/5 to-purple-500/10 border border-emerald-500/20">
+            <div class="text-lg font-semibold mb-3 text-emerald-400">Win/Loss Distribution</div>
+            <div class="flex items-center justify-center relative" style="height: 180px;">
+              <svg id="pnl-circle-chart" width="160" height="160" viewBox="0 0 160 160" class="transform -rotate-90">
+                <!-- Background circle -->
+                <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20"/>
+                <!-- Win segment -->
+                <circle id="win-segment" cx="80" cy="80" r="70" fill="none" stroke="#34d399" stroke-width="20" 
+                        stroke-dasharray="0 440" stroke-linecap="round" class="transition-all duration-500"/>
+                <!-- Loss segment -->
+                <circle id="loss-segment" cx="80" cy="80" r="70" fill="none" stroke="#f87171" stroke-width="20" 
+                        stroke-dasharray="0 440" stroke-dashoffset="0" stroke-linecap="round" class="transition-all duration-500"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div id="chart-center-value" class="text-2xl font-bold text-white">$0</div>
+                <div id="chart-center-label" class="text-xs text-gray-400">Net PnL</div>
+              </div>
+            </div>
+            <!-- Hover tooltip -->
+            <div id="pnl-tooltip" class="hidden absolute bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg p-3 text-xs z-50">
+              <div class="space-y-1"></div>
+            </div>
+            <!-- Legend -->
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                <div>
+                  <div class="text-gray-400">Wins</div>
+                  <div id="wins-value" class="font-mono text-emerald-400">$0</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-rose-400"></div>
+                <div>
+                  <div class="text-gray-400">Losses</div>
+                  <div id="losses-value" class="font-mono text-rose-400">$0</div>
+                </div>
+
+              </div>
+            </div>
+            </div>
+            <!-- Calendar -->
+            <div class="p-4 rounded-xl backdrop-blur-xl bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-cyan-500/10 border border-pink-500/20">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-lg font-semibold text-pink-400">Calendar</div>
+              <button id="expand-calendar" class="px-2 py-1 text-xs bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors">
+                Expand
+              </button>
+            </div>
+            <div id="calendar-mini" class="text-sm">
+
+              <!-- Mini calendar view -->
+            </div>
+            </div>
+            <!-- Day of Week Performance -->
+            <div class="p-4 rounded-xl backdrop-blur-xl bg-gradient-to-br from-blue-500/10 via-cyan-500/5 to-purple-500/10 border border-blue-500/20">
+            <div class="text-lg font-semibold mb-3 text-blue-400">Day Performance</div>
+            <div class="space-y-2" id="day-performance">
+
+              <!-- Populated by JS -->
+            </div>
+            </div>
+            <!-- Hold Time Distribution -->
+            <div class="p-4 rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-rose-500/10 border border-purple-500/20">
+            <div class="text-lg font-semibold mb-3 text-purple-400">Best Hold Times</div>
+            <div class="space-y-2" id="hold-time-distribution">
+              <!-- Populated by JS -->
+            </div>
+            </div>
           </div>
         </aside>
+              <style>
+              #analytics-panel .nx-panel[style*="overflow-y: auto"]::-webkit-scrollbar {
+                width: 10px;
+              }
+              #analytics-panel .nx-panel[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #06b6d4 40%, #a78bfa 60%, #ec4899 100%);
+                border-radius: 8px;
+                border: 2px solid rgba(255,255,255,0.12);
+              }
+              #analytics-panel .nx-panel[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+                background: rgba(0,0,0,0.08);
+                border-radius: 8px;
+              }
+              </style>
       </main>
 
       <footer class="mt-3 mb-4">
@@ -353,6 +466,69 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div>Xpose Market</div>
         </div>
       </footer>
+    </div>
+
+    <!-- Calendar Modal -->
+    <div id="calendar-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" style="background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);">
+      <div class="nx-panel w-full max-w-6xl max-h-[92vh] overflow-hidden backdrop-blur-xl bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-cyan-500/10 border border-pink-500/30 flex flex-col">
+        <div class="flex items-center justify-between p-6 pb-4 border-b border-white/10">
+          <div class="flex items-center gap-4">
+            <div class="text-2xl font-bold text-pink-400">Trading Calendar</div>
+            <div class="flex items-center gap-2">
+              <button id="calendar-prev-month" class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors text-white">
+                ←
+              </button>
+              <div id="calendar-month-display" class="text-sm text-gray-400 min-w-[120px] text-center">
+                <!-- Current month -->
+              </div>
+              <button id="calendar-next-month" class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors text-white">
+                →
+              </button>
+            </div>
+          </div>
+          <button id="close-calendar" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors text-white">
+            ✕ Close
+          </button>
+        </div>
+        <div id="calendar-full" class="p-6">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Min Value Modal -->
+    <div id="min-value-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);">
+      <div class="nx-panel w-full max-w-md backdrop-blur-xl bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-cyan-500/10 border border-pink-500/30 p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div class="text-xl font-bold text-pink-400">Hide Small Balances</div>
+          <button id="close-min-value" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors text-white">
+            ✕
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-300 mb-2">Minimum Position Value (USD)</label>
+            <input 
+              type="number" 
+              id="min-value-input" 
+              class="nx-input w-full" 
+              placeholder="0.50" 
+              step="0.01"
+              min="0"
+              value="0"
+            />
+            <div class="text-xs text-gray-400 mt-1">Positions below this value will be hidden</div>
+          </div>
+          <div class="flex gap-2">
+            <button id="save-min-value" class="flex-1 px-4 py-2 bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30 rounded border border-pink-500/30 transition-colors text-white font-semibold">
+              Apply Filter
+            </button>
+            <button id="close-min-value-cancel" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors text-white">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Wallet Modal Popup -->
@@ -385,7 +561,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     <div id="deposit" class="modal-fx hidden">
       <div class="nx-panel w-[360px] max-w-[90vw] p-3">
         <div class="flex items-center justify-between mb-2"><div class="font-semibold">Deposit</div><button class="nx-btn nx-btn-cyan px-2 py-1 text-xs" onclick="document.getElementById('deposit').classList.add('hidden')">Close</button></div>
-        <div class="text-sm text-zinc-400 mb-2">Send SOL to your platform wallet address:</div>
+        <div class="text-sm text-zinc-400 mb-3">Scan with your wallet or exchange app:</div>
+        <!-- QR Code Container -->
+        <div id="qr-code-container" class="flex justify-center mb-4 p-3 rounded-lg" style="background:#0f1a2e; border:1px solid var(--nx-border); border-radius:12px;">
+          <div id="qr-code"></div>
+        </div>
+        <div class="text-sm text-zinc-400 mb-2">Or copy your wallet address:</div>
         <div class="nx-panel p-2 text-xs break-words" id="deposit-addr">Do7AJiNrJvFVGTUCw8XvVhRGVBVLTHcBvEnfi3K68gze</div>
         <button class="nx-btn nx-btn-cyan w-full mt-3" id="copy-deposit-btn">Copy Address</button>
       </div>
@@ -439,6 +620,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   /* ===== Wallet modal + modals ===== */
   const wBtn=document.getElementById('wallet-btn'); const wModal=document.getElementById('wallet-modal');
   
+  /* ====== QR Code Generator for Deposit Modal ====== */
+  function generateDepositQR(address) {
+    const qrContainer = document.getElementById('qr-code');
+    if (!qrContainer) return;
+    
+    // Clear existing QR code
+    qrContainer.innerHTML = '';
+    
+    // Generate new QR code with Solana URI format
+    const solanaURI = `solana:${address}`;
+    
+    try {
+      new QRCode(qrContainer, {
+        text: solanaURI,
+        width: 200,
+        height: 200,
+        colorDark: '#00e6ff',
+        colorLight: '#0f1a2e',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      console.log('[QR Code] Generated for address:', address);
+    } catch (error) {
+      console.error('[QR Code] Generation failed:', error);
+      qrContainer.innerHTML = '<div class="text-xs text-red-500">QR Code generation failed</div>';
+    }
+  }
+  
   // Update wallet display with real balance
   function updateWalletDisplay(){
     const balance = window.NXWallet?.getBalance?.();
@@ -449,7 +657,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   wBtn?.addEventListener('click',(e)=>{ e.stopPropagation(); updateWalletDisplay(); wModal.classList.remove('hidden'); });
   wModal?.addEventListener('click',(e)=>{ if(e.target===wModal) wModal.classList.add('hidden'); });
-  document.getElementById('dp-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('deposit').classList.remove('hidden'); });
+  document.getElementById('dp-open')?.addEventListener('click',()=>{ 
+    wModal.classList.add('hidden'); 
+    document.getElementById('deposit').classList.remove('hidden');
+    const depositAddr = document.getElementById('deposit-addr').textContent;
+    generateDepositQR(depositAddr);
+  });
   document.getElementById('wd-open')?.addEventListener('click',()=>{ wModal.classList.add('hidden'); document.getElementById('withdraw').classList.remove('hidden'); });
   
   // Wallet connect/disconnect
@@ -502,6 +715,10 @@ const connection = new Connection(NX_RPC, "confirmed");
   // Keys (needed before load/save)
   const POS_KEY = 'nebula_positions_v1';
   const LOG_KEY = 'nebula_trades_v1';
+  const HIDDEN_POS_KEY = 'nebulax_hidden_positions';
+  const MIN_VALUE_KEY = 'nebulax_min_position_value';
+  let showHidden = false;
+  let minPositionValue = parseFloat(localStorage.getItem(MIN_VALUE_KEY) || '0');
   const RLZ_KEY = 'nebula_realized_v1';
 
 
@@ -658,12 +875,25 @@ function recalc(){
 
   function drawPositions(){
     posBody.innerHTML='';
+    const hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+    
     Object.entries(POS).forEach(([sym,p])=>{
       const val=(p.qty||0)*(p.price||0);
+      const isHidden = hiddenPositions.includes(p.mint || sym);
+      
+      // Filter logic
+      if (!showHidden && isHidden) return; // Skip hidden positions when not showing
+      if (val < minPositionValue && !isHidden) return; // Skip small balances (unless hidden and being shown)
+      
       const unrl=(p.price - (p.avg||p.price))*(p.qty||0); // ~0 by default
-      const pct = (p.avg ? ((p.price/p.avg)-1)*100 : 0);
       const tr=document.createElement('tr'); tr.id = `row-${sym}`;
       tr.style.cursor = 'pointer'; // Make it clear the row is clickable
+      
+      // Apply greyed-out styling if hidden and being shown
+      if (isHidden && showHidden) {
+        tr.style.opacity = '0.4';
+      }
+      
       tr.innerHTML=`
         <td class="nx-td"><strong>${sym}</strong></td>
         <td class="nx-td tabnums">${(p.qty||0).toLocaleString()}</td>
@@ -673,10 +903,8 @@ function recalc(){
         </td>
         <td class="nx-td tabnums">${fmtUSD(val)}</td>
         <td class="nx-td tabnums ${unrl>=0?'pos-green':'pos-red'}">${fmtUSD(unrl)}</td>
-        <td class="nx-td tabnums ${pct>=0?'pos-green':'pos-red'}">${pct.toFixed(2)}%</td>
-        <td class="nx-td" style="display:flex; gap:6px;">
-          <button class="nx-btn" data-act="sell" data-tok="${sym}">Sell</button>
-          <button class="nx-btn" data-act="del" data-tok="${sym}">Remove</button>
+        <td class="nx-td">
+          <button class="nx-btn" data-act="${isHidden ? 'show' : 'hide'}" data-tok="${sym}" data-mint="${p.mint || sym}">${isHidden ? 'Show' : 'Hide'}</button>
         </td>`;
       posBody.appendChild(tr);
     });
@@ -690,23 +918,26 @@ function recalc(){
   });
 
   posBody.addEventListener('click',(e)=>{
-    // Check if clicking on a button first (Sell/Remove)
+    // Check if clicking on a button first (Hide/Show)
     const btn=e.target.closest('button[data-act]');
     if(btn){
       const t=btn.getAttribute('data-tok');
-      if(btn.getAttribute('data-act')==='del'){ delete POS[t]; save(POS_KEY, POS); recalc(); return; }
-      if(btn.getAttribute('data-act')==='sell'){
-        const qty=parseFloat(prompt('Sell quantity:', (POS[t]?.qty||0))); if(!qty) return;
-        const price=parseFloat(prompt('Sell price:', (POS[t]?.price||0))); if(!price) return;
-        const fee=0.001; // placeholder
-        const p=POS[t]||{qty:0,avg:POS[t]?.price||0,price};
-        const realized = (price - (p.avg||price)) * Math.min(qty, p.qty||0);
-        RLZ += realized - fee;
-        p.qty = Math.max(0, (p.qty||0) - qty);
-        if(p.qty===0){ delete POS[t]; } else { POS[t]=p; }
-        LOG.push({ts:Date.now(), token:t, side:'SELL', qty, price, fee, note:'manual'});
-        save(POS_KEY, POS); save(LOG_KEY, LOG); save(RLZ_KEY, RLZ);
-        recalc(); renderLog();
+      const act=btn.getAttribute('data-act');
+      
+      // Handle hide/show
+      if(act==='hide' || act==='show'){
+        const mint=btn.getAttribute('data-mint');
+        let hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+        if(act==='hide'){
+          if(!hiddenPositions.includes(mint)){
+            hiddenPositions.push(mint);
+          }
+        } else {
+          hiddenPositions = hiddenPositions.filter(m => m !== mint);
+        }
+        localStorage.setItem(HIDDEN_POS_KEY, JSON.stringify(hiddenPositions));
+        drawPositions();
+        return;
       }
       return; // Don't navigate if clicking buttons
     }
@@ -739,6 +970,7 @@ function recalc(){
   });
 
   function drawPrices(){
+    if (!priceBox) return; // Element doesn't exist in current layout
     priceBox.innerHTML='';
     Object.entries(POS).forEach(([t,p])=>{
       const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
@@ -746,41 +978,936 @@ function recalc(){
       priceBox.appendChild(row);
     });
   }
-  priceBox.addEventListener('input',(e)=>{
-    const inp=e.target.closest('input[data-tok]'); if(!inp) return;
-    const t=inp.getAttribute('data-tok'); const v=parseFloat(inp.value)||0; if(!POS[t]) return; POS[t].price=v; save(POS_KEY, POS); recalc();
-  });
+  if (priceBox) {
+    priceBox.addEventListener('input',(e)=>{
+      const inp=e.target.closest('input[data-tok]'); if(!inp) return;
+      const t=inp.getAttribute('data-tok'); const v=parseFloat(inp.value)||0; if(!POS[t]) return; POS[t].price=v; save(POS_KEY, POS); recalc();
+    });
+  }
 
   // “Nudge Prices” -> refresh live prices
   document.getElementById('price-rand')?.addEventListener('click', async ()=>{
     await refreshLive(true);
   });
 
-  function renderLog(){
+  // Format number with K/M/B suffixes (same as coinpage)
+  function formatNumber(num, isTokenQty = false) {
+    if (!num || isNaN(num)) return '0.00';
+    const absNum = Math.abs(num);
+    
+    if (isTokenQty) {
+      if (absNum >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+      if (absNum >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+      if (absNum >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+      if (absNum >= 1) return num.toFixed(2);
+      return num.toFixed(4);
+    }
+    
+    if (absNum >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (absNum >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (absNum >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    if (absNum < 0.01 && absNum > 0) return num.toFixed(5);
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  }
+
+  // Format timestamp (same as coinpage)
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + 
+           date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Make renderLog globally accessible
+  window.renderLog = function renderLog(){
+    // Get order book from localStorage (same key as coinpage)
+    const ORDER_BOOK_KEY = 'nebulax_order_book';
+    let allTrades = [];
+    try {
+      allTrades = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+      console.log('[Trade Log] Loaded trades from localStorage:', allTrades.length);
+      if (allTrades.length > 0) {
+        console.log('[Trade Log] Sample trade structure:', JSON.stringify(allTrades[0], null, 2));
+      }
+    } catch(e) {
+      console.error('[TradeLog] Error loading order book:', e);
+    }
+
+    // Show ALL trades from all wallets (not filtered by wallet)
+    // This shows every trade made on the platform
+    
+    const logBody = document.getElementById('log-body');
+    if (!logBody) return;
+    
     logBody.innerHTML='';
-    if (!LOG.length){
-      logBody.innerHTML = `<tr><td class="nx-td text-zinc-400" colspan="8">No trades yet.</td></tr>`;
+    if (!allTrades.length){
+      logBody.innerHTML = `<tr><td class="p-2 text-center text-gray-400" colspan="8">No trades yet. Trades will appear here after you buy or sell tokens.</td></tr>`;
       return;
     }
-    LOG.slice().reverse().forEach((r,i)=>{
+
+    // Sort by timestamp descending (newest first)
+    allTrades.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Calculate PnL per token using usdReceived - usdSpent (same as coinpage)
+    const tokenPnL = new Map(); // tokenMint -> {usdSpent, usdReceived, pnlUSD}
+    
+    // Calculate totals per token
+    allTrades.forEach(trade => {
+      if (!tokenPnL.has(trade.tokenMint)) {
+        tokenPnL.set(trade.tokenMint, {usdSpent: 0, usdReceived: 0, pnlUSD: 0});
+      }
+      const stats = tokenPnL.get(trade.tokenMint);
+      
+      const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+      const tradeValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+      
+      if (trade.type === 'buy') {
+        stats.usdSpent += tradeValueUSD;
+      } else {
+        stats.usdReceived += tradeValueUSD;
+      }
+      stats.pnlUSD = stats.usdReceived - stats.usdSpent;
+    });
+
+    // Show all trades (no limit)
+    allTrades.forEach((trade)=>{
+      const isBuy = trade.type === 'buy';
+      const pricePerToken = trade.pricePerToken || (trade.tokenAmount > 0 ? (trade.solAmount / trade.tokenAmount) : 0);
+      
+      // Fallback: If solPriceAtTrade is missing (old trades), use current SOL price or estimate
+      // Use 220 as fallback SOL price if NX not loaded yet (reasonable estimate)
+      const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+      const tradeValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+      
+      // Debug logging for first trade
+      if (allTrades.indexOf(trade) === 0) {
+        console.log('[Trade Log] First trade VALUES:');
+        console.log('  - tradeValueUSD (stored):', trade.tradeValueUSD);
+        console.log('  - solAmount:', trade.solAmount);
+        console.log('  - solPriceAtTrade:', trade.solPriceAtTrade);
+        console.log('  - window.NX?.solPrice:', window.NX?.solPrice);
+        console.log('  - calculated tradeValueUSD:', tradeValueUSD);
+        console.log('  - type:', trade.type);
+        console.log('  - symbol:', trade.tokenSymbol);
+      }
+      
+      // Calculate PnL for sells using usdReceived - usdSpent (same as coinpage)
+      let pnlHTML = '<td class="p-2 text-center text-gray-600">—</td>';
+      if (!isBuy) {
+        const stats = tokenPnL.get(trade.tokenMint);
+        if (stats && stats.pnlUSD !== 0) {
+          // Calculate proportional PnL for this specific sell
+          const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+          const sellValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+          
+          // Proportional share of overall PnL based on this sell's value
+          const sellShare = stats.usdReceived > 0 ? (sellValueUSD / stats.usdReceived) : 0;
+          const thisSellPnL = stats.pnlUSD * sellShare;
+          
+          const isProfit = thisSellPnL > 0;
+          const pnlClass = isProfit ? 'text-emerald-400' : 'text-rose-400';
+          const pnlIcon = isProfit ? '▲' : '▼';
+          
+          pnlHTML = `
+            <td class="p-2 text-right">
+              <div class="font-mono font-bold ${pnlClass}">
+                ${pnlIcon} $${Math.abs(thisSellPnL) < 0.01 ? Math.abs(thisSellPnL).toFixed(5) : Math.abs(thisSellPnL).toFixed(2)}
+              </div>
+            </td>
+          `;
+        }
+      }
+      
       const tr=document.createElement('tr');
+      tr.className = 'hover:bg-gray-800/30 transition-colors';
       tr.innerHTML=`
-        <td class="nx-td">${new Date(r.ts).toLocaleString()}</td>
-        <td class="nx-td">${r.token}</td>
-        <td class="nx-td">${r.side}</td>
-        <td class="nx-td tabnums">${r.qty}</td>
-        <td class="nx-td tabnums">$${r.price}</td>
-        <td class="nx-td tabnums">${r.fee}</td>
-        <td class="nx-td">${r.note||''}</td>
-        <td class="nx-td"><button class="nx-btn" data-i="${LOG.length-1-i}">Delete</button></td>`;
+        <td class="p-2 text-gray-400 text-xs whitespace-nowrap">${formatTimestamp(trade.timestamp)}</td>
+        <td class="p-2">
+          <div class="font-semibold text-white">${trade.tokenSymbol || 'TOKEN'}</div>
+          <div class="text-xs text-gray-500">${trade.tokenMint ? trade.tokenMint.slice(0,4) + '...' + trade.tokenMint.slice(-4) : ''}</div>
+        </td>
+        <td class="p-2">
+          <span class="px-2 py-0.5 rounded text-xs font-bold ${
+            isBuy 
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+              : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+          }">
+            ${isBuy ? '🟢 BUY' : '🔴 SELL'}
+          </span>
+        </td>
+        <td class="p-2 text-right">
+          <div class="font-mono text-white">${trade.tokenAmount < 1 ? trade.tokenAmount.toFixed(6) : trade.tokenAmount.toFixed(2)}</div>
+          <div class="text-xs text-gray-500">${trade.tokenSymbol || 'TOKEN'}</div>
+        </td>
+        <td class="p-2 text-right">
+          <div class="font-mono text-white">${trade.solAmount.toFixed(4)}</div>
+          <div class="text-xs text-gray-500">SOL</div>
+        </td>
+        <td class="p-2 text-right">
+          <div class="font-mono text-cyan-400">${pricePerToken.toFixed(9)}</div>
+          <div class="text-xs text-gray-500">SOL/Token</div>
+        </td>
+        <td class="p-2 text-right">
+          <div class="font-mono text-white">${tradeValueUSD < 0.01 && tradeValueUSD > 0 ? '$' + tradeValueUSD.toFixed(5) : '$' + tradeValueUSD.toFixed(2)}</div>
+          <div class="text-xs text-gray-500">USD Value</div>
+        </td>
+        ${pnlHTML}`;
       logBody.appendChild(tr);
     });
+
+    // Show total count at bottom
+    if (allTrades.length > 0) {
+      const countRow = document.createElement('tr');
+      countRow.innerHTML = `<td colspan="8" class="p-2 text-xs text-gray-500 text-center">Total: ${allTrades.length} trade${allTrades.length !== 1 ? 's' : ''}</td>`;
+      logBody.appendChild(countRow);
+    }
   }
-  logBody.addEventListener('click',(e)=>{
-    const btn=e.target.closest('button[data-i]'); if(!btn) return;
-    const idx=parseInt(btn.getAttribute('data-i')); LOG.splice(idx,1); save(LOG_KEY, LOG); renderLog();
+  
+  // Analytics calculation and rendering
+  let currentPeriod = 'daily'; // 'daily', 'weekly', 'monthly'
+  
+  function filterTradesByPeriod(trades, period) {
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    let cutoffTime;
+    switch(period) {
+      case 'daily':
+        cutoffTime = now - oneDayMs; // Last 24 hours
+        break;
+      case 'weekly':
+        cutoffTime = now - (7 * oneDayMs); // Last 7 days
+        break;
+      case 'monthly':
+        cutoffTime = now - (30 * oneDayMs); // Last 30 days
+        break;
+      default:
+        return trades;
+    }
+    
+    return trades.filter(trade => trade.timestamp >= cutoffTime);
+  }
+  
+  window.renderAnalytics = function renderAnalytics() {
+    const ORDER_BOOK_KEY = 'nebulax_order_book';
+    let allTrades = [];
+    try {
+      allTrades = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+    } catch(e) {
+      console.error('[Analytics] Error loading order book:', e);
+      return;
+    }
+
+    if (!allTrades.length) return;
+
+    // Filter trades by current period
+    const filteredTrades = filterTradesByPeriod(allTrades, currentPeriod);
+
+    // Calculate comprehensive analytics
+    const analytics = calculateAnalytics(filteredTrades);
+    
+    // Update performance stats
+    document.getElementById('stat-winrate').textContent = analytics.winRate.toFixed(1) + '%';
+    document.getElementById('stat-winrate-ratio').textContent = `${analytics.wins} / ${analytics.totalSells}`;
+    document.getElementById('stat-total-pnl').textContent = `$${analytics.totalPnL.toFixed(2)}`;
+    document.getElementById('stat-avg-hold').textContent = analytics.avgHoldTime;
+    document.getElementById('stat-total-trades').textContent = analytics.totalTrades;
+    
+    // Color total PnL
+    const pnlElem = document.getElementById('stat-total-pnl');
+    if (pnlElem) {
+      pnlElem.className = `text-xl font-bold ${analytics.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    }
+    
+    // Render circle chart
+    renderPnLCircle(analytics);
+    
+    // Render day performance
+    renderDayPerformance(analytics.dayPerformance);
+    
+    // Render hold time distribution
+    renderHoldTimeDistribution(analytics.holdTimeDistribution);
+    
+    // Render mini calendar
+    renderMiniCalendar(analytics.calendar);
+  }
+  
+  function calculateAnalytics(trades) {
+    // Sort trades by time
+    trades.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Track per-token USD spent/received (same as coinpage)
+    const tokenStats = new Map(); // tokenMint -> {usdSpent, usdReceived, pnlUSD, buyTimes[]}
+    
+    let totalPnL = 0;
+    let totalInvested = 0;
+    let wins = 0;
+    let losses = 0;
+    let totalSells = 0;
+    let totalHoldTime = 0;
+    let holdTimeCount = 0;
+    let winPnL = 0;
+    let lossPnL = 0;
+    let winTrades = 0;
+    let lossTrades = 0;
+    
+    const dayPerformance = {Sun: 0, Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0};
+    const dayTrades = {Sun: 0, Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0};
+    const holdTimeDistribution = {'<5m': 0, '5-30m': 0, '30m-2h': 0, '2-6h': 0, '6-24h': 0, '1-3d': 0, '>3d': 0};
+    const calendar = new Map(); // date string -> {pnl, buys, sells}
+    
+    // First pass: calculate total spent/received per token
+    trades.forEach(trade => {
+      if (!tokenStats.has(trade.tokenMint)) {
+        tokenStats.set(trade.tokenMint, {
+          usdSpent: 0,
+          usdReceived: 0,
+          pnlUSD: 0,
+          buyTimes: []
+        });
+      }
+      const stats = tokenStats.get(trade.tokenMint);
+      
+      const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+      const tradeValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+      
+      if (trade.type === 'buy') {
+        stats.usdSpent += tradeValueUSD;
+        stats.buyTimes.push(trade.timestamp);
+        totalInvested += tradeValueUSD;
+      } else {
+        stats.usdReceived += tradeValueUSD;
+      }
+      
+      stats.pnlUSD = stats.usdReceived - stats.usdSpent;
+    });
+    
+    // Second pass: calculate metrics per trade
+    trades.forEach(trade => {
+      const date = new Date(trade.timestamp);
+      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+      const dateStr = date.toISOString().split('T')[0];
+      
+      if (!calendar.has(dateStr)) {
+        calendar.set(dateStr, {pnl: 0, buys: 0, sells: 0});
+      }
+      
+      if (trade.type === 'buy') {
+        calendar.get(dateStr).buys++;
+        dayTrades[dayName]++;
+      } else {
+        // Get overall PnL for this token
+        const stats = tokenStats.get(trade.tokenMint);
+        
+        if (stats && stats.pnlUSD !== 0) {
+          const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+          const sellValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+          
+          // Proportional share of overall PnL based on this sell's value
+          const sellShare = stats.usdReceived > 0 ? (sellValueUSD / stats.usdReceived) : 0;
+          const thisSellPnL = stats.pnlUSD * sellShare;
+          
+          totalPnL += thisSellPnL;
+          totalSells++;
+          
+          if (thisSellPnL > 0) {
+            wins++;
+            winPnL += thisSellPnL;
+            winTrades++;
+          } else if (thisSellPnL < 0) {
+            losses++;
+            lossPnL += Math.abs(thisSellPnL);
+            lossTrades++;
+          }
+          
+          dayPerformance[dayName] += thisSellPnL;
+          calendar.get(dateStr).pnl += thisSellPnL;
+          
+          // Calculate hold time
+          if (stats.buyTimes && stats.buyTimes.length > 0) {
+            const buyTime = stats.buyTimes.shift(); // FIFO
+            const holdMs = trade.timestamp - buyTime;
+            totalHoldTime += holdMs;
+            holdTimeCount++;
+            
+            // Categorize hold time
+            const holdMinutes = holdMs / (1000 * 60);
+            const holdHours = holdMinutes / 60;
+            const holdDays = holdHours / 24;
+            
+            let category = '>3d';
+            if (holdMinutes < 5) category = '<5m';
+            else if (holdMinutes < 30) category = '5-30m';
+            else if (holdHours < 2) category = '30m-2h';
+            else if (holdHours < 6) category = '2-6h';
+            else if (holdHours < 24) category = '6-24h';
+            else if (holdDays < 3) category = '1-3d';
+            
+            holdTimeDistribution[category] += thisSellPnL;
+          }
+        }
+        
+        calendar.get(dateStr).sells++;
+        dayTrades[dayName]++;
+      }
+    });
+    
+    // Format average hold time
+    let avgHoldTime = '0h';
+    if (holdTimeCount > 0) {
+      const avgMs = totalHoldTime / holdTimeCount;
+      const hours = Math.floor(avgMs / (1000 * 60 * 60));
+      const days = Math.floor(hours / 24);
+      if (days > 0) avgHoldTime = `${days}d ${hours % 24}h`;
+      else avgHoldTime = `${hours}h`;
+    }
+    
+    return {
+      winRate: totalSells > 0 ? (wins / totalSells) * 100 : 0,
+      wins,
+      losses,
+      totalSells,
+      totalPnL,
+      totalPnLPct: totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0,
+      avgHoldTime,
+      totalTrades: trades.length,
+      dayPerformance,
+      dayTrades,
+      holdTimeDistribution,
+      calendar,
+      winPnL,
+      lossPnL,
+      winTrades,
+      lossTrades
+    };
+  }
+  
+  function renderPnLCircle(analytics) {
+    const winSegment = document.getElementById('win-segment');
+    const lossSegment = document.getElementById('loss-segment');
+    const centerValue = document.getElementById('chart-center-value');
+    const centerLabel = document.getElementById('chart-center-label');
+    const winsValue = document.getElementById('wins-value');
+    const lossesValue = document.getElementById('losses-value');
+    
+    if (!winSegment || !lossSegment) {
+      console.warn('[Circle Chart] SVG elements not found');
+      return;
+    }
+    
+    console.log('[Circle Chart] Analytics VALUES:');
+    console.log('  - winPnL:', analytics.winPnL);
+    console.log('  - lossPnL:', analytics.lossPnL);
+    console.log('  - winTrades:', analytics.winTrades);
+    console.log('  - lossTrades:', analytics.lossTrades);
+    console.log('  - totalPnL:', analytics.totalPnL);
+    
+    // Use absolute values for percentage calculation
+    const totalAbsolute = analytics.winPnL + analytics.lossPnL;
+    const winPercent = totalAbsolute > 0 ? (analytics.winPnL / totalAbsolute) : 0.5;
+    const lossPercent = totalAbsolute > 0 ? (analytics.lossPnL / totalAbsolute) : 0.5;
+    
+    console.log('[Circle Chart] Percentages:');
+    console.log('  - totalAbsolute:', totalAbsolute);
+    console.log('  - winPercent:', winPercent);
+    console.log('  - lossPercent:', lossPercent);
+    
+    // Circle circumference = 2πr = 2 * 3.14159 * 70 = 439.82
+    const circumference = 440;
+    const winLength = circumference * winPercent;
+    const lossLength = circumference * lossPercent;
+    
+    // Set win segment (starts at top, goes clockwise)
+    winSegment.setAttribute('stroke-dasharray', `${winLength} ${circumference}`);
+    winSegment.setAttribute('stroke-dashoffset', '0');
+    
+    // Set loss segment (starts after win segment)
+    lossSegment.setAttribute('stroke-dasharray', `${lossLength} ${circumference}`);
+    lossSegment.setAttribute('stroke-dashoffset', `-${winLength}`);
+    
+    // Update center text
+    const netPnL = analytics.totalPnL;
+    if (centerValue) {
+      centerValue.textContent = `$${netPnL.toFixed(2)}`;
+      centerValue.className = `text-2xl font-bold ${netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    }
+    if (centerLabel) centerLabel.textContent = 'Net PnL';
+    
+    // Update legend
+    if (winsValue) winsValue.textContent = `$${analytics.winPnL.toFixed(2)}`;
+    if (lossesValue) lossesValue.textContent = `$${analytics.lossPnL.toFixed(2)}`;
+    
+    // Add hover tooltips
+    if (winSegment) {
+      winSegment.style.cursor = 'pointer';
+      winSegment.onmouseenter = () => showTooltip('Wins', analytics.winTrades, analytics.winPnL, analytics.winSOL, true);
+      winSegment.onmouseleave = hideTooltip;
+    }
+    if (lossSegment) {
+      lossSegment.style.cursor = 'pointer';
+      lossSegment.onmouseenter = () => showTooltip('Losses', analytics.lossTrades, analytics.lossPnL, analytics.lossSOL, false);
+      lossSegment.onmouseleave = hideTooltip;
+    }
+  }
+  
+  function showTooltip(label, trades, usd, sol, isWin) {
+    const tooltip = document.getElementById('pnl-tooltip');
+    if (!tooltip) return;
+    
+    const color = isWin ? 'text-emerald-400' : 'text-rose-400';
+    tooltip.innerHTML = `
+      <div class="font-semibold ${color} mb-1">${label}</div>
+      <div class="text-white">Trades: <span class="font-mono">${trades}</span></div>
+      <div class="text-white">USD: <span class="font-mono ${color}">$${usd.toFixed(2)}</span></div>
+      <div class="text-white">SOL: <span class="font-mono ${color}">${sol.toFixed(4)}</span></div>
+    `;
+    
+    tooltip.classList.remove('hidden');
+    // Position near mouse (simplified - you could improve this)
+    tooltip.style.top = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+  }
+  
+  function hideTooltip() {
+    const tooltip = document.getElementById('pnl-tooltip');
+    if (tooltip) tooltip.classList.add('hidden');
+  }
+  
+  function renderDayPerformance(dayPerf) {
+    const container = document.getElementById('day-performance');
+    if (!container) return;
+    
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    container.innerHTML = days.map(day => {
+      const pnl = dayPerf[day] || 0;
+      const isProfit = pnl >= 0;
+      const barWidth = Math.min(Math.abs(pnl) / 100 * 100, 100); // Scale appropriately
+      
+      return `
+        <div class="flex items-center justify-between text-sm">
+          <div class="w-12 text-gray-400">${day}</div>
+          <div class="flex-1 mx-2 h-5 bg-black/30 rounded-full overflow-hidden">
+            <div class="h-full ${isProfit ? 'bg-emerald-500/50' : 'bg-rose-500/50'}" style="width: ${barWidth}%"></div>
+          </div>
+          <div class="w-20 text-right font-mono text-xs ${isProfit ? 'text-emerald-400' : 'text-rose-400'}">
+            ${pnl >= 0 ? '+' : ''}$${formatNumber(pnl)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  function renderHoldTimeDistribution(holdDist) {
+    const container = document.getElementById('hold-time-distribution');
+    if (!container) return;
+    
+    const categories = [
+      {key: '<5m', label: 'Under 5 min'},
+      {key: '5-30m', label: '5-30 min'},
+      {key: '30m-2h', label: '30 min - 2 hrs'},
+      {key: '2-6h', label: '2-6 hours'},
+      {key: '6-24h', label: '6-24 hours'},
+      {key: '1-3d', label: '1-3 days'},
+      {key: '>3d', label: 'Over 3 days'}
+    ];
+    
+    container.innerHTML = categories.map(cat => {
+      const pnl = holdDist[cat.key] || 0;
+      const isProfit = pnl >= 0;
+      
+      return `
+        <div class="flex items-center justify-between text-sm">
+          <div class="flex-1 text-gray-300">${cat.label}</div>
+          <div class="font-mono text-xs ${isProfit ? 'text-emerald-400' : 'text-rose-400'}">
+            ${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(2)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  function renderMiniCalendar(calendarData) {
+    const container = document.getElementById('calendar-mini');
+    if (!container) return;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Get all dates with trades in current month
+    const monthDates = Array.from(calendarData.entries())
+      .filter(([dateStr]) => {
+        const d = new Date(dateStr);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .sort(([a], [b]) => new Date(a) - new Date(b));
+    
+    if (monthDates.length === 0) {
+      container.innerHTML = '<div class="text-gray-400 text-xs">No trades this month</div>';
+      return;
+    }
+    
+    const monthTotal = monthDates.reduce((sum, [, data]) => sum + data.pnl, 0);
+    
+    container.innerHTML = `
+      <div class="mb-2 pb-2 border-b border-white/10">
+        <div class="text-xs text-gray-400">${now.toLocaleString('default', {month: 'long'})} Total</div>
+        <div class="font-mono font-bold ${monthTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+          ${monthTotal >= 0 ? '+' : ''}$${Math.abs(monthTotal).toFixed(2)}
+        </div>
+      </div>
+      <div class="space-y-1 max-h-40 overflow-y-auto">
+        ${monthDates.map(([dateStr, data]) => `
+          <div class="flex items-center justify-between text-xs">
+            <div class="text-gray-400">${new Date(dateStr).getDate()} ${now.toLocaleString('default', {month: 'short'})}</div>
+            <div class="text-gray-500">${data.buys + data.sells} trades</div>
+            <div class="font-mono ${data.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+              ${data.pnl >= 0 ? '+' : ''}$${Math.abs(data.pnl).toFixed(2)}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  let currentCalendarMonth = null; // YYYY-MM format or null for current month
+  
+  function renderFullCalendar(specificMonth = null) {
+    const ORDER_BOOK_KEY = 'nebulax_order_book';
+    let allTrades = [];
+    try {
+      allTrades = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+    } catch (e) { return; }
+    
+    // Determine which month to show (default to current month)
+    const now = new Date();
+    const targetMonth = specificMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const [targetYear, targetMonthNum] = targetMonth.split('-').map(Number);
+    
+    // Update month display
+    const monthName = new Date(targetYear, targetMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+    document.getElementById('calendar-month-display').textContent = monthName;
+    
+    // Group all trades by month
+    const monthsData = new Map();
+    allTrades.forEach(trade => {
+      const date = new Date(trade.timestamp);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthsData.has(monthKey)) {
+        monthsData.set(monthKey, []);
+      }
+      monthsData.get(monthKey).push(trade);
+    });
+    
+    // Get trades for target month (if any)
+    const trades = monthsData.get(targetMonth) || [];
+    
+    // Check if this month has any trades
+    const hasTradesThisMonth = trades.length > 0;
+    
+    const container = document.getElementById('calendar-full');
+    
+    // If no trades this month, show "unavailable" message
+    if (!hasTradesThisMonth) {
+      container.innerHTML = `
+        <div class="nx-panel p-8 backdrop-blur-lg bg-gradient-to-br from-gray-500/5 via-gray-500/5 to-gray-500/5 border border-gray-500/20 text-center">
+          <div class="text-gray-500 text-xl font-bold mb-2">${monthName}</div>
+          <div class="text-gray-600 text-sm">No trading activity this month</div>
+        </div>
+      `;
+      return;
+    }
+    
+    // Render the month calendar with trades
+    // Get first and last day of month
+    const firstDay = new Date(targetYear, targetMonthNum - 1, 1);
+    const lastDay = new Date(targetYear, targetMonthNum, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+      
+      // Group trades by day
+      const dayData = new Map();
+      for (let d = 1; d <= daysInMonth; d++) {
+        dayData.set(d, { buys: 0, sells: 0, pnl: 0 });
+      }
+      
+      // Calculate PnL using usdReceived - usdSpent (same as coinpage)
+      const tokenStats = new Map(); // tokenMint -> {usdSpent, usdReceived, pnlUSD}
+      trades.sort((a, b) => a.timestamp - b.timestamp);
+      
+      // First pass: calculate total spent/received per token
+      trades.forEach(trade => {
+        if (!tokenStats.has(trade.tokenMint)) {
+          tokenStats.set(trade.tokenMint, {
+            usdSpent: 0,
+            usdReceived: 0,
+            pnlUSD: 0
+          });
+        }
+        const stats = tokenStats.get(trade.tokenMint);
+        
+        const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+        const tradeValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+        
+        if (trade.type === 'buy') {
+          stats.usdSpent += tradeValueUSD;
+        } else {
+          stats.usdReceived += tradeValueUSD;
+        }
+        
+        stats.pnlUSD = stats.usdReceived - stats.usdSpent;
+      });
+      
+      // Second pass: assign PnL to days and count trades
+      trades.forEach(trade => {
+        const day = new Date(trade.timestamp).getDate();
+        const data = dayData.get(day);
+        
+        if (trade.type === 'buy') {
+          data.buys++;
+        } else if (trade.type === 'sell') {
+          data.sells++;
+          
+          // Get overall PnL for this token
+          const stats = tokenStats.get(trade.tokenMint);
+          if (stats && stats.pnlUSD !== 0) {
+            const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+            const sellValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+            
+            // Proportional share of overall PnL based on this sell's value
+            const sellShare = stats.usdReceived > 0 ? (sellValueUSD / stats.usdReceived) : 0;
+            const thisSellPnL = stats.pnlUSD * sellShare;
+            
+            data.pnl += thisSellPnL;
+          }
+        }
+      });
+      
+      // Calculate weekly totals
+      const weeks = [];
+      let currentWeek = [];
+      let weekPnL = 0;
+      
+      // Add empty cells for days before month starts
+      for (let i = 0; i < startDayOfWeek; i++) {
+        currentWeek.push(null);
+      }
+      
+      // Add all days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const data = dayData.get(day);
+        currentWeek.push({ day, ...data });
+        weekPnL += data.pnl;
+        
+        // End of week (Saturday) or end of month
+        if (currentWeek.length === 7 || day === daysInMonth) {
+          // Pad incomplete weeks with empty cells to ensure weekly PnL is always in column 8
+          while (currentWeek.length < 7) {
+            currentWeek.push(null);
+          }
+          weeks.push({ days: [...currentWeek], weekPnL });
+          currentWeek = [];
+          weekPnL = 0;
+        }
+      }
+      
+    // Calculate month total
+    const monthTotal = Array.from(dayData.values()).reduce((sum, d) => sum + d.pnl, 0);
+    
+    container.innerHTML = `
+      <div class="nx-panel p-4 backdrop-blur-lg bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-cyan-500/5 border border-purple-500/20">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-xl font-bold text-purple-400">${monthName}</div>
+          <div class="font-mono font-bold ${monthTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+            ${monthTotal >= 0 ? '+' : ''}$${monthTotal.toFixed(2)}
+          </div>
+        </div>
+        
+        <!-- Day headers -->
+        <div class="grid grid-cols-8 gap-2 mb-2 text-xs text-gray-400 font-semibold">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          <div class="text-right">Week</div>
+        </div>
+        
+        <!-- Weeks -->
+        ${weeks.map(week => `
+          <div class="grid grid-cols-8 gap-2 mb-2">
+            ${week.days.map(dayInfo => {
+              if (!dayInfo) return '<div class="min-h-[80px]"></div>';
+                
+                const hasActivity = dayInfo.buys > 0 || dayInfo.sells > 0;
+                const bgColor = !hasActivity ? 'bg-[#1a2332]/40' : 
+                               dayInfo.pnl > 0 ? 'bg-emerald-500/20 border-emerald-500/30' :
+                               dayInfo.pnl < 0 ? 'bg-rose-500/20 border-rose-500/30' : 'bg-[#1a2332]/40';
+                
+                return `
+                  <div class="${bgColor} backdrop-blur-sm rounded-lg p-2 border ${hasActivity ? 'border-white/10' : 'border-transparent'} transition-all hover:scale-105 min-h-[80px] flex flex-col">
+                    <div class="text-sm font-bold ${hasActivity ? 'text-white' : 'text-gray-500'}">${dayInfo.day}</div>
+                    ${hasActivity ? `
+                      <div class="text-[10px] text-gray-400 mt-1 space-y-0.5">
+                        ${dayInfo.buys > 0 ? `<div>↑${dayInfo.buys}</div>` : ''}
+                        ${dayInfo.sells > 0 ? `<div>↓${dayInfo.sells}</div>` : ''}
+                      </div>
+                      <div class="text-[11px] font-mono mt-auto font-bold ${dayInfo.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${dayInfo.pnl >= 0 ? '+' : ''}$${Math.abs(dayInfo.pnl).toFixed(2)}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+
+            }).join('')}
+            <div class="backdrop-blur-sm rounded-lg p-2 border border-white/5 bg-black/20 flex items-center justify-center min-h-[80px]">
+              <div class="text-xs font-mono font-bold ${week.weekPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                ${week.weekPnL >= 0 ? '+' : ''}$${week.weekPnL.toFixed(2)}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Expand calendar modal
+  document.getElementById('expand-calendar')?.addEventListener('click', () => {
+    currentCalendarMonth = null; // Start with current month
+    renderFullCalendar();
+    document.getElementById('calendar-modal').classList.remove('hidden');
   });
-  document.getElementById('log-clear')?.addEventListener('click',()=>{ if(!confirm('Clear trade log?')) return; LOG=[]; save(LOG_KEY, LOG); renderLog(); });
+  
+  document.getElementById('close-calendar')?.addEventListener('click', () => {
+    document.getElementById('calendar-modal').classList.add('hidden');
+  });
+  
+  // Calendar month navigation
+  document.getElementById('calendar-prev-month')?.addEventListener('click', () => {
+    const now = new Date();
+    let targetDate;
+    
+    if (currentCalendarMonth === null) {
+      // Currently showing current month, go back one month
+      targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    } else {
+      // Go back one month from currently viewed month
+      const [year, month] = currentCalendarMonth.split('-').map(Number);
+      targetDate = new Date(year, month - 2, 1); // month-2 because JS months are 0-indexed
+    }
+    
+    currentCalendarMonth = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+    renderFullCalendar(currentCalendarMonth);
+  });
+  
+  document.getElementById('calendar-next-month')?.addEventListener('click', () => {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (currentCalendarMonth === null) {
+      // Already at current month, can't go forward
+      return;
+    }
+    
+    // Go forward one month
+    const [year, month] = currentCalendarMonth.split('-').map(Number);
+    const targetDate = new Date(year, month, 1); // month is already +1, so this goes forward
+    const targetMonthKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Check if we're going back to current month
+    if (targetMonthKey === currentMonthKey) {
+      currentCalendarMonth = null;
+      renderFullCalendar();
+    } else if (targetDate <= now) {
+      currentCalendarMonth = targetMonthKey;
+      renderFullCalendar(currentCalendarMonth);
+    }
+    // If target is in the future, do nothing
+  });
+  
+  // Close modal on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('calendar-modal')?.classList.add('hidden');
+    }
+  });
+  
+  // Period toggle button
+  document.getElementById('period-toggle')?.addEventListener('click', function() {
+    const periods = ['daily', 'weekly', 'monthly'];
+    const currentIndex = periods.indexOf(currentPeriod);
+    currentPeriod = periods[(currentIndex + 1) % periods.length];
+    
+    // Update button text
+    const labels = {daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly'};
+    this.textContent = labels[currentPeriod];
+    
+    // Re-render analytics with new period
+    if (typeof window.renderAnalytics === 'function') {
+      window.renderAnalytics();
+    }
+  });
+  
+  // Show Hidden toggle button
+  document.getElementById('show-hidden-btn')?.addEventListener('click', function() {
+    // Use global showHidden from renderPositionsTable scope
+    if (typeof window.toggleShowHidden === 'function') {
+      window.toggleShowHidden();
+      this.textContent = window.showHiddenState ? 'Hide Hidden' : 'Show Hidden';
+    }
+  });
+  
+  // Hide Small Balances button - opens modal
+  document.getElementById('hide-small-btn')?.addEventListener('click', () => {
+    document.getElementById('min-value-modal').classList.remove('hidden');
+    // Set current value
+    const input = document.getElementById('min-value-input');
+    if (input && typeof window.getMinPositionValue === 'function') {
+      input.value = window.getMinPositionValue().toString();
+    }
+  });
+  
+  // Close min value modal
+  document.getElementById('close-min-value')?.addEventListener('click', () => {
+    document.getElementById('min-value-modal').classList.add('hidden');
+  });
+  
+  document.getElementById('close-min-value-cancel')?.addEventListener('click', () => {
+    document.getElementById('min-value-modal').classList.add('hidden');
+  });
+  
+  // Save min value setting
+  document.getElementById('save-min-value')?.addEventListener('click', () => {
+    const input = document.getElementById('min-value-input');
+    const value = parseFloat(input.value) || 0;
+    if (typeof window.setMinPositionValue === 'function') {
+      window.setMinPositionValue(value);
+    }
+    document.getElementById('min-value-modal').classList.add('hidden');
+  });
+  
+  // Initialize min value input with saved value
+  const minValueInput = document.getElementById('min-value-input');
+  if (minValueInput) {
+    minValueInput.value = minPositionValue.toString();
+  }
+  
+  // Close modals on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('calendar-modal')?.classList.add('hidden');
+      document.getElementById('min-value-modal')?.classList.add('hidden');
+    }
+  });
+  
+  document.getElementById('log-clear')?.addEventListener('click',()=>{ 
+    if(!confirm('Clear all trade history? This cannot be undone.')) return; 
+    localStorage.removeItem('nebulax_order_book'); 
+    if (typeof window.renderLog === 'function') window.renderLog();
+    if (typeof window.renderAnalytics === 'function') window.renderAnalytics();
+  });
 
   function drawSnapshot(){
     const parts = Object.entries(POS).map(([t,p])=> ({t, v:(p.qty||0)*(p.price||0)}));
@@ -1203,7 +2330,8 @@ function paint(sol){ /* ...unchanged... */ }
 <script>
 /* ===== NebulaX Portfolio Totals (robust autodetect) ===== */
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const KNOWN_KEYS = ['nebula_positions_v1','nebula_trades_v1','nebula_open_positions','nebula_open_trades'];
+// Note: nebulax_order_book is included but skipped in readActivePositions - it's for trade history only
+const KNOWN_KEYS = ['nebula_positions_v1','nebula_trades_v1','nebula_open_positions','nebula_open_trades','nebulax_order_book'];
 const ID_CANDIDATES = {
   cashSol: ['pv-cash','cash-sol','nx-cash-sol'],
   cashUsd: ['pv-cash-usd','cash-usd','nx-cash-usd'],
@@ -1231,40 +2359,150 @@ function normalizePosition(p){
 
 function readActivePositions(){
   const acc = [];
+  const orderBookPositions = new Map(); // mint -> net qty
+  
   for (const key of KNOWN_KEYS) {
     try {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const data = JSON.parse(raw);
+      
+      // Special handling for order book to track trades
+      if (key === 'nebulax_order_book') {
+        const arr = Array.isArray(data) ? data : [];
+        
+        // Get connected wallet address
+        const walletAddress = window.NXWallet?.getAddress?.() || 
+                            window.phantom?.solana?.publicKey?.toString() ||
+                            window.solana?.publicKey?.toString();
+        
+        if (walletAddress) {
+          console.log('[Portfolio] Processing order book for wallet:', walletAddress.slice(0, 8) + '...');
+          // Calculate net position from trades for this wallet
+          for (const trade of arr) {
+            if (trade.wallet === walletAddress && trade.tokenMint) {
+              const currentQty = orderBookPositions.get(trade.tokenMint) || 0;
+              let tokenAmount = Number(trade.tokenAmount || 0);
+              
+              // MIGRATION: Fix tokens with wrong decimals (divided by 10^9 instead of correct decimals)
+              // If tokenAmount is suspiciously small (< 10) for a token that should have thousands,
+              // it likely has wrong decimals. Try to detect and fix.
+              // TYKJEN has 3 decimals, so 1180 raw becomes 1180/10^3 = 1.18
+              // But old code used 10^9, so it became 1180/10^9 = 0.00000118
+              // Actually, if stored as 1.18, it means raw was 1180000000 / 10^9 = 1.18
+              // Real raw should be 1180000, so actual is 1180000 / 10^3 = 1180
+              // Skip migration for now - user can clear localStorage or wait for RPC
+              
+              if (trade.type === 'buy') {
+                orderBookPositions.set(trade.tokenMint, currentQty + tokenAmount);
+                console.log(`  [OrderBook] BUY ${trade.tokenSymbol || trade.tokenMint.slice(0,8)}: +${tokenAmount} (total: ${currentQty + tokenAmount})`);
+              } else if (trade.type === 'sell') {
+                orderBookPositions.set(trade.tokenMint, currentQty - tokenAmount);
+                console.log(`  [OrderBook] SELL ${trade.tokenSymbol || trade.tokenMint.slice(0,8)}: -${tokenAmount} (total: ${currentQty - tokenAmount})`);
+              }
+            }
+          }
+          console.log('[Portfolio] Order book shows', orderBookPositions.size, 'tokens from trades');
+        }
+        continue; // Skip normal processing for order book
+      }
+      
+      // Normal position processing for other keys
       const arr = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
       for (const itm of arr) {
         const nx = normalizePosition(itm);
         if (nx) acc.push(nx);
       }
-    } catch {}
+    } catch(e) {
+      console.warn('[Portfolio] Error reading key', key, ':', e.message);
+    }
   }
-  // de-dup adjacent duplicates (same mint+qty)
-  const uniq = [];
-  const seen = new Set();
+  
+  // Add order book positions to accumulator
+  for (const [mint, qty] of orderBookPositions.entries()) {
+    if (qty > 0) { // Only add positions with positive quantity
+      acc.push({ mint, qty, source: 'orderbook' });
+      console.log(`[Portfolio] Adding from order book: ${mint.slice(0,8)}... qty: ${qty}`);
+    }
+  }
+  
+  // Deduplicate by mint only (sum quantities for same mint)
+  const mintMap = new Map();
   for (const p of acc) {
-    const k = p.mint+'|'+p.qty;
-    if (!seen.has(k)) { uniq.push(p); seen.add(k); }
+    const existing = mintMap.get(p.mint) || 0;
+    mintMap.set(p.mint, existing + Number(p.qty || 0));
   }
+  
+  const uniq = Array.from(mintMap.entries())
+    .filter(([mint, qty]) => qty > 0)
+    .map(([mint, qty]) => ({ mint, qty }));
+  
+  console.log('[Portfolio] Read', uniq.length, 'positions from localStorage/orderbook');
   return uniq;
 }
 
 async function getPrices(mints){
   // Jupiter Lite V3 (CORS-safe, no key)
   const url = 'https://lite-api.jup.ag/price/v3?ids=' + encodeURIComponent(mints.join(','));
+  let prices = {};
+  
   try {
     const r = await fetch(url, { cache:'no-store' });
     if (!r.ok) throw new Error('HTTP '+r.status);
-    return await r.json(); // {mint: {usdPrice, decimals, blockId, ...}}
+    prices = await r.json(); // {mint: {usdPrice, decimals, blockId, ...}}
   } catch (e) {
-    console.warn('[PV] price fetch failed →', e);
-    // return nulls
-    const out = {}; mints.forEach(m=>out[m]=null); return out;
+    console.warn('[Portfolio] Jupiter price fetch failed →', e);
   }
+  
+  // For any tokens without Jupiter prices, try DexScreener as fallback
+  const missingPrices = mints.filter(m => !prices[m] || !prices[m].usdPrice);
+  
+  if (missingPrices.length > 0) {
+    console.log(`[Portfolio] Fetching DexScreener prices for ${missingPrices.length} tokens without Jupiter prices`);
+    
+    // Fetch DexScreener prices in parallel (with small delay to avoid rate limits)
+    const dexPromises = missingPrices.map(async (mint, index) => {
+      // Small staggered delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, index * 50));
+      
+      try {
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+        if (dexRes.ok) {
+          const dexData = await dexRes.json();
+          if (dexData.pairs && dexData.pairs.length > 0) {
+            // Get pair with highest volume
+            const pair = dexData.pairs.reduce((best, p) => 
+              (p.volume?.h24 || 0) > (best.volume?.h24 || 0) ? p : best
+            );
+            const price = parseFloat(pair.priceUsd) || 0;
+            if (price > 0) {
+              console.log(`[Portfolio] DexScreener price for ${mint.slice(0,8)}...: $${price}`);
+              return { mint, usdPrice: price, source: 'dexscreener' };
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[Portfolio] DexScreener fetch failed for ${mint.slice(0,8)}:`, e.message);
+      }
+      return null;
+    });
+    
+    const dexResults = await Promise.all(dexPromises);
+    
+    // Merge DexScreener prices into main prices object
+    dexResults.forEach(result => {
+      if (result) {
+        prices[result.mint] = { usdPrice: result.usdPrice, source: 'dexscreener' };
+      }
+    });
+  }
+  
+  // Return nulls for any still-missing prices
+  mints.forEach(m => {
+    if (!prices[m]) prices[m] = null;
+  });
+  
+  return prices;
 }
 
 function paintCash(solUsd){
@@ -1283,6 +2521,8 @@ function paintTotals({tradesUsd, solUsd}){
   const totSolEl = firstEl(ID_CANDIDATES.totSol);
   const posUsdEl = firstEl(ID_CANDIDATES.posUsd);
   const posSolEl = firstEl(ID_CANDIDATES.posSol);
+  const pvUnrl = document.getElementById('pv-unrl');
+  const pvRlzd = document.getElementById('pv-rlzd');
 
   const cashUsd  = solUsd ? SOL_BAL*solUsd : 0;
   const totalsUsd = (tradesUsd||0) + cashUsd;
@@ -1292,6 +2532,65 @@ function paintTotals({tradesUsd, solUsd}){
   if (totSolEl) totSolEl.textContent = totalsSol.toFixed(3);
   if (posUsdEl) posUsdEl.textContent = (tradesUsd||0).toFixed(2);
   if (posSolEl) posSolEl.textContent = (solUsd ? (tradesUsd/solUsd) : 0).toFixed(3);
+  
+  // Calculate Unrealized PnL (current position value)
+  // Unrealized = total value of all current holdings
+  if (pvUnrl) {
+    const unrealizedUSD = tradesUsd || 0;
+    const isPositive = unrealizedUSD >= 0;
+    pvUnrl.innerHTML = `<div class="text-xl font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}">$${unrealizedUSD.toFixed(2)}</div>`;
+    pvUnrl.classList.remove('pos-green', 'pos-red', 'text-white');
+    pvUnrl.classList.add(isPositive ? 'pos-green' : 'pos-red');
+  }
+  
+  // Calculate Realized PnL from order book
+  const realizedPnL = calculateRealizedPnL();
+  if (pvRlzd) {
+    const isPositive = realizedPnL >= 0;
+    const pnlIcon = isPositive ? '▲' : '▼';
+    pvRlzd.innerHTML = `<div class="text-xl font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}">${pnlIcon} $${Math.abs(realizedPnL).toFixed(2)}</div>`;
+    pvRlzd.classList.remove('pos-green', 'pos-red', 'text-white');
+    pvRlzd.classList.add(isPositive ? 'pos-green' : 'pos-red');
+  }
+}
+
+// Calculate total realized PnL from all trades in order book
+function calculateRealizedPnL() {
+  const ORDER_BOOK_KEY = 'nebulax_order_book';
+  let allTrades = [];
+  try {
+    allTrades = JSON.parse(localStorage.getItem(ORDER_BOOK_KEY) || '[]');
+  } catch(e) {
+    return 0;
+  }
+  
+  // Track per-token: total spent (buys) and total received (sells)
+  const tokenStats = new Map(); // tokenMint -> {usdSpent, usdReceived}
+  
+  allTrades.forEach(trade => {
+    if (!tokenStats.has(trade.tokenMint)) {
+      tokenStats.set(trade.tokenMint, {usdSpent: 0, usdReceived: 0});
+    }
+    const stats = tokenStats.get(trade.tokenMint);
+    
+    // Use locked USD value if available, otherwise calculate
+    const solPrice = trade.solPriceAtTrade || window.NX?.solPrice || 220;
+    const tradeValueUSD = trade.tradeValueUSD || (trade.solAmount * solPrice);
+    
+    if (trade.type === 'buy') {
+      stats.usdSpent += tradeValueUSD;
+    } else if (trade.type === 'sell') {
+      stats.usdReceived += tradeValueUSD;
+    }
+  });
+  
+  // Sum up total PnL across all tokens
+  let totalPnL = 0;
+  tokenStats.forEach((stats) => {
+    totalPnL += (stats.usdReceived - stats.usdSpent);
+  });
+  
+  return totalPnL;
 }
 
 /** Read SPL token holdings from the connected wallet (excludes native SOL) */
@@ -1311,6 +2610,8 @@ async function readHoldingsFromWallet() {
     return [];
   }
   
+  console.log('[Portfolio] Reading token accounts for wallet:', pubkeyStr);
+  
   try {
     const pubkey = new solanaWeb3.PublicKey(pubkeyStr);
     const conn = new solanaWeb3.Connection((window.NX_RPC||'https://api.mainnet-beta.solana.com'),'confirmed');
@@ -1320,14 +2621,24 @@ async function readHoldingsFromWallet() {
     });
     
     const out = [];
+    console.log(`[Portfolio] Processing ${resp.value.length} token accounts...`);
     for (const { account } of resp.value) {
       const info = account?.data?.parsed?.info;
       const mint = info?.mint;
       const amt = info?.tokenAmount;
       const ui = Number(amt?.uiAmount);
+      const raw = amt?.amount;
+      const decimals = amt?.decimals;
+      
+      // Log ALL accounts including filtered ones
+      console.log(`[Portfolio] Token account: ${mint?.slice(0,8)}... raw: ${raw}, decimals: ${decimals}, ui: ${ui}`);
+      
       // filter dust; adjust threshold to taste
       if (mint && isFinite(ui) && ui > 0) {
         out.push({ mint, qty: ui });
+        console.log(`  ✓ Added to portfolio`);
+      } else {
+        console.log(`  ✗ Filtered out - mint:${!!mint} finite:${isFinite(ui)} positive:${ui > 0}`);
       }
     }
     console.log(`[Portfolio] Found ${out.length} SPL token holdings`);
@@ -1338,19 +2649,119 @@ async function readHoldingsFromWallet() {
   }
 }
 
-/** Combine: (localStorage positions) + (wallet holdings) and de-dup by mint summing qty */
+/** Combine: (localStorage positions) + (wallet holdings) and de-dup by mint, preferring wallet data */
 async function getAllPositions() {
-  const fromLocal = readActivePositions();      // existing function we added earlier
+  const fromLocal = readActivePositions();      // includes order book
   const fromWallet = await readHoldingsFromWallet();
+  
+  console.log('[Portfolio] Combining positions:');
+  console.log('  - From localStorage/orderbook:', fromLocal.length);
+  console.log('  - From wallet RPC:', fromWallet.length);
+  
+  // Use wallet data as source of truth, but supplement with order book for tokens not yet indexed
   const map = new Map();
-  for (const p of [...fromLocal, ...fromWallet]) {
-    const prev = map.get(p.mint) || 0;
-    map.set(p.mint, prev + Number(p.qty || 0));
+  
+  // First, add all wallet holdings (these are definitive)
+  for (const p of fromWallet) {
+    map.set(p.mint, { qty: Number(p.qty || 0), source: 'wallet' });
   }
+  
+  // Then, add order book data ONLY for tokens not in wallet yet
+  // BUT also try to fetch these directly from RPC to get accurate quantities
+  const missingFromWallet = [];
+  for (const p of fromLocal) {
+    if (!map.has(p.mint)) {
+      missingFromWallet.push(p.mint);
+    }
+  }
+  
+  // Force-fetch token accounts for missing tokens (they might not show in getParsedTokenAccountsByOwner yet)
+  if (missingFromWallet.length > 0) {
+    console.log(`[Portfolio] Attempting direct fetch for ${missingFromWallet.length} tokens not in wallet RPC...`);
+    try {
+      const pubkeyStr = window.NXWallet?.getAddress?.() || 
+                       window.phantom?.solana?.publicKey?.toString() ||
+                       window.solana?.publicKey?.toString();
+      
+      if (pubkeyStr) {
+        const conn = new solanaWeb3.Connection(window.NX_RPC || 'https://api.mainnet-beta.solana.com', 'confirmed');
+        
+        for (const mint of missingFromWallet) {
+          try {
+            // Try both Token Program and Token-2022 Program
+            const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+            const TOKEN_2022_PROGRAM_ID = new solanaWeb3.PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
+            const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+            const ownerPubkey = new solanaWeb3.PublicKey(pubkeyStr);
+            const mintPubkey = new solanaWeb3.PublicKey(mint);
+            
+            // Try standard token program first
+            let [ata] = await solanaWeb3.PublicKey.findProgramAddress(
+              [ownerPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+              ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            
+            let accountInfo = await conn.getParsedAccountInfo(ata);
+            
+            // If not found, try Token-2022 program
+            if (!accountInfo || !accountInfo.value) {
+              console.log(`[Portfolio] Trying Token-2022 for ${mint.slice(0,8)}...`);
+              [ata] = await solanaWeb3.PublicKey.findProgramAddress(
+                [ownerPubkey.toBuffer(), TOKEN_2022_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+              );
+              accountInfo = await conn.getParsedAccountInfo(ata);
+            }
+            
+            if (accountInfo && accountInfo.value && accountInfo.value.data && accountInfo.value.data.parsed) {
+              const tokenAmount = accountInfo.value.data.parsed.info.tokenAmount;
+              const qty = Number(tokenAmount.uiAmount);
+              console.log(`[Portfolio] Direct fetch: ${mint.slice(0,8)}... raw: ${tokenAmount.amount}, decimals: ${tokenAmount.decimals}, ui: ${qty}`);
+              if (qty > 0) {
+                map.set(mint, { qty, source: 'direct-fetch' });
+                console.log(`[Portfolio] ✓ Direct fetch found ${mint.slice(0,8)}... qty: ${qty}`);
+                continue;
+              }
+            } else {
+              console.warn(`[Portfolio] No account data found for ${mint.slice(0,8)}, ATA: ${ata.toString()}`);
+            }
+          } catch (e) {
+            console.warn(`[Portfolio] Direct fetch failed for ${mint.slice(0,8)}:`, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Portfolio] Error in direct token fetch:', e);
+    }
+  }
+  
+  // Finally, add any remaining order book data for tokens still not found
+  for (const p of fromLocal) {
+    if (!map.has(p.mint)) {
+      map.set(p.mint, { qty: Number(p.qty || 0), source: 'orderbook' });
+      console.log(`[Portfolio] Token ${p.mint.slice(0,8)}... from order book (not found in direct fetch)`);
+    } else {
+      const existing = map.get(p.mint);
+      console.log(`[Portfolio] Token ${p.mint.slice(0,8)}... found via ${existing.source}, qty: ${existing.qty}`);
+    }
+  }
+  
+  console.log('[Portfolio] Combined map has', map.size, 'unique tokens');
+  
   // Return [{mint, qty}] but exclude native SOL mint (we handle SOL cash separately)
-  return Array.from(map.entries())
-    .filter(([mint]) => mint !== 'So11111111111111111111111111111111111111112')
-    .map(([mint, qty]) => ({ mint, qty }));
+  // Also filter out zero/negative quantities (fully sold positions)
+  const filtered = Array.from(map.entries())
+    .filter(([mint, data]) => {
+      const isSOL = mint === 'So11111111111111111111111111111111111111112';
+      const hasQty = data.qty > 0;
+      if (isSOL) console.log('[Portfolio] Filtering out native SOL');
+      if (!hasQty) console.log('[Portfolio] Filtering out zero qty token:', mint.slice(0, 8));
+      return !isSOL && hasQty;
+    })
+    .map(([mint, data]) => ({ mint, qty: data.qty }));
+    
+  console.log('[Portfolio] After filtering:', filtered.length, 'tokens will be displayed');
+  return filtered;
 }
 
 /** Format price with dynamic precision */
@@ -1375,8 +2786,21 @@ function formatPrice(price) {
 let currentSortColumn = null;
 let currentSortDirection = 'desc';
 let cachedPositionsData = [];
+let lastPositions = [];
+let lastPrices = {};
+const HIDDEN_POS_KEY = 'nebulax_hidden_positions';
+const MIN_VALUE_KEY = 'nebulax_min_position_value';
+let showHidden = false;
+let minPositionValue = 0;
 
 async function renderPositionsTable(positions, prices) {
+  // Load settings from localStorage
+  minPositionValue = parseFloat(localStorage.getItem(MIN_VALUE_KEY) || '0');
+  
+  // Cache for hide/show re-renders
+  lastPositions = positions;
+  lastPrices = prices;
+  
   const tbody = document.getElementById('pos-body');
   if (!tbody) return;
   
@@ -1391,6 +2815,24 @@ async function renderPositionsTable(positions, prices) {
   let tokenMetadata = new Map();
   
   console.log('[Portfolio] Fetching metadata for', positions.length, 'tokens...');
+  
+  // Try to use cached Jupiter token list from search module
+  let jupiterTokens = window.JUPITER_TOKENS || [];
+  if (jupiterTokens.length === 0) {
+    console.log('[Portfolio] No cached Jupiter tokens, fetching...');
+    try {
+      const jupResponse = await fetch('https://token.jup.ag/strict');
+      if (jupResponse.ok) {
+        jupiterTokens = await jupResponse.json();
+        window.JUPITER_TOKENS = jupiterTokens; // Cache for next time
+        console.log('[Portfolio] Loaded', jupiterTokens.length, 'tokens from Jupiter');
+      }
+    } catch (e) {
+      console.warn('[Portfolio] Jupiter token list unavailable:', e.message);
+    }
+  } else {
+    console.log('[Portfolio] Using cached Jupiter tokens:', jupiterTokens.length);
+  }
   
   const metadataPromises = positions.map(async (pos) => {
     try {
@@ -1409,57 +2851,61 @@ async function renderPositionsTable(positions, prices) {
         }
       }
       
-      // Fallback: Use RPC to get mint account and try to parse metadata URI
-      const rpc = window.NX_RPC || 'https://api.mainnet-beta.solana.com';
-      const connection = new solanaWeb3.Connection(rpc);
-      const mintPubkey = new solanaWeb3.PublicKey(pos.mint);
-      
-      // Try to get metadata account (Metaplex standard)
-      const TOKEN_METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
-      
-      // Derive metadata PDA
-      const seeds = [
-        new TextEncoder().encode('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBytes(),
-        mintPubkey.toBytes()
-      ];
-      
-      const [metadataPDA] = await solanaWeb3.PublicKey.findProgramAddress(seeds, TOKEN_METADATA_PROGRAM_ID);
-      const accountInfo = await connection.getAccountInfo(metadataPDA);
-      
-      if (accountInfo && accountInfo.data) {
-        // Simple parsing of Metaplex metadata
-        const data = new Uint8Array(accountInfo.data);
-        
-        // Skip first 1 + 32 + 32 bytes (key + update_authority + mint)
-        let offset = 1 + 32 + 32;
-        
-        // Read name length (4 bytes little endian)
-        const nameLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
-        offset += 4;
-        
-        // Read name string
-        const nameBytes = data.slice(offset, offset + nameLen);
-        const name = new TextDecoder().decode(nameBytes).replace(/\0/g, '').trim();
-        offset += nameLen;
-        
-        // Read symbol length
-        const symbolLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
-        offset += 4;
-        
-        // Read symbol string
-        const symbolBytes = data.slice(offset, offset + symbolLen);
-        const symbol = new TextDecoder().decode(symbolBytes).replace(/\0/g, '').trim();
-        
-        if (symbol) {
+      // Fallback: Check Jupiter token list
+      if (jupiterTokens.length > 0) {
+        const token = jupiterTokens.find(t => t.address === pos.mint);
+        if (token) {
           return {
             mint: pos.mint,
-            symbol: symbol,
-            name: name || symbol,
-            logo: null
+            symbol: token.symbol || pos.mint.slice(0, 6),
+            name: token.name || 'Unknown Token',
+            logo: token.logoURI || null
           };
         }
       }
+      
+      // Last resort: Try on-chain Metaplex metadata (with delay to avoid rate limits)
+      await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+      try {
+        const rpc = window.NX_RPC || 'https://api.mainnet-beta.solana.com';
+        const connection = new solanaWeb3.Connection(rpc);
+        const mintPubkey = new solanaWeb3.PublicKey(pos.mint);
+        const TOKEN_METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+        const seeds = [
+          new TextEncoder().encode('metadata'),
+          TOKEN_METADATA_PROGRAM_ID.toBytes(),
+          mintPubkey.toBytes()
+        ];
+        const [metadataPDA] = await solanaWeb3.PublicKey.findProgramAddress(seeds, TOKEN_METADATA_PROGRAM_ID);
+        const accountInfo = await connection.getAccountInfo(metadataPDA);
+        
+        if (accountInfo && accountInfo.data) {
+          const data = new Uint8Array(accountInfo.data);
+          let offset = 1 + 32 + 32;
+          const nameLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+          offset += 4;
+          const nameBytes = data.slice(offset, offset + nameLen);
+          const name = new TextDecoder().decode(nameBytes).replace(/\0/g, '').trim();
+          offset += nameLen;
+          const symbolLen = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+          offset += 4;
+          const symbolBytes = data.slice(offset, offset + symbolLen);
+          const symbol = new TextDecoder().decode(symbolBytes).replace(/\0/g, '').trim();
+          
+          if (symbol) {
+            console.log('[Portfolio] Found on-chain metadata:', symbol, name);
+            return {
+              mint: pos.mint,
+              symbol: symbol,
+              name: name || symbol,
+              logo: null
+            };
+          }
+        }
+      } catch (metaplexError) {
+        console.warn('[Portfolio] On-chain metadata lookup failed for', pos.mint, ':', metaplexError.message);
+      }
+      
     } catch(e) {
       console.warn('[Portfolio] Failed to fetch metadata for', pos.mint, ':', e.message);
     }
@@ -1504,6 +2950,23 @@ async function renderPositionsTable(positions, prices) {
   // Render rows
   for (const row of cachedPositionsData) {
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    
+    // Check if this position is hidden
+    const hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+    const isHidden = hiddenPositions.includes(row.mint);
+    
+    // Apply greyed-out styling if hidden and being shown
+    if (isHidden && showHidden) {
+      tr.style.opacity = '0.4';
+    }
+    
+    // Skip if hidden and not showing hidden
+    if (isHidden && !showHidden) continue;
+    
+    // Skip if below minimum value threshold
+    if (row.value < minPositionValue && !isHidden) continue;
+    
     tr.innerHTML = `
       <td class="nx-td">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -1519,14 +2982,73 @@ async function renderPositionsTable(positions, prices) {
       <td class="nx-td tabnums">$${formatPrice(row.price)}</td>
       <td class="nx-td tabnums">$${row.value.toFixed(2)}</td>
       <td class="nx-td tabnums ${row.unrealized >= 0 ? 'pos-green' : 'pos-red'}">$${row.unrealized.toFixed(2)}</td>
-      <td class="nx-td tabnums ${row.pct >= 0 ? 'pos-green' : 'pos-red'}">${row.pct.toFixed(2)}%</td>
       <td class="nx-td">
-        <button class="nx-btn text-xs" onclick="NX.goToCoin({mint: '${row.mint}', symbol: '${row.symbol}', pair: '${row.symbol}/SOL'})">View</button>
+        <button class="nx-btn text-xs" data-action="hide-toggle" data-mint="${row.mint}">${isHidden ? 'Show' : 'Hide'}</button>
       </td>
     `;
+    
+    // Add click handler for row (navigate to coin page)
+    tr.addEventListener('click', (e) => {
+      // Don't navigate if clicking the Hide button
+      if (e.target.closest('[data-action="hide-toggle"]')) {
+        e.stopPropagation();
+        return;
+      }
+      NX.goToCoin({mint: row.mint, symbol: row.symbol, pair: `${row.symbol}/SOL`});
+    });
+    
+    // Add click handler for Hide button
+    const hideBtn = tr.querySelector('[data-action="hide-toggle"]');
+    if (hideBtn) {
+      hideBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mint = hideBtn.getAttribute('data-mint');
+        let hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+        
+        if (isHidden) {
+          // Unhide
+          hiddenPositions = hiddenPositions.filter(m => m !== mint);
+        } else {
+          // Hide
+          if (!hiddenPositions.includes(mint)) {
+            hiddenPositions.push(mint);
+          }
+        }
+        
+        localStorage.setItem(HIDDEN_POS_KEY, JSON.stringify(hiddenPositions));
+        
+        // Re-render the table with cached data
+        renderPositionsTable(lastPositions, lastPrices);
+      });
+    }
+    
     tbody.appendChild(tr);
   }
 }
+
+// Helper functions for Show Hidden and Hide Small Balances buttons
+window.toggleShowHidden = function() {
+  showHidden = !showHidden;
+  window.showHiddenState = showHidden;
+  if (lastPositions && lastPrices) {
+    renderPositionsTable(lastPositions, lastPrices);
+  }
+};
+
+window.setMinPositionValue = function(value) {
+  const MIN_VALUE_KEY = 'nebulax_min_position_value';
+  minPositionValue = value;
+  localStorage.setItem(MIN_VALUE_KEY, value.toString());
+  if (lastPositions && lastPrices) {
+    renderPositionsTable(lastPositions, lastPrices);
+  }
+};
+
+window.getMinPositionValue = function() {
+  return minPositionValue;
+};
+
+window.showHiddenState = false;
 
 /** Sort positions data by column */
 function sortPositionsData(column) {
@@ -1596,8 +3118,25 @@ function sortPositionsData(column) {
   const tbody = document.getElementById('pos-body');
   tbody.innerHTML = '';
   
+  const hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+  
   for (const row of cachedPositionsData) {
+    const isHidden = hiddenPositions.includes(row.mint);
+    
+    // Skip if hidden and not showing hidden
+    if (isHidden && !showHidden) continue;
+    
+    // Skip if below minimum value threshold
+    if (row.value < minPositionValue && !isHidden) continue;
+    
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    
+    // Apply greyed-out styling if hidden and being shown
+    if (isHidden && showHidden) {
+      tr.style.opacity = '0.4';
+    }
+    
     tr.innerHTML = `
       <td class="nx-td">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -1613,11 +3152,46 @@ function sortPositionsData(column) {
       <td class="nx-td tabnums">$${formatPrice(row.price)}</td>
       <td class="nx-td tabnums">$${row.value.toFixed(2)}</td>
       <td class="nx-td tabnums ${row.unrealized >= 0 ? 'pos-green' : 'pos-red'}">$${row.unrealized.toFixed(2)}</td>
-      <td class="nx-td tabnums ${row.pct >= 0 ? 'pos-green' : 'pos-red'}">${row.pct.toFixed(2)}%</td>
       <td class="nx-td">
-        <button class="nx-btn text-xs" onclick="NX.goToCoin({mint: '${row.mint}', symbol: '${row.symbol}', pair: '${row.symbol}/SOL'})">View</button>
+        <button class="nx-btn text-xs" data-action="hide-toggle" data-mint="${row.mint}">${isHidden ? 'Show' : 'Hide'}</button>
       </td>
     `;
+    
+    // Add click handler for row (navigate to coin page)
+    tr.addEventListener('click', (e) => {
+      // Don't navigate if clicking the Hide button
+      if (e.target.closest('[data-action="hide-toggle"]')) {
+        e.stopPropagation();
+        return;
+      }
+      NX.goToCoin({mint: row.mint, symbol: row.symbol, pair: `${row.symbol}/SOL`});
+    });
+    
+    // Add click handler for Hide button
+    const hideBtn = tr.querySelector('[data-action="hide-toggle"]');
+    if (hideBtn) {
+      hideBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mint = hideBtn.getAttribute('data-mint');
+        let hiddenPositions = JSON.parse(localStorage.getItem(HIDDEN_POS_KEY) || '[]');
+        
+        if (isHidden) {
+          // Unhide
+          hiddenPositions = hiddenPositions.filter(m => m !== mint);
+        } else {
+          // Hide
+          if (!hiddenPositions.includes(mint)) {
+            hiddenPositions.push(mint);
+          }
+        }
+        
+        localStorage.setItem(HIDDEN_POS_KEY, JSON.stringify(hiddenPositions));
+        
+        // Re-render with sorted data
+        sortPositionsData(currentSortColumn);
+      });
+    }
+    
     tbody.appendChild(tr);
   }
 }
@@ -1645,6 +3219,12 @@ async function recompute(){
 
   // 2) Load open positions from any known key(s)
   const positions = await getAllPositions(); // [{mint, qty}]
+  
+  console.log('[Portfolio] Positions to render:', positions.length);
+  positions.forEach(p => {
+    console.log(`  - ${p.mint.slice(0,8)}... qty: ${p.qty}`);
+  });
+  
   // 3) Fetch prices for SOL + all position mints
   const mints = Array.from(new Set([SOL_MINT, ...positions.map(p => p.mint)]));
   const prices = await getPrices(mints);
@@ -1663,8 +3243,16 @@ async function recompute(){
   
   // 6) Render positions table
   await renderPositionsTable(positions, prices);
+  
+  // 7) Render trade log and analytics
+  if (typeof window.renderLog === 'function') {
+    window.renderLog();
+  }
+  if (typeof window.renderAnalytics === 'function') {
+    window.renderAnalytics();
+  }
 
-  // 7) Log diagnostics so you can see exactly what was read
+  // 8) Log diagnostics so you can see exactly what was read
   console.table({
     SOL_BAL,
     positions_found: positions.length,
@@ -1683,27 +3271,57 @@ window.addEventListener('nebula:sol:changed', (e)=>{
   // Just repaint totals with existing data
   const tradesUsd = 0; // Keep last calculated value instead of recalculating
   paintTotals({ tradesUsd, solUsd: LAST_SOL_USD });
+  
+  // Refresh analytics when SOL price loads (for old trades without stored price)
+  if (typeof window.renderAnalytics === 'function') {
+    window.renderAnalytics();
+  }
+  if (typeof window.renderLog === 'function') {
+    window.renderLog();
+  }
 });
 
 // boot now and every 30s to refresh prices
 let RECOMPUTE_INTERVAL = null;
+let isRecomputing = false;
+
+// Wrapper to prevent duplicate simultaneous recompute calls
+async function safeRecompute() {
+  if (isRecomputing) {
+    console.log('[Portfolio] Recompute already in progress, skipping...');
+    return;
+  }
+  isRecomputing = true;
+  try {
+    await recompute();
+  } finally {
+    isRecomputing = false;
+  }
+}
+
 (async function boot(){
   paintCash(LAST_SOL_USD);
   
-  // Wait for NXWallet to be ready
-  if (window.NXWallet?.isConnected?.()) {
-    await recompute();
+  // Render trade log and analytics immediately on page load
+  if (typeof window.renderLog === 'function') {
+    window.renderLog();
   }
+  if (typeof window.renderAnalytics === 'function') {
+    window.renderAnalytics();
+  }
+  
+  // Don't call recompute here - let the nxwallet:connected event handle it
+  // This prevents duplicate calls on initial load
   
   // Clear any existing intervals to prevent stacking
   if (RECOMPUTE_INTERVAL) clearInterval(RECOMPUTE_INTERVAL);
-  RECOMPUTE_INTERVAL = setInterval(recompute, 30000);
+  RECOMPUTE_INTERVAL = setInterval(safeRecompute, 30000);
 })();
 
 // Listen for wallet connection events
 window.addEventListener('nxwallet:connected', async () => {
   console.log('[Portfolio] Wallet connected, refreshing data...');
-  await recompute();
+  await safeRecompute();
 });
 
 window.addEventListener('nxwallet:disconnected', () => {

@@ -211,6 +211,12 @@
       
       // If not first start, notify parent that game is restarting (consume a turn)
       if(!isFirstStart && window.parent){
+        // Prevent multiple restart requests being posted while waiting for panel response
+        if(window.__nebx_restart_requested){
+          console.log('Restart already requested; awaiting panel response');
+          return;
+        }
+        window.__nebx_restart_requested = true;
         window.parent.postMessage({type:'nebx:game:restart'}, '*');
         // Wait for parent response - don't start yet
         return;
@@ -233,14 +239,24 @@
       
       // Parent allowed restart - continue with game start
       if(d.type === 'nebx:allow:restart'){
+        // panel allowed restart; reset request flag and start
+        window.__nebx_restart_requested = false;
         canRestart = true;
         actuallyStartGame();
       }
       
       // Reset turn availability when new turns purchased
       if(d.type === 'nebx:turns:purchased'){
+        // reset restart request state when new turns are purchased
+        window.__nebx_restart_requested = false;
         canRestart = true;
         isFirstStart = true;
+      }
+      // If panel explicitly blocks restart, clear the request flag so UI can react
+      if(d.type === 'nebx:block:restart'){
+        window.__nebx_restart_requested = false;
+        canRestart = false;
+        showMsg('<div style="text-align:center"><div style="font-size:1.8em;margin-bottom:8px">Out of Turns</div><div style="font-size:0.9em;opacity:0.8">Purchase more turns to play again</div></div>');
       }
     });
     
@@ -322,6 +338,16 @@
       if(newBest!==(+localStorage.getItem(BEST_KEY)||0)) localStorage.setItem(BEST_KEY,newBest);
       bestEl.textContent = formatInt(newBest);
       showMsg('GAME OVER<br><small>Press Enter or R to restart</small>');
+      // Notify parent panel about game over so it can consume a turn
+      try{
+        const payload = { type: 'nebby-runner:gameover', score: Math.floor(score), level: 1, reason: 'death' };
+        // send once per session to avoid duplicate messages
+        if(!window.__nebx_gameover_sent){
+          window.__nebx_gameover_sent = true;
+          if(window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
+        }
+        try{ window.dispatchEvent(new CustomEvent('nebbyRunnerGameOver', { detail: payload })); }catch(e){}
+      }catch(e){}
     }
     function showMsg(html){ centerMsg.innerHTML = '<div class="card"><div class="glow" style="font-size:28px">'+html+'</div></div>'; }
 

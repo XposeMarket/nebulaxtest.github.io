@@ -4,6 +4,35 @@
   <meta charset="utf-8" />
   <title>NebulaX Arcade — Nebby Defender</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+    // Track if restart is allowed (blocked by panel)
+    let canRestart = true;
+    window.addEventListener('message', function(e) {
+      const d = e?.data || {};
+      if(d.type === 'nebx:block:restart') {
+        canRestart = false;
+        // Show Out of Turns popup after game over
+        const overlay = document.getElementById('overlay');
+        if(overlay) {
+          overlay.style.display = 'flex';
+          const panel = overlay.querySelector('.panel');
+          if(panel) {
+            panel.innerHTML = `<h2 style=\"margin:0 0 6px 0; font-size:20px\">Out of Turns</h2><div class=\"center-note\">You have no turns remaining. Purchase more to play again.</div><div style=\"height:10px\"></div><div style=\"display:flex;gap:8px;justify-content:center;margin-top:10px\"><button id=\"okDone\" class=\"btn\">OK</button></div>`;
+            setTimeout(()=>{ document.getElementById('okDone')?.addEventListener('click', ()=>{ overlay.style.display = 'none'; }); }, 40);
+          }
+        }
+      }
+      if(d.type === 'nebx:turns:purchased') {
+        canRestart = true;
+      }
+    });
+  </script>
+  
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NebulaX Arcade — Nebby Defender</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
       --bg:#060914;
@@ -100,7 +129,15 @@
       <div class="panel">
         <h1>Nebby Defender</h1>
         <p>Top-down 8-bit scroller. <b>A/D</b> to move, <b>Left Click</b> to shoot.<br/>Click Start to lock the mouse and begin.</p>
-        <button id="startBtn" class="btn">Start</button>
+          <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+            <button id="startBtn" class="btn">Start</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button id="level1Btn" class="btn">Level 1</button>
+              <button id="level2Btn" class="btn">Level 2</button>
+              <button id="level3Btn" class="btn">Level 3</button>
+              <button id="level4Btn" class="btn">Level 4</button>
+            </div>
+          </div>
       </div>
     </div>
   </div>
@@ -110,6 +147,22 @@
   const SPRITE_SRC = "nebby-ship.png"; // <- put your Nebby ship PNG here (same folder). Fallback draws pixel placeholder.
   const CANVAS = document.getElementById("game");
   const CTX = CANVAS.getContext("2d");
+  // Listen for panel messages (out of turns)
+  window.addEventListener('message', function(e) {
+    const d = e?.data || {};
+    if(d.type === 'nebx:block:restart') {
+      // Show Out of Turns popup after game over
+      const overlay = document.getElementById('overlay');
+      if(overlay) {
+        overlay.style.display = 'flex';
+        const panel = overlay.querySelector('.panel');
+        if(panel) {
+          panel.innerHTML = `<h2 style=\"margin:0 0 6px 0; font-size:20px\">Out of Turns</h2><div class=\"center-note\">You have no turns remaining. Purchase more to play again.</div><div style=\"height:10px\"></div><div style=\"display:flex;gap:8px;justify-content:center;margin-top:10px\"><button id=\"okDone\" class=\"btn\">OK</button></div>`;
+          setTimeout(()=>{ document.getElementById('okDone')?.addEventListener('click', ()=>{ overlay.style.display = 'none'; }); }, 40);
+        }
+      }
+    }
+  });
 
   // Pixel scale for crisp art when we draw fallback
   const PX = 2;
@@ -189,9 +242,34 @@
 
   // Mouse to shoot
   CANVAS.addEventListener("mousedown", (e) => {
-    if(document.pointerLockElement === CANVAS){
-      if(e.button === 0) shoot();
+    if(gameOver){
+      if(!canRestart) return;
+      // Request panel to allow restart and consume a turn
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
+      // Restart game from level 1
+      level = 1;
+      score = 0;
+      gameOver = false;
+      gameEndNotified = false;
+      explosions = [];
+      nebbyHP = 2;
+      evilShip = null;
+      evilShipActive = false;
+      evilLasers = [];
+      evilShipHP = 10;
+      shipExploding = false;
+      shipExplosionTimer = 0;
+      showLevelPopup = false;
+      transitioningToLevel = 0;
+      spawnLevel1Coins();
+      return;
     }
+    // Allow shooting on click even if pointer lock isn't available (useful when embedded)
+    if(e.button === 0) shoot();
   });
 
   // ========= Start / Pointer lock =========
@@ -199,14 +277,105 @@
   const startBtn = document.getElementById("startBtn");
 
   startBtn.addEventListener("click", async () => {
-    overlay.style.display = "none";
-    try{
-      await CANVAS.requestPointerLock({ unadjustedMovement: true });
-    }catch(e){
-      // Some browsers ignore the error; continue anyway
+    if(gameOver){
+      if(!canRestart) return;
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
     }
+    startAtLevel(1);
+  });
+
+  // Start game at a specific level (used by level selector)
+  function startAtLevel(levelNum){
+    overlay.style.display = 'none';
+    // try pointer lock but continue if not allowed
+    try{ CANVAS.requestPointerLock({ unadjustedMovement: true }); }catch(e){}
+
+    // Reset core transient state
+    score = 0;
+    gameOver = false;
+    gameEndNotified = false;
+    explosions = [];
+    lasers.length = 0;
+    evilLasers.length = 0;
+    evilBalls.length = 0;
+    level4Bonus = null;
+    evilShip = null; evilShipActive = false;
+    evilShip2 = null; evilShip2Active = false;
+
+    level = levelNum;
+    nebbyHP = 2;
+
+    if(level === 1) {
+      spawnLevel1Coins();
+    } else if(level === 2) {
+      spawnLevel2Coins();
+    } else if(level === 3) {
+      spawnLevel3Coins();
+      spawnEvilShip();
+      evilShipActive = true;
+    } else if(level === 4) {
+      spawnLevel4Coins();
+      spawnEvilShip2();
+      spawnLevel4Bonus();
+      evilShip2Active = true;
+    }
+
     last = performance.now();
     loop(last);
+  }
+
+  // Wire level selector buttons
+  const level1Btn = document.getElementById('level1Btn');
+  const level2Btn = document.getElementById('level2Btn');
+  const level3Btn = document.getElementById('level3Btn');
+  const level4Btn = document.getElementById('level4Btn');
+  level1Btn.addEventListener('click', ()=> {
+    if(gameOver){
+      if(!canRestart) return;
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
+    }
+    startAtLevel(1);
+  });
+  level2Btn.addEventListener('click', ()=> {
+    if(gameOver){
+      if(!canRestart) return;
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
+    }
+    startAtLevel(2);
+  });
+  level3Btn.addEventListener('click', ()=> {
+    if(gameOver){
+      if(!canRestart) return;
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
+    }
+    startAtLevel(3);
+  });
+  level4Btn.addEventListener('click', ()=> {
+    if(gameOver){
+      if(!canRestart) return;
+      try{
+        if(window.parent && window.parent !== window){
+          window.parent.postMessage({ type: 'nebx:game:restart' }, '*');
+        }
+      }catch(e){}
+    }
+    startAtLevel(4);
   });
 
   document.addEventListener("pointerlockchange", () => {
@@ -225,6 +394,714 @@
   // ========= Game Loop =========
   let last = 0, anim;
   initStars();
+
+    // ========= Level 1: Enemy Coins =========
+    const ENEMY_IMG_SRC = '../../assets/Nebby_Defendercoin.png'; // Use correct local asset
+    const ENEMY_SIZE = 32;
+    const ENEMY_POINTS = 500;
+    let score = 0;
+    let coins = [];
+    let explosions = [];
+
+    function spawnLevel1Coins() {
+      coins = [];
+      for(let i=0;i<10;i++){
+        // Galaga-like path: sine wave, staggered start
+        coins.push({
+          x: 80 + i*80,
+          y: -40 - i*30,
+          t: 0,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+    }
+
+    function spawnLevel2Coins() {
+      console.log('spawnLevel2Coins called');
+      coins = [];
+      // Left group (5 coins)
+      for(let i=0;i<5;i++){
+        coins.push({
+          x: 80 + i*60,
+          y: -40 - i*40,
+          t: 0,
+          group: 'left',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+      // Right group (5 coins)
+      for(let i=0;i<5;i++){
+        coins.push({
+          x: CANVAS.width - (80 + i*60),
+          y: -40 - i*40,
+          t: 0,
+          group: 'right',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+    }
+
+    function spawnLevel3Coins() {
+      console.log('spawnLevel3Coins called');
+      coins = [];
+      // Left group (3 coins)
+      for(let i=0;i<3;i++){
+        coins.push({
+          x: 80 + i*100,
+          y: -40 - i*60,
+          t: 0,
+          group: 'left',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+      // Right group (3 coins)
+      for(let i=0;i<3;i++){
+        coins.push({
+          x: CANVAS.width - (80 + i*100),
+          y: -40 - i*60,
+          t: 0,
+          group: 'right',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+    }
+
+    // Level 4 coin pattern (Lissajous / swooping pattern)
+    function spawnLevel4Coins(){
+      console.log('spawnLevel4Coins called');
+      coins = [];
+      const centerX = CANVAS.width/2;
+      const centerY = CANVAS.height/3;
+      for(let i=0;i<6;i++){
+        // Each coin gets a unique phase and frequency so paths differ
+        const freqX = 1.2 + i*0.12;
+        const freqY = 0.9 + i*0.08;
+        const ampX = 180 + (i%3)*20;
+        const ampY = 40 + (i%2)*30;
+        coins.push({
+          x: centerX + Math.sin(i)*ampX,
+          y: centerY + Math.cos(i)*ampY - 120 - i*20,
+          t: 0,
+          pattern: 'lissajous',
+          freqX: freqX,
+          freqY: freqY,
+          ampX: ampX,
+          ampY: ampY,
+          phase: i * 0.8,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+    }
+
+    // Utility: random integer in [min, max]
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+    let nebbyHP = 2;
+    let evilShip = null;
+    let evilLasers = [];
+    let evilShipHP = 10;
+    let evilShipActive = false;
+    let evilShipExplosion = false;
+    let evilShipExplosionTimer = 0;
+    // Level 4 additions
+    let evilShip2 = null;
+    let evilShip2Active = false;
+    let evilBalls = []; // cannon ball projectiles from evilShip2
+    let ballTrails = []; // trail segments for flame effect
+    const EVIL2_POINTS = 12000;
+    let level4Bonus = null; // level-up bonus coin (gives 5000 points)
+    const BONUS_POINTS = 5000;
+
+    function spawnLevel3Coins() {
+      coins = [];
+      // Left group (3 coins)
+      for(let i=0;i<3;i++){
+        coins.push({
+          x: 80 + i*100,
+          y: -40 - i*60,
+          t: 0,
+          group: 'left',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+      // Right group (3 coins)
+      for(let i=0;i<3;i++){
+        coins.push({
+          x: CANVAS.width - (80 + i*100),
+          y: -40 - i*60,
+          t: 0,
+          group: 'right',
+          idx: i,
+          img: (()=>{let im=new Image();im.src=ENEMY_IMG_SRC;return im;})(),
+          alive: true
+        });
+      }
+    }
+
+    function spawnEvilShip() {
+      console.log('spawnEvilShip called');
+      evilShip = {
+        x: CANVAS.width/2,
+        y: 80,
+        w: 64,
+        h: 80,
+        vx: 120, // px/s
+        dir: 1,
+        hp: 10,
+        fireCooldown: randInt(900, 1600),
+        img: (()=>{let im=new Image();im.src='../../assets/Nebby_DefenderEvilship1.png';return im;})(),
+        alive: true
+      };
+      evilShipActive = true;
+      evilShipHP = 10;
+      evilLasers = [];
+      evilShipExplosion = false;
+    }
+
+    // Spawn evil ship variant 2 (Level 4)
+    function spawnEvilShip2(){
+      console.log('spawnEvilShip2 called');
+      evilShip2 = {
+        x: CANVAS.width/2,
+        y: 80,
+        w: 84,
+        h: 100,
+        vx: 160,
+        dir: 1,
+        hp: 10,
+        fireCooldown: randInt(700, 1200),
+        img: (()=>{let im=new Image();im.src='../../assets/Nebby_DefenderEvilship2.png';return im;})(),
+        alive: true
+      };
+      evilShip2Active = true;
+      evilBalls = [];
+      ballTrails = [];
+    }
+
+    function updateEvilShip(dt) {
+      if(!evilShip || !evilShipActive) return;
+      // Move back and forth in upper half
+      evilShip.x += evilShip.vx * evilShip.dir * dt;
+      if(evilShip.x < evilShip.w/2+40) { evilShip.x = evilShip.w/2+40; evilShip.dir = 1; }
+      if(evilShip.x > CANVAS.width-evilShip.w/2-40) { evilShip.x = CANVAS.width-evilShip.w/2-40; evilShip.dir = -1; }
+      // Fire red lasers at random intervals
+      evilShip.fireCooldown -= dt*1000;
+      if(evilShip.fireCooldown <= 0) {
+        evilLasers.push({ x: evilShip.x, y: evilShip.y+evilShip.h/2, vy: 340 });
+        evilShip.fireCooldown = randInt(900, 1600);
+      }
+    }
+
+    function updateEvilLasers(dt) {
+      for(let i=evilLasers.length-1;i>=0;i--){
+        evilLasers[i].y += evilLasers[i].vy * dt;
+        if(evilLasers[i].y > CANVAS.height+40) evilLasers.splice(i,1);
+      }
+    }
+
+    // Level 4: evilShip2 firing cannon balls
+    function updateEvilShip2(dt){
+      if(!evilShip2 || !evilShip2Active) return;
+      evilShip2.x += evilShip2.vx * evilShip2.dir * dt;
+      if(evilShip2.x < evilShip2.w/2+40) { evilShip2.x = evilShip2.w/2+40; evilShip2.dir = 1; }
+      if(evilShip2.x > CANVAS.width-evilShip2.w/2-40) { evilShip2.x = CANVAS.width-evilShip2.w/2-40; evilShip2.dir = -1; }
+      evilShip2.fireCooldown -= dt*1000;
+      if(evilShip2.fireCooldown <= 0){
+        // Fire a cannon ball aimed roughly at the player with some spread
+        const angle = Math.atan2(player.y - evilShip2.y, player.x - evilShip2.x) + (Math.random()*0.4 - 0.2);
+        const speed = randInt(420, 520); // slightly faster than beams
+        evilBalls.push({ x: evilShip2.x, y: evilShip2.y + evilShip2.h/2, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, r: 8, trail: [] });
+        evilShip2.fireCooldown = randInt(700, 1200);
+      }
+    }
+
+    function renderEvilShip() {
+      if(!evilShip || !evilShipActive) return;
+      // Draw ship
+      if(evilShip.img && evilShip.img.complete && evilShip.img.naturalWidth > 0) {
+        CTX.drawImage(evilShip.img, evilShip.x-evilShip.w/2, evilShip.y-evilShip.h/2, evilShip.w, evilShip.h);
+      } else {
+        CTX.fillStyle = '#f00';
+        CTX.fillRect(evilShip.x-evilShip.w/2, evilShip.y-evilShip.h/2, evilShip.w, evilShip.h);
+      }
+      // Health bar
+      CTX.save();
+      CTX.fillStyle = '#222';
+      CTX.fillRect(evilShip.x-32, evilShip.y-evilShip.h/2-18, 64, 8);
+      CTX.fillStyle = '#ff4444';
+      CTX.fillRect(evilShip.x-32, evilShip.y-evilShip.h/2-18, 64*(evilShip.hp/10), 8);
+      CTX.strokeStyle = '#fff';
+      CTX.strokeRect(evilShip.x-32, evilShip.y-evilShip.h/2-18, 64, 8);
+      CTX.restore();
+    }
+
+    // Render evil ship 2 (Level 4)
+    function renderEvilShip2(){
+      if(!evilShip2 || !evilShip2Active) return;
+      if(evilShip2.img && evilShip2.img.complete && evilShip2.img.naturalWidth > 0) {
+        CTX.drawImage(evilShip2.img, evilShip2.x-evilShip2.w/2, evilShip2.y-evilShip2.h/2, evilShip2.w, evilShip2.h);
+      } else {
+        CTX.fillStyle = '#999';
+        CTX.fillRect(evilShip2.x-evilShip2.w/2, evilShip2.y-evilShip2.h/2, evilShip2.w, evilShip2.h);
+      }
+      // Health bar
+      CTX.save();
+      CTX.fillStyle = '#222';
+      CTX.fillRect(evilShip2.x-40, evilShip2.y-evilShip2.h/2-20, 80, 10);
+      CTX.fillStyle = '#ff4444';
+      CTX.fillRect(evilShip2.x-40, evilShip2.y-evilShip2.h/2-20, 80*(evilShip2.hp/10), 10);
+      CTX.strokeStyle = '#fff';
+      CTX.strokeRect(evilShip2.x-40, evilShip2.y-evilShip2.h/2-20, 80, 10);
+      CTX.restore();
+    }
+
+    function renderEvilLasers() {
+      for(const L of evilLasers){
+        CTX.save();
+        CTX.fillStyle = '#ff2222';
+        CTX.shadowColor = '#ff2222';
+        CTX.shadowBlur = 8;
+        CTX.fillRect(L.x-2, L.y, 4, 18);
+        CTX.restore();
+      }
+    }
+
+    // Level 4: cannon-ball projectiles and trails
+    function updateEvilBalls(dt){
+      // move balls
+      for(let i=evilBalls.length-1;i>=0;i--){
+        const b = evilBalls[i];
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        // append trail sample
+        b.trail.push({ x: b.x, y: b.y, t: 0 });
+        // age trail samples
+        for(let j=b.trail.length-1;j>=0;j--){
+          b.trail[j].t += dt;
+          if(b.trail[j].t > 0.45) b.trail.splice(j,1);
+        }
+        if(b.y > CANVAS.height + 40 || b.x < -40 || b.x > CANVAS.width+40) evilBalls.splice(i,1);
+      }
+    }
+
+    function renderEvilBalls(){
+      for(const b of evilBalls){
+        // draw trail: older samples first
+        for(let i=b.trail.length-1;i>=0;i--){
+          const s = b.trail[i];
+          const alpha = 1 - (s.t / 0.45);
+          CTX.save();
+          CTX.globalAlpha = alpha * 0.7;
+          const size = Math.max(2, 10 * (1 - (i / b.trail.length)));
+          const g = CTX.createRadialGradient(s.x, s.y, 0, s.x, s.y, size);
+          g.addColorStop(0, '#ffcc33');
+          g.addColorStop(0.5, '#ff6633');
+          g.addColorStop(1, 'transparent');
+          CTX.fillStyle = g;
+          CTX.beginPath();
+          CTX.arc(s.x, s.y, size, 0, Math.PI*2);
+          CTX.fill();
+          CTX.restore();
+        }
+        // draw core ball
+        CTX.save();
+        CTX.fillStyle = '#ff9966';
+        CTX.shadowColor = '#ff7744';
+        CTX.shadowBlur = 12;
+        CTX.beginPath();
+        CTX.arc(b.x, b.y, b.r, 0, Math.PI*2);
+        CTX.fill();
+        CTX.restore();
+      }
+    }
+
+    // Level 4 bonus: level-up coin that gives points when shot
+    function spawnLevel4Bonus(){
+      // Initialize or increment spawnCount if it exists
+      const prevCount = level4Bonus && typeof level4Bonus.spawnCount === 'number' ? level4Bonus.spawnCount : 0;
+      level4Bonus = {
+        baseX: randInt(80, CANVAS.width-80),
+        x: randInt(80, CANVAS.width-80),
+        y: -ENEMY_SIZE,
+        t: 0,
+        vy: 38 + Math.random()*8,
+        img: (()=>{let im=new Image();im.src='../../assets/Nebby_DefenderLevelup.png';return im;})(),
+        alive: true,
+        spawnCount: prevCount,
+        respawnTimer: 0
+      };
+    }
+
+    function updateLevel4Bonus(dt){
+      if(!level4Bonus) return;
+      // If currently dead (was hit or left screen), handle respawn logic
+      if(!level4Bonus.alive){
+        // If we've shown it 3 times already, remove permanently
+        if(level4Bonus.spawnCount >= 3){ level4Bonus = null; return; }
+        level4Bonus.respawnTimer -= dt;
+        if(level4Bonus.respawnTimer <= 0){
+          // Respawn from top
+          level4Bonus.baseX = randInt(80, CANVAS.width-80);
+          level4Bonus.x = level4Bonus.baseX;
+          level4Bonus.y = -ENEMY_SIZE;
+          level4Bonus.t = 0;
+          level4Bonus.vy = 38 + Math.random()*8;
+          level4Bonus.alive = true;
+        }
+        return;
+      }
+
+      // Alive: move top -> bottom similar to level 2 coins (sine sway)
+      level4Bonus.t += dt;
+      level4Bonus.x = level4Bonus.baseX + Math.sin(level4Bonus.t*2 + level4Bonus.y/60)*60;
+      level4Bonus.y += level4Bonus.vy*dt + Math.cos(level4Bonus.t*2)*4;
+
+      // If it goes off bottom, count as one show and schedule respawn or removal
+      if(level4Bonus.y > CANVAS.height + ENEMY_SIZE){
+        level4Bonus.spawnCount += 1;
+        level4Bonus.alive = false;
+        level4Bonus.respawnTimer = 0.8; // seconds until next appearance
+        if(level4Bonus.spawnCount >= 3){ level4Bonus = null; }
+      }
+    }
+
+    function renderLevel4Bonus(){
+      if(!level4Bonus || !level4Bonus.alive) return;
+      if(level4Bonus.img && level4Bonus.img.complete && level4Bonus.img.naturalWidth>0){
+        CTX.drawImage(level4Bonus.img, level4Bonus.x-20, level4Bonus.y-20, 40, 40);
+      } else {
+        CTX.fillStyle = '#ffd700'; CTX.beginPath(); CTX.arc(level4Bonus.x, level4Bonus.y, 18,0,Math.PI*2); CTX.fill();
+      }
+    }
+
+    function renderNebbyHealth() {
+      // Health bar above Nebby
+      CTX.save();
+      CTX.fillStyle = '#222';
+      CTX.fillRect(player.x-22, player.y-player.h/2-16, 44, 7);
+      CTX.fillStyle = '#23ff76';
+      CTX.fillRect(player.x-22, player.y-player.h/2-16, 44*(nebbyHP/2), 7);
+      CTX.strokeStyle = '#fff';
+      CTX.strokeRect(player.x-22, player.y-player.h/2-16, 44, 7);
+      CTX.restore();
+    }
+
+    function renderCoins(){
+      for(const coin of coins){
+        if(!coin.alive) continue;
+        // Only draw if image loaded and not broken
+        if(coin.img && coin.img.complete && coin.img.naturalWidth > 0 && coin.img.naturalHeight > 0){
+          try {
+            CTX.drawImage(coin.img, coin.x-ENEMY_SIZE/2, coin.y-ENEMY_SIZE/2, ENEMY_SIZE, ENEMY_SIZE);
+          } catch(e) {
+            // Fallback: yellow pixel circle
+            CTX.fillStyle = '#ffd700';
+            CTX.beginPath(); CTX.arc(coin.x, coin.y, ENEMY_SIZE/2, 0, Math.PI*2); CTX.fill();
+          }
+        }else{
+          // Fallback: yellow pixel circle
+          CTX.fillStyle = '#ffd700';
+          CTX.beginPath(); CTX.arc(coin.x, coin.y, ENEMY_SIZE/2, 0, Math.PI*2); CTX.fill();
+        }
+      }
+    }
+
+    // Update coin respawn logic for all levels
+    function updateCoins(dt){
+      for(const coin of coins){
+        if(!coin.alive) continue;
+        if(coin.frozen){
+          coin.x = coin.frozenX;
+          coin.y = coin.frozenY;
+          continue;
+        }
+        coin.t += dt;
+        // Mirrored Galaga path
+        if(coin.pattern === 'lissajous'){
+          // Lissajous-style swoop
+          const t = coin.t*2 + coin.phase;
+          coin.x = CANVAS.width/2 + Math.sin(t*coin.freqX) * coin.ampX;
+          coin.y = (CANVAS.height/3) + Math.cos(t*coin.freqY) * coin.ampY + coin.t*18;
+        } else if(coin.group === 'left'){
+          coin.x = 80 + Math.sin(coin.t*2 + coin.y/60)*120 + (coin.idx*60);
+          coin.y += 38*dt + Math.cos(coin.t*2)*4;
+        }else if(coin.group === 'right'){
+          coin.x = CANVAS.width - (80 + Math.sin(coin.t*2 + coin.y/60)*120 + (coin.idx*60));
+          coin.y += 38*dt + Math.cos(coin.t*2)*4;
+        } else {
+          // default downward motion
+          coin.y += 38*dt + Math.cos(coin.t*2)*4;
+        }
+        // Respawn from top if off screen and not destroyed
+        if(coin.y > CANVAS.height+ENEMY_SIZE) {
+          if(coin.alive) {
+            coin.y = -ENEMY_SIZE;
+            coin.t = 0;
+          }
+        }
+      }
+    }
+
+    let gameOver = false;
+    let shipExploding = false;
+    let shipExplosionTimer = 0;
+    let gameEndNotified = false; // ensure we only notify host once per game end
+    function checkCollisions(){
+      if(gameOver) return;
+      for(const L of lasers){
+        for(const coin of coins){
+          if(!coin.alive) continue;
+          // Simple AABB collision
+          if(L.x > coin.x-ENEMY_SIZE/2 && L.x < coin.x+ENEMY_SIZE/2 && L.y < coin.y+ENEMY_SIZE/2 && L.y+L.h > coin.y-ENEMY_SIZE/2){
+            coin.alive = false;
+            explosions.push({x:coin.x, y:coin.y, t:0, showScore:true});
+            score += ENEMY_POINTS;
+            L.y = -1000; // Remove laser
+          }
+        }
+      }
+      // Remove dead lasers
+      for(let i=lasers.length-1;i>=0;i--){ if(lasers[i].y<-50) lasers.splice(i,1); }
+
+      // Level 2 & 3: coin touches player ends game
+        if((level === 2 || level === 3 || level === 4) && !shipExploding && !gameOver){
+        for(const coin of coins){
+          if(!coin.alive) continue;
+          // Ship AABB
+          const px = player.x, py = player.y, pw = player.w, ph = player.h;
+          if(
+            coin.x+ENEMY_SIZE/2 > px-pw/2 && coin.x-ENEMY_SIZE/2 < px+pw/2 &&
+            coin.y+ENEMY_SIZE/2 > py-ph/2 && coin.y-ENEMY_SIZE/2 < py+ph/2
+          ){
+            // Trigger ship explosion and freeze
+            shipExploding = true;
+            shipExplosionTimer = 1.0; // seconds
+            explosions.push({x:player.x, y:player.y, t:0, ship:true});
+          }
+        }
+      }
+
+      // Level 3: Nebby vs Evil Ship
+      if(level === 3 && !gameOver){
+        // Evil ship bullets
+        for(let i=evilLasers.length-1;i>=0;i--){
+          const L = evilLasers[i];
+          // Check collision with player
+          if(
+            L.y > player.y-player.h/2 && L.y < player.y+player.h/2 &&
+            L.x > player.x-player.w/2 && L.x < player.x+player.w/2
+          ){
+            // Hit! Trigger explosion and damage
+            explosions.push({x:player.x, y:player.y, t:0, ship:true});
+            nebbyHP--;
+            evilLasers.splice(i,1); // Remove laser
+            // Check game over
+            if(nebbyHP <= 0){
+              nebbyHP = 0;
+              triggerGameOver('hp_depleted');
+            }
+          }
+        }
+        // Player lasers hitting evil ship
+        if(evilShip && evilShipActive && evilShip.alive){
+          for(let i=lasers.length-1;i>=0;i--){
+            const L = lasers[i];
+            if(
+              L.x > evilShip.x-evilShip.w/2 && L.x < evilShip.x+evilShip.w/2 &&
+              L.y < evilShip.y+evilShip.h/2 && L.y+L.h > evilShip.y-evilShip.h/2
+            ){
+              // Hit registered
+              console.log('evilShip hit by laser');
+              evilShip.hp -= 1;
+              // remove laser
+              lasers.splice(i,1);
+              if(evilShip.hp <= 0){
+                evilShip.alive = false;
+                evilShipActive = false;
+                score += 10000;
+                evilShipExplosion = true;
+                evilShipExplosionTimer = 1.0;
+                explosions.push({x:evilShip.x, y:evilShip.y, t:0, ship:true});
+              }
+              break;
+            }
+          }
+        }
+        // Evil ship collision
+        if(evilShip && evilShipActive){
+          // Simple AABB collision with player
+          if(
+            evilShip.x+evilShip.w/2 > player.x-player.w/2 && evilShip.x-evilShip.w/2 < player.x+player.w/2 &&
+            evilShip.y+evilShip.h/2 > player.y-player.h/2 && evilShip.y-evilShip.h/2 < player.y+player.h/2
+          ){
+            // Trigger ship explosion and freeze
+            shipExploding = true;
+            shipExplosionTimer = 1.0; // seconds
+            explosions.push({x:player.x, y:player.y, t:0, ship:true});
+            triggerGameOver('collision_with_evilShip');
+          }
+        }
+      }
+      // Level 4: handle cannon balls and bonus
+      if(level === 4 && !gameOver){
+        // cannon balls hit player -> one hit kill
+        for(let i=evilBalls.length-1;i>=0;i--){
+          const b = evilBalls[i];
+          if(
+            b.x + b.r > player.x-player.w/2 && b.x - b.r < player.x+player.w/2 &&
+            b.y + b.r > player.y-player.h/2 && b.y - b.r < player.y+player.h/2
+          ){
+            // immediate death
+            explosions.push({x:player.x, y:player.y, t:0, ship:true});
+            nebbyHP = 0;
+            triggerGameOver('hit_by_cannon');
+            evilBalls.splice(i,1);
+            break;
+          }
+        }
+        // Player lasers hitting evilShip2
+        if(evilShip2 && evilShip2Active && evilShip2.alive){
+          for(let i=lasers.length-1;i>=0;i--){
+            const L = lasers[i];
+            if(
+              L.x > evilShip2.x-evilShip2.w/2 && L.x < evilShip2.x+evilShip2.w/2 &&
+              L.y < evilShip2.y+evilShip2.h/2 && L.y+L.h > evilShip2.y-evilShip2.h/2
+            ){
+              evilShip2.hp -= 1;
+              lasers.splice(i,1);
+              if(evilShip2.hp <= 0){
+                evilShip2.alive = false;
+                evilShip2Active = false;
+                score += EVIL2_POINTS;
+                explosions.push({x:evilShip2.x, y:evilShip2.y, t:0, ship:true});
+              }
+              break;
+            }
+          }
+        }
+        // Bonus coin collision with player lasers
+        if(level4Bonus && level4Bonus.alive){
+          for(let i=lasers.length-1;i>=0;i--){
+            const L = lasers[i];
+                if(L.x > level4Bonus.x-20 && L.x < level4Bonus.x+20 && L.y > level4Bonus.y-20 && L.y < level4Bonus.y+20){
+                  // Hit bonus: award points and mark as shown
+                  score += BONUS_POINTS;
+                  explosions.push({x:level4Bonus.x, y:level4Bonus.y, t:0, showScore:true, points: BONUS_POINTS});
+                  lasers.splice(i,1);
+                  // increment show count and schedule respawn or remove
+                  level4Bonus.spawnCount = (level4Bonus.spawnCount || 0) + 1;
+                  level4Bonus.alive = false;
+                  level4Bonus.respawnTimer = 0.8;
+                  if(level4Bonus.spawnCount >= 3){ level4Bonus = null; }
+                  break;
+                }
+          }
+        }
+      }
+    }
+
+    function updateExplosions(dt){
+      for(const ex of explosions){ ex.t += dt; }
+      explosions = explosions.filter(ex=>ex.t<0.7 || ex.ship);
+    }
+
+    function triggerGameOver(reason = 'unknown'){
+      if(gameOver && gameEndNotified) return;
+      gameOver = true;
+      gameEndNotified = true;
+      // Clear active enemies/projectiles so UI matches Game Over
+      evilShipActive = false;
+      evilShip2Active = false;
+      evilLasers.length = 0;
+      evilBalls.length = 0;
+      if(level4Bonus) level4Bonus.alive = false;
+
+      const payload = { type: 'nebby-defender:gameover', score: score, level: level, reason: reason };
+      try{
+        // Send the gameover to parent exactly once per session to avoid duplicates
+        if(!window.__nebx_gameover_sent){
+          window.__nebx_gameover_sent = true;
+          if(window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
+        }
+      }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('nebbyDefenderGameOver', { detail: payload })); }catch(e){}
+    }
+
+    function renderExplosions(){
+      for(const ex of explosions){
+        // 8-bit explosion: pixel burst
+        for(let i=0;i<12;i++){
+          const ang = i*Math.PI*2/12;
+          const r = 8+ex.t*32;
+          CTX.fillStyle = ['#ffd700','#fff200','#ffae00','#fff'][i%4];
+          CTX.fillRect(ex.x+Math.cos(ang)*r, ex.y+Math.sin(ang)*r, 4, 4);
+        }
+        // Floating score (uses ex.points if provided)
+        if(ex.showScore){
+          const pts = ex.points || ENEMY_POINTS;
+          CTX.save();
+          CTX.globalAlpha = 1.0 - ex.t*2; // fade out
+          CTX.font = 'bold 20px monospace';
+          CTX.fillStyle = '#ffd700';
+          CTX.textAlign = 'left';
+          CTX.fillText('+'+pts, ex.x + 24, ex.y - ex.t*48);
+          CTX.restore();
+        }
+      }
+    }
+
+    // Show score
+    function renderScore(){
+      CTX.save();
+      CTX.font = 'bold 24px monospace';
+      CTX.fillStyle = '#ffd700';
+      CTX.textAlign = 'right';
+      CTX.fillText('Score: '+score, CANVAS.width-24, 38);
+      CTX.restore();
+    }
+
+
+    let level = 1;
+    let showLevelPopup = false;
+    let levelPopupText = '';
+    let levelPopupTimer = 0;
+    let transitioningToLevel = 0;
+
+    function showPopup(text, duration = 2200, nextLevelNum = 0) {
+      showLevelPopup = true;
+      levelPopupText = text;
+      levelPopupTimer = duration;
+      transitioningToLevel = nextLevelNum;
+    }
+
+    function nextLevel() {
+      // Do not change `level` here — show a popup and set the level
+      // only after the popup finishes to avoid immediate double-advancing.
+      const target = level + 1;
+      if(target === 2) {
+        showPopup("Level 2: Don't let the coins touch you!", 2200, 2);
+      } else if(target === 3) {
+        showPopup("Level 3: Dodge the Lasers and don't get touched!", 2600, 3);
+      } else if(target === 4) {
+        showPopup("Level 4: Cannon Barrage — watch the balls!", 3000, 4);
+      }
+    }
+
+    spawnLevel1Coins();
 
   function loop(ts){
     const dt = Math.min(0.033, (ts-last)/1000); // clamp delta
@@ -263,11 +1140,88 @@
       L.y += L.vy * dt;
       if(L.y + L.h < 0) lasers.splice(i,1);
     }
+
+      // Freeze game if ship is exploding
+      if(shipExploding){
+        updateExplosions(dt);
+        shipExplosionTimer -= dt;
+          if(shipExplosionTimer <= 0){
+            shipExploding = false;
+            triggerGameOver('explosion_end');
+          }
+        return; // Skip rest of update
+      }
+
+      // Level coins
+      updateCoins(dt);
+      checkCollisions();
+      updateExplosions(dt);
+      // Check for level completion (only trigger once, don't spam nextLevel())
+      if(!showLevelPopup && transitioningToLevel === 0) {
+        if(level === 1 && coins.every(c=>!c.alive)) {
+          nextLevel();
+          // don't return; allow popup handler to run in same frame
+        }
+        if(level === 2 && coins.every(c=>!c.alive)) {
+          nextLevel();
+          // don't return; allow popup handler to run in same frame
+        }
+        if(level === 3 && !evilShipActive && coins.every(c=>!c.alive)){
+          nextLevel();
+        }
+      }
+      // Popup timer and level transition
+      if(showLevelPopup) {
+        levelPopupTimer -= dt*1000;
+        if(levelPopupTimer <= 0) {
+          showLevelPopup = false;
+          // Apply the pending level now that the popup finished
+          if(transitioningToLevel) {
+            level = transitioningToLevel;
+            if(level === 2) {
+              spawnLevel2Coins();
+            } else if(level === 3) {
+              spawnLevel3Coins();
+              spawnEvilShip();
+              nebbyHP = 2;
+              evilShipActive = true;
+            } else if(level === 4) {
+              spawnLevel4Coins();
+              spawnEvilShip2();
+              spawnLevel4Bonus();
+              nebbyHP = 2;
+              evilShip2Active = true;
+            }
+          }
+          transitioningToLevel = 0;
+        }
+        return;
+      }
+      // Evil ship logic only in Level 3
+      if(level === 3 && evilShipActive && evilShip) {
+        updateEvilShip(dt);
+        updateEvilLasers(dt);
+      }
+      // Level 4 evil ship2 logic
+      if(level === 4 && evilShip2Active && evilShip2){
+        updateEvilShip2(dt);
+        updateEvilBalls(dt);
+        updateLevel4Bonus(dt);
+      }
   }
 
   function render(){
     // Clear
     CTX.clearRect(0,0,CANVAS.width,CANVAS.height);
+
+    // If game over, make sure active enemies/projectiles/bonuses are deactivated
+    if(gameOver){
+      evilShipActive = false;
+      evilShip2Active = false;
+      evilLasers.length = 0;
+      evilBalls.length = 0;
+      if(level4Bonus) level4Bonus.alive = false;
+    }
 
     // Background gradient subtle glow
     const g = CTX.createRadialGradient(CANVAS.width/2, CANVAS.height*0.8, 80, CANVAS.width/2, CANVAS.height*0.9, CANVAS.height);
@@ -304,6 +1258,72 @@
       // Fallback: quick neon pixel ship (so you can run immediately)
       drawFallbackShip(px, py, player.w, player.h);
     }
+
+      // Level coins
+      renderCoins();
+      renderExplosions();
+      renderScore();
+      renderNebbyHealth();
+
+      // Evil ship
+      if(evilShipActive) {
+        renderEvilShip();
+        renderEvilLasers();
+      }
+      // Evil ship 2
+      if(evilShip2Active){
+        renderEvilShip2();
+        renderEvilBalls();
+      }
+
+      // Level 4 bonus
+      renderLevel4Bonus();
+
+        // Debug overlay: show level/transition state
+        CTX.save();
+        CTX.font = '14px monospace';
+        CTX.fillStyle = '#ffffff';
+        CTX.textAlign = 'left';
+        CTX.fillText('level: '+level+'  transitioningToLevel: '+transitioningToLevel+'  showLevelPopup: '+(showLevelPopup?1:0), 12, 18);
+        CTX.restore();
+
+      // Level popup
+      if(showLevelPopup) {
+        CTX.save();
+        CTX.globalAlpha = 0.92;
+        CTX.fillStyle = '#060914ee';
+        CTX.fillRect(CANVAS.width/2-180, CANVAS.height/2-54, 360, 108);
+        CTX.strokeStyle = '#00f0ff';
+        CTX.lineWidth = 3;
+        CTX.strokeRect(CANVAS.width/2-180, CANVAS.height/2-54, 360, 108);
+        CTX.font = 'bold 28px monospace';
+        CTX.fillStyle = '#ffd700';
+        CTX.textAlign = 'center';
+        CTX.fillText(levelPopupText, CANVAS.width/2, CANVAS.height/2+10);
+        CTX.restore();
+      }
+
+      // Game Over screen
+      if(gameOver) {
+        CTX.save();
+        CTX.globalAlpha = 0.97;
+        CTX.fillStyle = '#1e2747ee';
+        CTX.fillRect(CANVAS.width/2-220, CANVAS.height/2-90, 440, 180);
+        CTX.strokeStyle = '#ff00e6';
+        CTX.lineWidth = 4;
+        CTX.strokeRect(CANVAS.width/2-220, CANVAS.height/2-90, 440, 180);
+        CTX.font = 'bold 48px monospace';
+        CTX.fillStyle = '#ffd700';
+        CTX.textAlign = 'center';
+        CTX.fillText('GAME OVER', CANVAS.width/2, CANVAS.height/2-16);
+        CTX.font = 'bold 24px monospace';
+        CTX.fillStyle = '#8aa4ff';
+        CTX.fillText('Score: '+score, CANVAS.width/2, CANVAS.height/2+32);
+        CTX.fillStyle = '#ff00e6';
+        CTX.font = 'bold 20px monospace';
+        CTX.fillText('Click to restart', CANVAS.width/2, CANVAS.height/2+64);
+        CTX.restore();
+      }
   }
 
   function drawFallbackShip(px, py, w, h){
@@ -348,7 +1368,8 @@
   }
 
   // Optional: spacebar also fires (handy for laptop testing)
-  window.addEventListener("keydown", (e)=>{ if(e.code==="Space" && document.pointerLockElement===CANVAS) shoot(); });
+  // Spacebar fires regardless of pointer lock so the game works inside panels/iframes
+  window.addEventListener("keydown", (e)=>{ if(e.code==="Space") shoot(); });
 
   // Start with overlay showing; loop begins after Start is clicked.
   </script>

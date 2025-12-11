@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nebula Explore — Demo</title>
+  <style>
+    :root{ --bg:#030517; --ui:#dfefff; --dim:#8aa4ff88; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--ui);font-family:Inter,system-ui,Arial;overflow:hidden}
+    #wrap{height:100%;display:grid;place-items:center}
+    canvas{ image-rendering: pixelated; image-rendering: crisp-edges; width:min(100vw,960px); height: calc(min(100vw,960px) * 9/16); border:1px solid #1e2747; background:#000 }
+    .hud{ position:fixed; left:12px; top:10px; font-size:13px; color:var(--dim); z-index:2 }
+    .badge{ display:inline-block; padding:6px 10px; background:rgba(255,255,255,0.02); border:1px solid #1e2747; border-radius:10px; margin-right:8px }
+    #overlay{ position:fixed; inset:0; display:grid; place-items:center; background: linear-gradient(180deg, #030517ee, #030517cc); z-index:20 }
+    .panel{ padding:20px 22px; border-radius:14px; background:rgba(10,12,22,0.9); border:1px solid #1e2747; text-align:center }
+    .btn{ padding:10px 14px; border-radius:10px; border:1px solid #1e2747; background:#071026; color:var(--ui); font-weight:700; cursor:pointer }
+    .btn.cyan{ background:linear-gradient(90deg,#25e6ff,#8ff3ff); color:#041018 }
+    .center-note{ font-size:13px; color:var(--dim); margin-top:8px }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" width="960" height="540" aria-label="Nebby Explore"></canvas>
+    <div class="hud">
+      <span class="badge">Score: <strong id="score">0</strong></span>
+      <span class="badge">Best: <strong id="best">0</strong></span>
+      <span class="badge">Earns: <strong id="earnRate">500/sec</strong></span>
+    </div>
+
+    <div id="overlay">
+      <div class="panel">
+        <h2 style="margin:0 0 6px 0; font-size:20px">Nebby Explore</h2>
+        <div class="center-note">Top-down infinite racer. Move left/right to dodge asteroids, traffic and enemy ships. Survive as long as possible.</div>
+        <div style="height:10px"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+          <button id="startBtn" class="btn cyan">Start</button>
+          <button id="demoBtn" class="btn">Play Demo (no turns)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const overlay = document.getElementById('overlay');
+    const startBtn = document.getElementById('startBtn');
+    const demoBtn = document.getElementById('demoBtn');
+
+
+    // Assets (relative paths)
+    const PLAYER_SRC = '../Nebby Defender/nebby-ship.png';
+    const AST1 = '../../assets/Nebby_Asteroid1.png';
+    const AST2 = '../../assets/Nebby_Asteroid2.png';
+    const TRAFFIC = '../../assets/Nebby_traffic.png';
+    const EVIL1 = '../../assets/Nebby_DefenderEvilship1.png';
+    const EVIL2 = '../../assets/Nebby_DefenderEvilship2.png';
+    const BG = '../../assets/NebulaXMarioBG.jpeg'; // optional background, fallback starfield
+    const NEPITER = '../../assets/Nepiter.png';
+    const MARS_BG = '../../assets/mars_bg_8bit.png'; // Placeholder for Mars background (should be created)
+
+    // Load images
+    const playerImg = new Image(); playerImg.src = PLAYER_SRC;
+    const astImgs = [new Image(), new Image()]; astImgs[0].src = AST1; astImgs[1].src = AST2;
+    const trafficImg = new Image(); trafficImg.src = TRAFFIC;
+    const evilImgs = [new Image(), new Image()]; evilImgs[0].src = EVIL1; evilImgs[1].src = EVIL2;
+    const bgImg = new Image(); bgImg.src = BG;
+    const nepiterImg = new Image(); nepiterImg.src = NEPITER;
+    const marsBgImg = new Image(); marsBgImg.src = MARS_BG;
+
+    // Nepiter state
+    let nepiterActive = false;
+    let nepiter = null;
+    let nepiterCollision = false;
+    let nepiterTimer = 0;
+    let marsTransition = false;
+    let marsTransitionAlpha = 0;
+    let pulseCount = 0;
+    let pulseTimer = 0;
+    let showMarsBg = false;
+    // Track if Nepiter event has occurred this session
+    let nepiterEventDone = false;
+
+    // Starfield (reuse Nebby Defender style star layers)
+    // Slightly sped up star layers for a livelier background
+    const STAR_LAYERS = [
+      { count: 110, speed: 0.24, color: '#8aa4ff', size: 1 },
+      { count: 70,  speed: 0.42, color: '#6ff3ff', size: 1.5 },
+      { count: 40,  speed: 0.72, color: '#ffffff', size: 2.2 },
+    ];
+    const stars = [];
+    function initStars(){
+      stars.length = 0;
+      STAR_LAYERS.forEach((layer)=>{
+        for(let i=0;i<layer.count;i++){
+          stars.push({
+            x: Math.random()*W,
+            y: Math.random()*H,
+            v: layer.speed,
+            s: layer.size,
+            c: layer.color
+          });
+        }
+      });
+    }
+
+    // Game state
+    const W = canvas.width, H = canvas.height;
+    // Increase player lateral speed slightly to keep pace with faster obstacles
+    const player = { x: W/2, y: H - 70, w: 46, h: 46, speed: 480, vx:0 };
+    const obstacles = []; // {type:'asteroid'|'traffic'|'evil', x,y,w,h,vy,img}
+    let keys = { left:false, right:false };
+
+    let score = 0; let best = Number(localStorage.getItem('nebby_explore_best')||0);
+    bestEl.textContent = best.toLocaleString();
+
+    let running = false; let last = 0; let raf = 0;
+
+    // Timers
+    let tAst = 0, tTraffic = 0, tEvil = 0;
+
+    // Spawn intervals (seconds)
+    // Slightly more frequent spawns to increase intensity
+    const SPAWN_AST = 0.52; // more frequent
+    const SPAWN_TRAFFIC = 1.44;
+    const SPAWN_EVIL = 3.02;
+
+    // Scoring: +500 points per second (post to parent every 1s)
+    const POINTS_PER_SEC = 500;
+    let pointsTick = 0;
+
+    // HUD update smoother
+    let displayScore = 0;
+
+
+    function resetState(){
+      obstacles.length = 0; score = 0; displayScore = 0; pointsTick = 0; tAst = tTraffic = tEvil = 0; player.x = W/2; running = true; last = performance.now();
+      initStars();
+      nepiterActive = false;
+      nepiter = null;
+      nepiterCollision = false;
+      nepiterTimer = 0;
+      marsTransition = false;
+      marsTransitionAlpha = 0;
+      pulseCount = 0;
+      pulseTimer = 0;
+      showMarsBg = false;
+      nepiterEventDone = false;
+    }
+
+    // Controls
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='a' || e.key==='A' || e.key==='ArrowLeft') keys.left = true;
+      if(e.key==='d' || e.key==='D' || e.key==='ArrowRight') keys.right = true;
+      if(e.key === 'Enter' && !running) requestRestart();
+    });
+    window.addEventListener('keyup', (e)=>{
+      if(e.key==='a' || e.key==='A' || e.key==='ArrowLeft') keys.left = false;
+      if(e.key==='d' || e.key==='D' || e.key==='ArrowRight') keys.right = false;
+    });
+
+    // Spawn helper
+    function spawn(type){
+      const margin = 40;
+      const x = margin + Math.random()*(W - margin*2);
+      if(type === 'asteroid'){
+        const img = astImgs[Math.random()<0.6?0:1];
+        // Make asteroids visibly larger
+        const s = 44 + Math.random()*36; // larger size range
+        // Speed up asteroid vertical velocity a bit
+        obstacles.push({type:'asteroid', x, y:-s, w:s, h:s, vy: (90 + Math.random()*120) * 1.18, img});
+      } else if(type === 'traffic'){
+        const s = 54 + Math.random()*20; obstacles.push({type:'traffic', x, y:-s, w:s, h:s, vy: (80 + Math.random()*90) * 1.18, img: trafficImg});
+      } else if(type === 'evil'){
+        const img = evilImgs[Math.random()<0.5?0:1]; const s = 64; obstacles.push({type:'evil', x, y:-s, w:s, h:s, vy: (110 + Math.random()*140) * 1.18, img});
+      }
+    }
+
+    function update(dt){
+      if (marsTransition) {
+        marsTransitionAlpha += dt * 1.5; // fade speed
+        if (marsTransitionAlpha >= 1 && !showMarsBg) {
+          showMarsBg = true;
+          marsTransitionAlpha = 0;
+          // After Mars event, prevent Nepiter from ever respawning this session
+          nepiterActive = false;
+          nepiter = null;
+          nepiterEventDone = true;
+          nepiterTimer = 99999; // Large value to block respawn
+        } else if (showMarsBg && marsTransitionAlpha >= 1) {
+          marsTransition = false;
+          marsTransitionAlpha = 0;
+        }
+        return; // freeze game logic during transition
+      }
+
+      if (nepiterCollision) {
+        // Pause all objects, pulse ship
+        pulseTimer += dt;
+        if (pulseCount < 3) {
+          if (pulseTimer > 0.25) {
+            pulseCount++;
+            pulseTimer = 0;
+          }
+        } else {
+          // Start Mars transition after pulsing
+          marsTransition = true;
+          nepiterCollision = false;
+          pulseCount = 0;
+          pulseTimer = 0;
+        }
+        return;
+      }
+
+      if (!showMarsBg && !nepiterEventDone) {
+        nepiterTimer += dt;
+        if (!nepiterActive && nepiterTimer > 25) {
+          // Spawn Nepiter
+          nepiterActive = true;
+          nepiter = {
+            x: W/2,
+            y: -120,
+            w: 160,
+            h: 160,
+            vy: 80,
+          };
+        }
+      }
+      if (nepiterActive && nepiter) {
+        nepiter.y += nepiter.vy * dt;
+        // Collision with player
+        if (rectsOverlap(
+          player.x - player.w/2, player.y - player.h/2, player.w, player.h,
+          nepiter.x - nepiter.w/2, nepiter.y - nepiter.h/2, nepiter.w, nepiter.h,
+          0.88, 0.88
+        )) {
+          nepiterCollision = true;
+          pulseCount = 0;
+          pulseTimer = 0;
+          nepiterEventDone = true;
+        }
+        // Remove if off screen (shouldn't happen)
+        if (nepiter.y > H + 200) {
+          nepiterActive = false;
+          nepiter = null;
+        }
+      }
+      // Player movement (left/right only)
+      player.vx = 0;
+      if(keys.left) player.vx = -player.speed;
+      if(keys.right) player.vx = player.speed;
+      player.x += player.vx * dt;
+      // clamp
+      player.x = Math.max(player.w/2 + 6, Math.min(W - player.w/2 - 6, player.x));
+
+      // spawn logic
+      tAst += dt; tTraffic += dt; tEvil += dt;
+      if(tAst >= SPAWN_AST){ spawn('asteroid'); tAst = 0; }
+      if(tTraffic >= SPAWN_TRAFFIC && Math.random() < 0.8){ spawn('traffic'); tTraffic = 0; }
+      if(tEvil >= SPAWN_EVIL && Math.random() < 0.6){ spawn('evil'); tEvil = 0; }
+
+      // update obstacles
+      if (!nepiterCollision && !marsTransition) {
+        for(let i=obstacles.length-1;i>=0;i--){
+          const o = obstacles[i]; o.y += o.vy * dt;
+          // slightly stronger X drift for faster visuals
+          o.x += Math.sin((o.y + i)*0.01) * 13 * dt;
+          if(o.y > H + 80) obstacles.splice(i,1);
+        }
+      }
+
+      // collisions
+      // Shrink hitboxes slightly for player and obstacles to make collisions more forgiving
+      const PLAYER_HIT_SHRINK = 0.88; // player's hitbox is 88% of visual size
+      const OBST_HIT_SHRINK = 0.78;   // obstacles' hitboxes are 78% of visual size
+      if (!nepiterCollision && !marsTransition) {
+        for(const o of obstacles){
+          // Exclude Nepiter from regular collision/game over logic
+          if (o.type === 'nepiter') continue;
+          if(rectsOverlap(
+            player.x - player.w/2, player.y - player.h/2, player.w, player.h,
+            o.x - o.w/2, o.y - o.h/2, o.w, o.h,
+            PLAYER_HIT_SHRINK, OBST_HIT_SHRINK
+          )){
+            // on collision -> game over
+            endGame(); return;
+          }
+        }
+      }
+
+      // scoring
+      displayScore += POINTS_PER_SEC * dt; // smooth display
+      score = Math.floor(displayScore);
+      scoreEl.textContent = score.toLocaleString();
+
+      // post points to parent every full second
+      pointsTick += dt;
+      if(pointsTick >= 1.0){
+        // send delta of POINTS_PER_SEC
+        if(window.parent && window.parent !== window){ window.parent.postMessage({ type: 'nebx:points', delta: POINTS_PER_SEC }, '*'); }
+        pointsTick -= 1.0;
+      }
+    }
+
+    function rectsOverlap(x1,y1,w1,h1,x2,y2,w2,h2, shrink1 = 1, shrink2 = 1){
+      const cw1 = w1 * shrink1, ch1 = h1 * shrink1;
+      const cw2 = w2 * shrink2, ch2 = h2 * shrink2;
+      const ax = x1 + (w1 - cw1)/2, ay = y1 + (h1 - ch1)/2;
+      const bx = x2 + (w2 - cw2)/2, by = y2 + (h2 - ch2)/2;
+      return !(bx > ax + cw1 || bx + cw2 < ax || by > ay + ch1 || by + ch2 < ay);
+    }
+
+    function draw(){
+      // Background
+      if (showMarsBg && marsBgImg && marsBgImg.complete && marsBgImg.naturalWidth > 0) {
+        // Infinite scrolling Mars background
+        let marsScrollY = (performance.now() * 0.04) % marsBgImg.height;
+        for (let y = -marsBgImg.height; y < H; y += marsBgImg.height) {
+          ctx.drawImage(marsBgImg, 0, y + marsScrollY, W, marsBgImg.height);
+        }
+      } else {
+        // starfield background (Nebby Defender style)
+        ctx.fillStyle = '#030517'; ctx.fillRect(0,0,W,H);
+        // update + draw stars
+        for(let i=0;i<stars.length;i++){
+          const s = stars[i];
+          s.y += s.v * 60 * (1/60); // normalized motion per frame (approx)
+          if(s.y > H) s.y = -4;
+          ctx.fillStyle = s.c;
+          ctx.fillRect(Math.floor(s.x), Math.floor(s.y), Math.max(1, Math.floor(s.s)), Math.max(1, Math.floor(s.s)));
+        }
+      }
+
+      // draw Nepiter
+      if (nepiterActive && nepiter && nepiterImg && nepiterImg.complete && nepiterImg.naturalWidth > 0) {
+        ctx.drawImage(nepiterImg, nepiter.x - nepiter.w/2, nepiter.y - nepiter.h/2, nepiter.w, nepiter.h);
+      }
+
+      // draw player (centered at player.x, player.y)
+      let pulseScale = 1;
+      if (nepiterCollision && pulseCount < 3) {
+        pulseScale = 1 + 0.18 * Math.abs(Math.sin(pulseTimer * 12));
+      }
+      if(playerImg && playerImg.complete && playerImg.naturalWidth>0){
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.scale(pulseScale, pulseScale);
+        ctx.drawImage(playerImg, -player.w/2, -player.h/2, player.w, player.h);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#00f0ff'; ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+      }
+
+      // draw obstacles
+      if (!nepiterCollision && !marsTransition) {
+        for(const o of obstacles){
+          if(o.img && o.img.complete && o.img.naturalWidth>0){
+            ctx.drawImage(o.img, o.x - o.w/2, o.y - o.h/2, o.w, o.h);
+          } else {
+            ctx.fillStyle = '#ff9966'; ctx.fillRect(o.x - o.w/2, o.y - o.h/2, o.w, o.h);
+          }
+        }
+      }
+
+      // Fade to white during Mars transition
+      if (marsTransition) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, marsTransitionAlpha);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0,0,W,H);
+        ctx.restore();
+      }
+    }
+
+    function loop(ts){
+      if(!running) return;
+      const dt = Math.min(0.05, (ts - last)/1000 || 0);
+      last = ts;
+      update(dt);
+      draw();
+      raf = requestAnimationFrame(loop);
+    }
+
+    function endGame(){
+      running = false; cancelAnimationFrame(raf);
+      // save best
+      if(score > best){ best = score; localStorage.setItem('nebby_explore_best', String(best)); }
+      // show overlay with game over
+      overlay.style.display = 'grid';
+      overlay.querySelector('.panel').innerHTML = `<h2 style="margin:0 0 6px 0; font-size:20px">Game Over</h2><div class="center-note">Score: ${score.toLocaleString()}</div><div style="height:10px"></div><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button id="restartBtn" class="btn cyan">Restart</button><button id="doneBtn" class="btn">Exit</button></div>`;
+      bestEl.textContent = best.toLocaleString();
+
+      // notify parent panel that this game ended so it can consume a turn
+      const payload = { type: 'nebby-explore:gameover', score: score, level: 1, reason: 'collision' };
+      try{
+        // send to parent only once to avoid duplicate messages
+        if(!window.__nebx_gameover_sent){
+          window.__nebx_gameover_sent = true;
+          if(window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
+        }
+      }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('nebbyExploreGameOver', { detail: payload })); }catch(e){}
+
+      // wire buttons
+      setTimeout(()=>{
+        const restart = document.getElementById('restartBtn');
+        const done = document.getElementById('doneBtn');
+        restart?.addEventListener('click', ()=>{
+          // Ask parent to allow restart (panel will consume a turn if available)
+          try{
+            if(window.__nebx_restart_requested){
+              console.log('Restart already requested; awaiting panel response');
+              return;
+            }
+            window.__nebx_restart_requested = true;
+            if(window.parent && window.parent !== window){ window.parent.postMessage({ type: 'nebx:game:restart' }, '*'); }
+          }catch(e){ console.warn('restart request error', e); }
+        });
+        done?.addEventListener('click', ()=>{ /* simply show overlay and let user close */ });
+      }, 60);
+    }
+
+    function requestRestart(){
+      try{
+        if(window.__nebx_restart_requested){ console.log('Restart already requested; awaiting panel response'); return; }
+        window.__nebx_restart_requested = true;
+        if(window.parent && window.parent !== window){ window.parent.postMessage({ type: 'nebx:game:restart' }, '*'); }
+      }catch(e){ console.warn('requestRestart error', e); }
+    }
+
+    // Parent messages: allow restart, block restart, turns purchased
+    window.addEventListener('message', (e)=>{
+      const d = e?.data || {};
+      if(d.type === 'nebx:allow:restart'){
+        // panel allowed restart; clear request flag and restart immediately
+        window.__nebx_restart_requested = false;
+        overlay.style.display = 'none'; resetState(); last = performance.now(); raf = requestAnimationFrame(loop);
+      }
+      if(d.type === 'nebx:block:restart'){
+        // panel blocked restart; clear request flag and show blocked message
+        window.__nebx_restart_requested = false;
+        overlay.style.display = 'grid'; overlay.querySelector('.panel').innerHTML = `<h2 style="margin:0 0 6px 0; font-size:20px">Out of Turns</h2><div class="center-note">You have no turns remaining. Purchase more to play again.</div><div style="height:10px"></div><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button id="okDone" class="btn">OK</button></div>`;
+        setTimeout(()=>{ document.getElementById('okDone')?.addEventListener('click', ()=>{}); }, 40);
+      }
+      if(d.type === 'nebx:turns:purchased'){
+        // reset request flag and allow next start without consuming
+        window.__nebx_restart_requested = false;
+        overlay.style.display = 'none'; resetState(); last = performance.now(); raf = requestAnimationFrame(loop);
+      }
+    });
+
+    // Start button
+    startBtn.addEventListener('click', ()=>{
+      // Ask parent to allow free start if first start; the panel will decide if turn should be used on restart
+      overlay.style.display = 'none'; resetState(); last = performance.now(); raf = requestAnimationFrame(loop);
+    });
+    demoBtn.addEventListener('click', ()=>{ // demo mode: play but do not post restart requests
+      overlay.style.display = 'none'; resetState(); last = performance.now(); raf = requestAnimationFrame(loop);
+    });
+
+    // expose minimal facts to outer frame (optional)
+    window.addEventListener('beforeunload', ()=>{ /* noop */ });
+
+  })();
+  </script>
+</body>
+</html>

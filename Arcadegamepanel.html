@@ -190,6 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       'nebby-defender':   { name:'Nebby Defender', tag:'Arcade', src:'games/Nebby%20Defender/nebby-defender.html', desc:'Tower defense style game. Protect Nebby from incoming waves.', details:['Tower defense gameplay','Survive waves of enemies','Click to shoot','Earn points for each wave'] },
       'five-minute':      { name:'5-Minute Prediction', tag:'Markets', src:'about:blank', desc:'Predict SOL\'s next 5-minute candle. Correct calls = points.', details:['Predict SOL next 5m','Correct = points (demo)'] },
       'portfolio-battle': { name:'Mock Portfolio Battle', tag:'Strategy', src:'about:blank', desc:'Grow demo SOL faster than others. Cosmetics for weekly winners.', details:['Demo SOL growth race','Weekly cosmetic rewards'] },
+      'nebby-explore':     { name:'Nebby Explore', tag:'Arcade', src:'games/Nebby%20Explore/nebby-explore.html', desc:'Top-down infinite racer. Dodge traffic, asteroids, and enemy ships.', details:['Move left/right to dodge','Survive as long as possible','Earn 500 pts per second'] },
     };
 
     /* URL param */
@@ -224,22 +225,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         
         // Handle game restart - consume a turn
         if(d.type==='nebx:game:restart'){
-          console.log('Game restart detected from iframe');
-          const iframe = document.querySelector('#stage iframe');
-          
-          if(useTurn()){
-            console.log('Turn consumed on game restart. Remaining:', turnsRemaining);
-            // Allow the restart
-            if(iframe && iframe.contentWindow){
-              iframe.contentWindow.postMessage({type:'nebx:allow:restart'}, '*');
-            }
-          } else {
-            console.log('No turns left - blocking restart');
-            // Send message back to game to prevent restart
-            if(iframe && iframe.contentWindow){
-              iframe.contentWindow.postMessage({type:'nebx:block:restart'}, '*');
-            }
+          console.log('Game restart detected from iframe, origin=', e.origin);
+          // Locate the iframe that sent this message by matching event source
+          const iframes = document.querySelectorAll('#stage iframe');
+          let srcFrame = null;
+          for(const f of iframes){
+            try{ if(f.contentWindow === e.source){ srcFrame = f; break; } }catch(err){}
           }
+
+          // Always consume a turn on every restart request
+          if(useTurn()){
+            console.log('Turn consumed on game restart for', srcFrame?.src || srcFrame?.dataset?.gameId || srcFrame?.id, 'Remaining:', turnsRemaining);
+            try{ if(srcFrame && srcFrame.contentWindow) srcFrame.contentWindow.postMessage({type:'nebx:allow:restart'}, '*'); }catch(e){}
+          } else {
+            console.log('No turns left - blocking restart for origin=', e.origin);
+            try{ if(srcFrame && srcFrame.contentWindow) srcFrame.contentWindow.postMessage({type:'nebx:block:restart'}, '*'); }catch(e){}
+          }
+        }
+        // Handle game-over messages from games (panel should register a turn used)
+          if(typeof d.type === 'string' && d.type.endsWith(':gameover')){
+            console.log('Received gameover from iframe', d, 'origin=', e.origin);
+            // Find iframe that sent this message
+            const iframes = document.querySelectorAll('#stage iframe');
+            let srcFrame = null;
+            for(const f of iframes){
+              try{ if(f.contentWindow === e.source){ srcFrame = f; break; } }catch(err){}
+            }
+            if(srcFrame){
+              // If we've already seen a gameover for this iframe, ignore duplicates
+              if(srcFrame.dataset && srcFrame.dataset.gameoverSeen === '1'){
+                console.log('Duplicate gameover ignored for this iframe session', srcFrame.src || srcFrame.dataset.gameId || srcFrame.id);
+              } else {
+                // Mark that we've seen a gameover for this iframe and reset turnConsumed so next restart will always consume a turn
+                try{ srcFrame.dataset.gameoverSeen = '1'; }catch(e){}
+                try{ srcFrame.dataset.turnConsumed = '0'; }catch(e){}
+                // Send ack back to the game iframe so it can update UI if desired
+                try{ srcFrame.contentWindow.postMessage({ type: 'nebx:panel:ack', status: 'ok', score: d.score, level: d.level }, '*'); }catch(e){}
+                console.log('Gameover acknowledged for iframe (no turn consumed here, turnConsumed reset) ->', srcFrame.src || srcFrame.dataset.gameId || srcFrame.id);
+              }
+            }
         }
       });
       
@@ -334,8 +358,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       stage.innerHTML='';
       console.log('Loading game:', game.name, 'from:', game.src);
       if(game.src && game.src!=='about:blank'){
-        const f=document.createElement('iframe'); 
-        f.src=game.src; 
+      const f=document.createElement('iframe'); 
+      f.src=game.src; 
         f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
         f.referrerPolicy='no-referrer'; 
         f.loading='eager';
@@ -345,6 +369,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         f.onload = () => console.log('Game iframe loaded successfully');
         f.onerror = (e) => console.error('Game iframe error:', e);
         stage.appendChild(f);
+        // mark that this iframe has not yet consumed a turn for the current session
+        try{ f.dataset.turnConsumed = '0'; }catch(e){}
       }else{
         const f=document.createElement('iframe'); f.setAttribute('sandbox','allow-scripts allow-same-origin');
         const doc = `<!doctype html><meta charset="utf-8"><style>
@@ -360,6 +386,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <button class="btn" onclick="parent.postMessage({type:'nebx:points', delta:50}, '*')">+50 Points</button>
         </div></div>`;
         stage.appendChild(f); const d=f.contentWindow.document; d.open(); d.write(doc); d.close();
+        try{ f.dataset.turnConsumed = '0'; }catch(e){}
       }
     }
     
