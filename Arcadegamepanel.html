@@ -94,11 +94,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         justify-content: center;
         padding: 0;
         box-sizing: border-box;
+        z-index: 9999; /* Above everything else */
       }
       
       #gameboy-device {
         position: relative;
-        width: 100%;
+        width: 100vw;
         height: 100vh;
         display: flex;
         align-items: center;
@@ -106,13 +107,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         overflow: hidden;
       }
       
+      /* CRITICAL FIX: Force image to display with explicit positioning */
       #gameboy-image {
-        width: 100%;
-        height: 100%;
-        display: block;
-        object-fit: cover;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        object-fit: contain; /* Changed from cover to contain so full image shows */
         object-position: center;
         image-rendering: auto;
+        z-index: 1;
       }
       
       #gameboy-screen-area {
@@ -127,6 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         overflow: hidden;
         box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), 0 0 15px rgba(0,230,255,0.2);
         border: 2px solid #0a0d1b;
+        z-index: 2; /* Above the GameBoy image */
       }
       
       #gameboy-screen-area iframe {
@@ -148,7 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         flex-direction: column;
         padding: 20px;
         text-align: center;
-        z-index: 1000;
+        z-index: 1000; /* Above everything */
       }
       
       #mobile-no-turns.active {
