@@ -60,9 +60,151 @@ document.addEventListener("DOMContentLoaded", async () => {
     .points-dot{width:6px; height:6px; border-radius:50%; background:#a7f3d0; box-shadow:0 0 8px rgba(52,211,153,.6)}
     .stage{ border-radius:12px; overflow:hidden; border:1px solid var(--nx-border); background:#0b0f1f; min-height:500px; height:70vh;}
     .stage iframe{ width:100%; height:100%; border:0; display:block; }
+    
+    /* Mobile GameBoy Mode - Complete Page Takeover */
+    @media (max-width: 768px) {
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+        background: #667080;
+      }
+      
+      /* Hide EVERYTHING on mobile except gameboy */
+      header,
+      .page-wrap,
+      .nx-panel,
+      aside,
+      .grid {
+        display: none !important;
+      }
+      
+      /* Show only the GameBoy container */
+      #gameboy-fullscreen {
+        display: flex !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #667080;
+        align-items: stretch;
+        justify-content: center;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      #gameboy-device {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      
+      #gameboy-image {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        object-position: center;
+        image-rendering: auto;
+      }
+      
+      #gameboy-screen-area {
+        position: absolute;
+        left: 50%;
+        top: 20%;
+        transform: translateX(-50%);
+        width: 280px;
+        height: 200px;
+        background: #1a1a1a;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.7), 0 0 15px rgba(0,230,255,0.2);
+        border: 2px solid #0a0d1b;
+      }
+      
+      #gameboy-screen-area iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+        background: #000;
+      }
+      
+      /* Mobile overlay for no turns */
+      #mobile-no-turns {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 13, 27, 0.95);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+        z-index: 1000;
+      }
+      
+      #mobile-no-turns.active {
+        display: flex !important;
+      }
+      
+      #mobile-no-turns h2 {
+        color: #00e6ff;
+        font-size: 20px;
+        margin-bottom: 10px;
+      }
+      
+      #mobile-no-turns p {
+        color: #a0aec0;
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      
+      #mobile-no-turns button {
+        background: #00e6ff;
+        color: #07101b;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(0,230,255,0.4);
+      }
+    }
+    
+    /* Desktop: Hide mobile gameboy */
+    @media (min-width: 769px) {
+      #gameboy-fullscreen {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Mobile GameBoy Fullscreen (only visible on mobile) -->
+  <div id="gameboy-fullscreen" style="display: none;">
+    <div id="gameboy-device">
+      <img id="gameboy-image" src="assets/NEBX-Mobile View.png" alt="NEBULAX GameBoy">
+      <div id="gameboy-screen-area">
+        <!-- Game iframe will be injected here on mobile -->
+      </div>
+      <!-- Mobile No Turns Overlay -->
+      <div id="mobile-no-turns">
+        <h2>Out of Turns</h2>
+        <p>Purchase more turns to continue playing</p>
+        <button id="mobile-purchase-btn" onclick="mobilePurchaseTurns()">Buy 3 Turns • 0.010 SOL</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="sticky top-0 z-[1000] isolate border-b border-[var(--nx-border)] bg-[rgba(10,13,27,0.9)] backdrop-blur-sm">
     <div class="page-wrap h-7 px-1 flex items-center justify-between">
@@ -125,10 +267,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div class="text-xs md:justify-self-end"><span class="text-zinc-400">Wallet:</span> <span id="wallet-short" class="text-zinc-300">Guest</span></div>
           </div>
 
-          <!-- Stage -->
+          <!-- Stage (Desktop only, hidden on mobile) -->
           <div class="mt-2 stage" id="stage" style="position:relative;">
-            <!-- game iframe injected here -->
-            <!-- Overlay when out of turns -->
+            <!-- Overlay when out of turns (Desktop) -->
             <div id="no-turns-overlay" class="hidden" style="position:absolute; inset:0; background:rgba(10,13,27,0.95); z-index:10; display:none; align-items:center; justify-content:center; border-radius:12px;">
               <div class="text-center p-6">
                 <div class="text-xl font-bold text-cyan-400 mb-2">Out of Turns</div>
@@ -289,10 +430,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const turnsDisplay = document.getElementById('turns-display');
       const turnsRemaining_elem = document.getElementById('turns-remaining');
       const overlay = document.getElementById('no-turns-overlay');
+      const mobileOverlay = document.getElementById('mobile-no-turns');
       
       if(turnsDisplay) turnsDisplay.textContent = `${turnsRemaining}/${turnsTotal}`;
       if(turnsRemaining_elem) turnsRemaining_elem.textContent = turnsRemaining;
       
+      // Desktop overlay
       if(overlay){
         if(turnsRemaining <= 0){
           overlay.style.display = 'flex';
@@ -300,6 +443,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
           overlay.style.display = 'none';
           overlay.classList.add('hidden');
+        }
+      }
+      
+      // Mobile overlay
+      if(mobileOverlay){
+        if(turnsRemaining <= 0){
+          mobileOverlay.classList.add('active');
+        } else {
+          mobileOverlay.classList.remove('active');
         }
       }
     }
@@ -349,30 +501,39 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     /* Load game into stage */
     const stage = document.getElementById('stage');
+    const mobileScreen = document.getElementById('gameboy-screen-area');
+    
     function loadGame(){
       if(turnsRemaining <= 0){
         console.log('No turns remaining');
         return;
       }
       
-      stage.innerHTML='';
-      console.log('Loading game:', game.name, 'from:', game.src);
+      // Determine if mobile or desktop
+      const isMobile = window.innerWidth <= 768;
+      const targetContainer = isMobile ? mobileScreen : stage;
+      
+      // Clear target container
+      targetContainer.innerHTML = '';
+      console.log('Loading game:', game.name, 'from:', game.src, 'Mode:', isMobile ? 'Mobile GameBoy' : 'Desktop');
+      
       if(game.src && game.src!=='about:blank'){
-      const f=document.createElement('iframe'); 
-      f.src=game.src; 
+        const f = document.createElement('iframe'); 
+        f.src = game.src; 
         f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
-        f.referrerPolicy='no-referrer'; 
-        f.loading='eager';
+        f.referrerPolicy = 'no-referrer'; 
+        f.loading = 'eager';
         f.style.width = '100%';
         f.style.height = '100%';
         f.style.border = '0';
-        f.onload = () => console.log('Game iframe loaded successfully');
+        f.onload = () => console.log('Game iframe loaded successfully in', isMobile ? 'GameBoy' : 'Desktop');
         f.onerror = (e) => console.error('Game iframe error:', e);
-        stage.appendChild(f);
+        targetContainer.appendChild(f);
         // mark that this iframe has not yet consumed a turn for the current session
         try{ f.dataset.turnConsumed = '0'; }catch(e){}
-      }else{
-        const f=document.createElement('iframe'); f.setAttribute('sandbox','allow-scripts allow-same-origin');
+      } else {
+        const f = document.createElement('iframe'); 
+        f.setAttribute('sandbox','allow-scripts allow-same-origin');
         const doc = `<!doctype html><meta charset="utf-8"><style>
           html,body{height:100%;margin:0;background:#0b0f1f;color:#d1e8ff;font:14px/1.4 system-ui,Segoe UI,Roboto}
           .wrap{height:100%;display:grid;place-items:center}
@@ -385,13 +546,42 @@ document.addEventListener("DOMContentLoaded", async () => {
           <p>Click to award points to parent via <code>postMessage</code>.</p>
           <button class="btn" onclick="parent.postMessage({type:'nebx:points', delta:50}, '*')">+50 Points</button>
         </div></div>`;
-        stage.appendChild(f); const d=f.contentWindow.document; d.open(); d.write(doc); d.close();
+        targetContainer.appendChild(f); 
+        const d = f.contentWindow.document; 
+        d.open(); 
+        d.write(doc); 
+        d.close();
         try{ f.dataset.turnConsumed = '0'; }catch(e){}
       }
     }
     
+    // Mobile purchase function
+    function mobilePurchaseTurns() {
+      purchaseTurns();
+      const mobileOverlay = document.getElementById('mobile-no-turns');
+      if (mobileOverlay) {
+        mobileOverlay.classList.remove('active');
+      }
+    }
+    window.mobilePurchaseTurns = mobilePurchaseTurns;
+    
     // Don't auto-load game - wait for purchase
     // loadGame();
+    
+    // Handle window resize - reload game if switching between mobile/desktop
+    let lastMode = window.innerWidth <= 768 ? 'mobile' : 'desktop';
+    window.addEventListener('resize', () => {
+      const currentMode = window.innerWidth <= 768 ? 'mobile' : 'desktop';
+      if (currentMode !== lastMode && turnsRemaining > 0) {
+        console.log('Mode switch detected:', lastMode, '->', currentMode, '- Reloading game');
+        lastMode = currentMode;
+        // Reload game in new container
+        const currentIframe = stage.querySelector('iframe') || mobileScreen.querySelector('iframe');
+        if (currentIframe) {
+          loadGame();
+        }
+      }
+    });
 
     // Buttons
     document.getElementById('btn-play').addEventListener('click', () => {

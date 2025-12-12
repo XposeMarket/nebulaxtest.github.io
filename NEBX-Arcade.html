@@ -83,6 +83,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 </script>
     <style>
+    @media (max-width: 600px) {
+      .page-wrap { padding: 0 2vw; }
+      header .page-wrap { flex-direction: column; height: auto; gap: 0.5rem; padding: 0.5rem 2vw; }
+      header .flex.items-center.gap-3 { gap: 0.5rem; }
+      header .flex.items-center.gap-2 { gap: 0.5rem; }
+      .marquee-wrap { width: 98vw; min-width: 0; aspect-ratio: 10/5; margin: 8px auto 10px auto; }
+      .marquee-title { font-size: clamp(22px, 7vw, 32px); }
+      .marquee-sub { font-size: 12px; bottom: 6%; }
+      .nx-panel { padding: 1rem 0.5rem !important; }
+      .nx-title { font-size: 1.1rem !important; }
+      .nx-btn, .nx-btn-cyan { font-size: 0.92rem !important; padding: 0.32rem 0.7rem !important; min-width: 0; }
+      .nx-btn { border-radius: 10px !important; }
+      .nx-btn-cyan { border-radius: 10px !important; }
+      .flex.items-center.gap-2 > .nx-btn, .flex.items-center.gap-2 > .nx-btn-cyan { font-size: 0.92rem !important; padding: 0.32rem 0.7rem !important; min-width: 0; }
+      .flex.items-center.gap-2 { gap: 0.3rem !important; }
+      .game-card .thumb { height: 80px; }
+      .game-card .meta { padding: 7px; }
+      .nx-panel .flex.items-center.justify-between.mb-2 { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+      .nx-panel .flex.items-center.gap-2 { flex-wrap: wrap; gap: 0.3rem !important; }
+      .nx-panel .nx-btn, .nx-panel .nx-btn-cyan { width: 100%; margin-bottom: 0.3rem; }
+      .nx-panel .nx-btn:last-child, .nx-panel .nx-btn-cyan:last-child { margin-bottom: 0; }
+      .inline-flex.items-center.gap-1 { font-size: 0.95rem; padding: 0.18rem 0.5rem; }
+      #wallet-btn { font-size: 0.95rem !important; padding: 0.32rem 0.7rem !important; min-width: 0; }
+      #nx-profile { width: 2.1rem !important; height: 2.1rem !important; }
+    }
       :root{
         --nx-cyan:#00e6ff; --nx-dark:#0a0d1b; --nx-dark-2:#12152a; --nx-border:#1e2747; --nx-text:#e0e7ff;
         --page-max: 1400px;
@@ -352,12 +377,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       (function(){
         const plate = document.getElementById('marqueePlate');
         const ring  = document.getElementById('bulbRing');
-        const BULBS = 72;         // more bulbs = smoother spacing
+        function getBulbCount() {
+          return window.innerWidth <= 600 ? 36 : 72;
+        }
         const INSET = 8;          // pixels inside the plate edge so bulbs don’t clip
         const size  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bulb-size')) || 14;
 
         function layout(){
           ring.innerHTML = '';
+          const BULBS = getBulbCount();
           const rect = plate.getBoundingClientRect();
           const w = rect.width, h = rect.height;
           const style = getComputedStyle(plate);
